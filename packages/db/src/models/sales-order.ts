@@ -34,7 +34,6 @@ export interface ISalesOrderDiscount {
 // --- Main interface ---
 
 export interface ISalesOrder extends Document {
-  tenantId: Types.ObjectId;
   locationId?: Types.ObjectId;
   orderNumber: string;
   customer: ISalesOrderCustomer;
@@ -62,16 +61,10 @@ export interface ISalesOrder extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const SalesOrderSchema = new Schema<ISalesOrder>(
+export const SalesOrderSchema = new Schema<ISalesOrder>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     locationId: {
       type: Schema.Types.ObjectId,
     },
@@ -147,13 +140,10 @@ const SalesOrderSchema = new Schema<ISalesOrder>(
 );
 
 // Indexes
-SalesOrderSchema.index(
-  { tenantId: 1, orderNumber: 1 },
-  { unique: true }
-);
-SalesOrderSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
-SalesOrderSchema.index({ tenantId: 1, "customer.email": 1 });
-SalesOrderSchema.index({ tenantId: 1, createdAt: -1 });
+SalesOrderSchema.index({ orderNumber: 1 }, { unique: true });
+SalesOrderSchema.index({ status: 1, createdAt: -1 });
+SalesOrderSchema.index({ "customer.email": 1 });
+SalesOrderSchema.index({ createdAt: -1 });
 
 export const SalesOrder =
   (mongoose.models.SalesOrder as mongoose.Model<ISalesOrder>) ||

@@ -73,12 +73,63 @@ Layer 3: BUSINESS USER (Tenant's Staff)
 └── Reports (scoped to their permissions)
 ```
 
-### Tenant Isolation Strategy
+### Tenant Isolation Strategy — Database-Per-Tenant
 
-- **Database**: Single MongoDB database, tenant-scoped documents (`tenantId` on every collection)
-- **Middleware**: Tenant resolution via subdomain (`acme.meatlocker.app`) or custom domain
-- **API**: All API routes enforce tenant context via middleware
-- **Storage**: Tenant-prefixed object storage paths
+Each tenant gets its own MongoDB database. The platform maintains a separate
+database for SaaS-level concerns. This provides **database-level isolation** —
+a missed query filter can never leak data across tenants.
+
+```
+┌─────────────────────────────────┐
+│  illuminate_platform (DB)       │   ← SaaS platform data
+│  ├── tenants                    │
+│  ├── users                      │
+│  ├── plans                      │
+│  └── feature_flags              │
+└─────────────────────────────────┘
+
+┌─────────────────────────────────┐
+│  tenant_acme_meat_co (DB)       │   ← Tenant "Acme Meat Co" data
+│  ├── products                   │
+│  ├── recipes                    │
+│  ├── ingredients                │
+│  ├── inventorytransactions      │
+│  ├── suppliers                  │
+│  ├── purchaseorders             │
+│  ├── salesorders                │
+│  └── productionbatches          │
+└─────────────────────────────────┘
+
+┌─────────────────────────────────┐
+│  tenant_bobs_bbq (DB)           │   ← Tenant "Bob's BBQ" data
+│  ├── products                   │
+│  ├── recipes                    │
+│  └── ... (same collections)     │
+└─────────────────────────────────┘
+```
+
+**How it works:**
+
+- **Platform DB** (`illuminate_platform`): Stores tenants, users, plans, and feature flags.
+  Connected via the default Mongoose instance (`connectPlatformDB()`).
+- **Tenant DBs** (`tenant_<slug>`): Each tenant's business data lives in its own database.
+  Auto-created when a tenant first signs up. Connected via `connectTenantDB(slug)`.
+- **Connection pooling**: Tenant connections are cached per-process for the lifetime of the
+  serverless function invocation. No per-request overhead after first connection.
+- **Tenant-scoped models**: `Product`, `Recipe`, `Ingredient`, etc. have **no `tenantId` field**.
+  They are registered on the tenant's own Connection via `registerTenantModels()`.
+- **Middleware**: `withTenantAuth()` resolves the tenant from the JWT, opens the tenant DB
+  connection, and passes it as `ctx.db` to the route handler.
+- **Subdomain routing**: Tenant resolution via subdomain (`acme.meatlocker.app`) or custom domain.
+- **Storage**: Tenant-prefixed object storage paths (`s3://bucket/tenant_<slug>/...`).
+
+**Benefits:**
+
+1. **Zero risk of cross-tenant data leaks** — data lives in separate databases
+2. **Independent backup & restore** — can restore a single tenant's data without affecting others
+3. **Per-tenant performance tuning** — can add indexes or scale specific tenant databases
+4. **Compliance-friendly** — easy to demonstrate data isolation for audits
+5. **Clean tenant offboarding** — drop the database to fully remove a tenant's data
 
 ## Commerce Layers
 

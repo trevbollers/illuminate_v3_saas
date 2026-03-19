@@ -28,7 +28,6 @@ export interface IProductPricing {
 // --- Main interface ---
 
 export interface IProduct extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   slug: string;
   sku: string;
@@ -47,16 +46,10 @@ export interface IProduct extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const ProductSchema = new Schema<IProduct>(
+export const ProductSchema = new Schema<IProduct>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     name: { type: String, required: true },
     slug: { type: String, required: true },
     sku: { type: String, required: true },
@@ -106,13 +99,14 @@ const ProductSchema = new Schema<IProduct>(
   { timestamps: true }
 );
 
-// Indexes
-ProductSchema.index({ tenantId: 1, slug: 1 }, { unique: true });
-ProductSchema.index({ tenantId: 1, sku: 1 }, { unique: true });
-ProductSchema.index({ tenantId: 1, category: 1, isActive: 1 });
-ProductSchema.index({ tenantId: 1, availableOnStorefront: 1 });
-ProductSchema.index({ tenantId: 1, createdAt: -1 });
+// Indexes — no tenantId needed (database-per-tenant isolation)
+ProductSchema.index({ slug: 1 }, { unique: true });
+ProductSchema.index({ sku: 1 }, { unique: true });
+ProductSchema.index({ category: 1, isActive: 1 });
+ProductSchema.index({ availableOnStorefront: 1 });
+ProductSchema.index({ createdAt: -1 });
 
+// Default model on default connection (for backwards compat / seed scripts)
 export const Product =
   (mongoose.models.Product as mongoose.Model<IProduct>) ||
   mongoose.model<IProduct>("Product", ProductSchema);

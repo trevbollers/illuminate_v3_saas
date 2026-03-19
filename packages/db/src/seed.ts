@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
-import { connectDB } from "./connection";
+import { connectPlatformDB, connectTenantDB } from "./connection";
 import { Plan } from "./models/plan";
 import { User } from "./models/user";
 import { Tenant } from "./models/tenant";
+import { getTenantModels } from "./models/tenant-models";
 
 const AI_ADDONS = [
   {
@@ -134,7 +135,9 @@ const PLANS = [
 async function seed() {
   console.log("🌱 Starting database seed...\n");
 
-  await connectDB();
+  // --- Connect to Platform DB ---
+  await connectPlatformDB();
+  console.log("📡 Connected to platform database.\n");
 
   // --- Seed Plans ---
   console.log("📦 Seeding plans...");
@@ -165,7 +168,7 @@ async function seed() {
     console.log("   ✓ Super admin already exists, skipping.");
   }
 
-  // --- Seed Sample Tenant ---
+  // --- Seed Sample Tenant (in platform DB) ---
   console.log("\n🏢 Seeding sample tenant...");
   let sampleTenant = await Tenant.findOne({ slug: "acme-meat-co" });
 
@@ -177,7 +180,7 @@ async function seed() {
       plan: {
         planId: "professional",
         status: "active",
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         addOns: [],
       },
       settings: {
@@ -250,8 +253,72 @@ async function seed() {
     console.log("   ✓ Added admin as owner of Acme Meat Co");
   }
 
-  console.log("\n✅ Seed completed successfully!\n");
+  // --- Seed sample data in tenant's own database ---
+  console.log("\n🗄️  Connecting to tenant database (tenant_acme_meat_co)...");
+  const tenantConn = await connectTenantDB("acme-meat-co");
+  const models = getTenantModels(tenantConn);
+  console.log("   ✓ Connected to tenant database.");
 
+  // Seed a sample ingredient
+  const existingIngredient = await models.Ingredient.findOne({ sku: "BRISKET-001" });
+  if (!existingIngredient) {
+    await models.Ingredient.create({
+      name: "Whole Packer Brisket",
+      sku: "BRISKET-001",
+      category: "meat",
+      unit: "lb",
+      currentStock: 250,
+      reorderPoint: 50,
+      reorderQty: 100,
+      cost: { perUnit: 599, lastUpdated: new Date() },
+      allergens: [],
+      storageRequirements: "refrigerated",
+      isActive: true,
+    });
+    console.log('   ✓ Created sample ingredient "Whole Packer Brisket"');
+  }
+
+  // Seed a sample product
+  const existingProduct = await models.Product.findOne({ sku: "SMKD-BRSK-001" });
+  if (!existingProduct) {
+    await models.Product.create({
+      name: "Smoked Brisket",
+      slug: "smoked-brisket",
+      sku: "SMKD-BRSK-001",
+      category: "beef",
+      subcategory: "brisket",
+      description: "Slow-smoked Texas-style brisket, 12-hour cook over post oak.",
+      configurable: true,
+      configOptions: [
+        {
+          name: "Size",
+          type: "select",
+          options: [
+            { label: "Half (5-7 lbs)", value: "half", priceModifier: 0 },
+            { label: "Full (12-15 lbs)", value: "full", priceModifier: 3500 },
+          ],
+          required: true,
+        },
+      ],
+      pricing: {
+        basePrice: 2499,
+        unit: "lb",
+        wholesalePrice: 1999,
+        bulkPricing: [{ minQty: 10, pricePerUnit: 2199 }],
+      },
+      images: [],
+      tags: ["bbq", "smoked", "texas"],
+      isActive: true,
+      availableOnStorefront: true,
+    });
+    console.log('   ✓ Created sample product "Smoked Brisket"');
+  }
+
+  console.log("\n✅ Seed completed successfully!");
+  console.log("   Platform DB: tenants, users, plans");
+  console.log("   Tenant DB (acme-meat-co): sample product & ingredient\n");
+
+  await tenantConn.close();
   await mongoose.disconnect();
   process.exit(0);
 }

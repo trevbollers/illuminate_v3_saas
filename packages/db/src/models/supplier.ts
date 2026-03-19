@@ -12,7 +12,6 @@ export interface ISupplierAddress {
 // --- Main interface ---
 
 export interface ISupplier extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   contactName?: string;
   email?: string;
@@ -25,16 +24,10 @@ export interface ISupplier extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const SupplierSchema = new Schema<ISupplier>(
+export const SupplierSchema = new Schema<ISupplier>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     name: { type: String, required: true },
     contactName: { type: String },
     email: { type: String },
@@ -56,8 +49,8 @@ const SupplierSchema = new Schema<ISupplier>(
 );
 
 // Indexes
-SupplierSchema.index({ tenantId: 1, name: 1 });
-SupplierSchema.index({ tenantId: 1, createdAt: -1 });
+SupplierSchema.index({ name: 1 });
+SupplierSchema.index({ createdAt: -1 });
 
 export const Supplier =
   (mongoose.models.Supplier as mongoose.Model<ISupplier>) ||

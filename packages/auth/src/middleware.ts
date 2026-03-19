@@ -1,12 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { type Connection } from "mongoose";
 import { auth } from "./config";
 import type { TenantRole } from "./types";
 
 export interface TenantContext {
   userId: string;
   tenantId: string;
+  tenantSlug: string;
   role: TenantRole;
   permissions: string[];
+  /** Mongoose connection to the tenant's isolated database. */
+  db: Connection;
 }
 
 interface WithTenantAuthOptions {
@@ -51,7 +55,8 @@ function hasPermissions(
  * 2. The user has an active tenant context
  * 3. The user meets the required role / permissions
  *
- * On success, invokes the handler with the validated TenantContext.
+ * On success, invokes the handler with the validated TenantContext, which
+ * includes a `db` connection to the tenant's isolated database.
  *
  * Usage:
  * ```ts
@@ -59,8 +64,10 @@ function hasPermissions(
  *
  * export const GET = withTenantAuth(
  *   async (req, ctx) => {
- *     // ctx.tenantId, ctx.userId, ctx.role, ctx.permissions are available
- *     return NextResponse.json({ tenantId: ctx.tenantId });
+ *     // ctx.db is the tenant's own database connection
+ *     const Product = ctx.db.model("Product");
+ *     const products = await Product.find({ isActive: true });
+ *     return NextResponse.json(products);
  *   },
  *   { requiredRole: "member" },
  * );
@@ -85,7 +92,7 @@ export function withTenantAuth(
       const { user } = session;
 
       // 2. Check tenant context exists
-      if (!user.tenantId || !user.role) {
+      if (!user.tenantId || !user.tenantSlug || !user.role) {
         return NextResponse.json(
           {
             error: "Forbidden",
@@ -96,14 +103,20 @@ export function withTenantAuth(
         );
       }
 
+      // 3. Connect to the tenant's isolated database
+      const { connectTenantDB } = await import("@illuminate/db");
+      const tenantDB = await connectTenantDB(user.tenantSlug);
+
       const tenantCtx: TenantContext = {
         userId: user.id,
         tenantId: user.tenantId,
+        tenantSlug: user.tenantSlug,
         role: user.role,
         permissions: user.permissions ?? [],
+        db: tenantDB,
       };
 
-      // 3. Check minimum role
+      // 4. Check minimum role
       if (options.requiredRole) {
         if (!hasMinimumRole(tenantCtx.role, options.requiredRole)) {
           return NextResponse.json(
@@ -116,7 +129,7 @@ export function withTenantAuth(
         }
       }
 
-      // 4. Check specific permissions
+      // 5. Check specific permissions
       if (
         options.requiredPermissions &&
         options.requiredPermissions.length > 0

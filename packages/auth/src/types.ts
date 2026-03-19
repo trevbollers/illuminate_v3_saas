@@ -6,6 +6,7 @@ export type TenantRole = "owner" | "admin" | "member" | "viewer";
 
 export interface TenantMembership {
   tenantId: string;
+  tenantSlug: string;
   role: TenantRole;
   permissions: string[];
   isActive: boolean;
@@ -16,6 +17,7 @@ declare module "next-auth" {
     user: {
       id: string;
       tenantId: string | null;
+      tenantSlug: string | null;
       role: TenantRole | null;
       platformRole: PlatformRole;
       permissions: string[];
@@ -33,6 +35,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     userId: string;
     tenantId: string | null;
+    tenantSlug: string | null;
     role: TenantRole | null;
     platformRole: PlatformRole;
     permissions: string[];

@@ -1,13 +1,44 @@
-# Database Schema — MongoDB Collections
+# Database Schema — Database-Per-Tenant Architecture
 
-## Platform-Level Collections
+## Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   MongoDB Atlas Cluster                         │
+│                                                                 │
+│  ┌─────────────────────────┐                                    │
+│  │ illuminate_platform     │  ← SaaS platform database          │
+│  │ ├── tenants             │                                    │
+│  │ ├── users               │                                    │
+│  │ ├── plans               │                                    │
+│  │ └── feature_flags       │                                    │
+│  └─────────────────────────┘                                    │
+│                                                                 │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐       │
+│  │ tenant_acme_meat_co     │  │ tenant_bobs_bbq         │  ...  │
+│  │ ├── products            │  │ ├── products            │       │
+│  │ ├── recipes             │  │ ├── recipes             │       │
+│  │ ├── ingredients         │  │ ├── ingredients         │       │
+│  │ ├── inventorytxns       │  │ ├── inventorytxns       │       │
+│  │ ├── suppliers           │  │ ├── suppliers           │       │
+│  │ ├── purchaseorders      │  │ ├── purchaseorders      │       │
+│  │ ├── salesorders         │  │ ├── salesorders         │       │
+│  │ └── productionbatches   │  │ └── productionbatches   │       │
+│  └─────────────────────────┘  └─────────────────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Tenant databases are named `tenant_<slug>` where `<slug>` is the tenant's
+URL-safe slug with hyphens replaced by underscores.
+
+## Platform Database: `illuminate_platform`
 
 ### tenants
 ```javascript
 {
   _id: ObjectId,
   name: String,                    // "Acme Meat Co"
-  slug: String,                    // "acme-meat-co" (unique, used for subdomain)
+  slug: String,                    // "acme-meat-co" (unique, used for subdomain + DB name)
   customDomain: String,            // "app.acmemeat.com" (optional)
   owner: ObjectId,                 // ref: users
   plan: {
@@ -148,23 +179,22 @@
 }
 ```
 
-## Tenant-Scoped Collections
+## Tenant Databases: `tenant_<slug>`
 
-> All collections below include `tenantId: ObjectId` for tenant isolation.
+> Each tenant gets their own database. Collections below have **NO `tenantId`
+> field** — isolation is enforced at the database/connection level.
 
 ### products
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   name: String,                    // "Smoked Brisket"
-  slug: String,
-  sku: String,
+  slug: String,                    // unique within this tenant DB
+  sku: String,                     // unique within this tenant DB
   category: String,                // "beef" | "pork" | "poultry" | "specialty"
   subcategory: String,             // "brisket" | "ribs" | "sausage"
   description: String,
 
-  // Product configuration options (for B2C storefront)
   configurable: Boolean,
   configOptions: [{
     name: String,                  // "Size", "Thickness", "Seasoning"
@@ -187,8 +217,7 @@
     }]
   },
 
-  // Recipe / production link
-  recipeId: ObjectId,              // ref: recipes
+  recipeId: ObjectId,              // ref: recipes (same tenant DB)
 
   images: [String],
   tags: [String],
@@ -204,13 +233,12 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   name: String,                    // "Classic Smoked Brisket"
   description: String,
   category: String,
 
   ingredients: [{
-    ingredientId: ObjectId,        // ref: ingredients
+    ingredientId: ObjectId,        // ref: ingredients (same tenant DB)
     name: String,
     quantity: Number,
     unit: String,                  // "lb" | "oz" | "tsp" | "each"
@@ -242,9 +270,8 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   name: String,
-  sku: String,
+  sku: String,                     // unique within this tenant DB
   category: String,                // "meat" | "spice" | "casing" | "packaging" | "other"
   unit: String,                    // base unit of measure
 
@@ -255,7 +282,7 @@
   cost: {
     perUnit: Number,
     lastUpdated: Date,
-    supplier: ObjectId             // ref: suppliers
+    supplier: ObjectId             // ref: suppliers (same tenant DB)
   },
 
   allergens: [String],
@@ -272,7 +299,6 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   locationId: ObjectId,
   ingredientId: ObjectId,
   type: String,                    // "receiving" | "production_use" | "adjustment" | "waste" | "transfer"
@@ -283,7 +309,7 @@
     id: ObjectId
   },
   notes: String,
-  performedBy: ObjectId,           // ref: users
+  performedBy: ObjectId,           // ref: users (in platform DB)
   createdAt: Date
 }
 ```
@@ -292,7 +318,6 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   name: String,
   contactName: String,
   email: String,
@@ -315,9 +340,8 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   locationId: ObjectId,
-  poNumber: String,                // auto-generated "PO-2024-0001"
+  poNumber: String,                // auto-generated "PO-2024-0001", unique in tenant DB
   supplierId: ObjectId,
 
   items: [{
@@ -351,11 +375,9 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   locationId: ObjectId,
-  orderNumber: String,             // "SO-2024-0001"
+  orderNumber: String,             // "SO-2024-0001", unique in tenant DB
 
-  // Customer info (B2B quote or B2C storefront)
   customer: {
     type: String,                  // "b2b" | "b2c"
     name: String,
@@ -389,10 +411,7 @@
   status: String,                  // "quote" | "pending" | "confirmed" | "processing" | "ready" | "shipped" | "delivered" | "canceled"
   paymentStatus: String,           // "unpaid" | "partial" | "paid" | "refunded"
 
-  // For quotes
   quoteValidUntil: Date,
-
-  // Stripe payment (for B2C)
   stripePaymentIntentId: String,
 
   notes: String,
@@ -406,9 +425,8 @@
 ```javascript
 {
   _id: ObjectId,
-  tenantId: ObjectId,
   locationId: ObjectId,
-  batchNumber: String,             // "BATCH-2024-0001"
+  batchNumber: String,             // "BATCH-2024-0001", unique in tenant DB
 
   recipeId: ObjectId,
   productId: ObjectId,
@@ -440,30 +458,91 @@
 
 ## Indexes Strategy
 
+### Platform DB Indexes
+
 ```javascript
-// Tenant isolation (compound indexes on every tenant-scoped collection)
-{ tenantId: 1, createdAt: -1 }
-{ tenantId: 1, status: 1 }
+// Tenants
+{ slug: 1 }                              // unique
+{ owner: 1 }
+{ "plan.status": 1 }
 
 // Users
 { email: 1 }                              // unique
 { "memberships.tenantId": 1 }
 
+// Plans
+{ planId: 1 }                             // unique
+
+// Feature Flags
+{ key: 1 }                                // unique
+```
+
+### Tenant DB Indexes (applied per-tenant database)
+
+```javascript
 // Products
-{ tenantId: 1, slug: 1 }                  // unique compound
-{ tenantId: 1, category: 1, isActive: 1 }
-{ tenantId: 1, availableOnStorefront: 1 }
+{ slug: 1 }                               // unique
+{ sku: 1 }                                // unique
+{ category: 1, isActive: 1 }
+{ availableOnStorefront: 1 }
+{ createdAt: -1 }
+
+// Recipes
+{ createdAt: -1 }
+{ category: 1 }
 
 // Ingredients
-{ tenantId: 1, sku: 1 }                   // unique compound
-{ tenantId: 1, currentStock: 1, reorderPoint: 1 }
-
-// Orders
-{ tenantId: 1, orderNumber: 1 }           // unique compound
-{ tenantId: 1, status: 1, createdAt: -1 }
-{ tenantId: 1, "customer.email": 1 }
+{ sku: 1 }                                // unique
+{ currentStock: 1, reorderPoint: 1 }
+{ category: 1 }
+{ createdAt: -1 }
 
 // Inventory Transactions
-{ tenantId: 1, ingredientId: 1, createdAt: -1 }
-{ tenantId: 1, locationId: 1, type: 1 }
+{ ingredientId: 1, createdAt: -1 }
+{ locationId: 1, type: 1 }
+{ createdAt: -1 }
+
+// Suppliers
+{ name: 1 }
+{ createdAt: -1 }
+
+// Purchase Orders
+{ poNumber: 1 }                           // unique
+{ status: 1, createdAt: -1 }
+{ supplierId: 1 }
+{ createdAt: -1 }
+
+// Sales Orders
+{ orderNumber: 1 }                        // unique
+{ status: 1, createdAt: -1 }
+{ "customer.email": 1 }
+{ createdAt: -1 }
+
+// Production Batches
+{ batchNumber: 1 }                        // unique
+{ status: 1, createdAt: -1 }
+{ recipeId: 1 }
+{ createdAt: -1 }
+```
+
+## Connection Usage
+
+```typescript
+import { connectPlatformDB, connectTenantDB, getTenantModels } from "@illuminate/db";
+
+// Platform operations
+await connectPlatformDB();
+const tenant = await Tenant.findOne({ slug: "acme-meat-co" });
+
+// Tenant operations — each tenant has its own DB
+const tenantDB = await connectTenantDB("acme-meat-co");
+const { Product, Recipe, Ingredient } = getTenantModels(tenantDB);
+const products = await Product.find({ isActive: true });
+
+// In API routes with withTenantAuth:
+export const GET = withTenantAuth(async (req, ctx) => {
+  const Product = ctx.db.model("Product");
+  const products = await Product.find({ isActive: true });
+  return NextResponse.json(products);
+});
 ```

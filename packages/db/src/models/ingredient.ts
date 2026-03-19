@@ -16,7 +16,6 @@ export interface IShelfLife {
 // --- Main interface ---
 
 export interface IIngredient extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   sku: string;
   category: "meat" | "spice" | "casing" | "packaging" | "other";
@@ -33,16 +32,10 @@ export interface IIngredient extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const IngredientSchema = new Schema<IIngredient>(
+export const IngredientSchema = new Schema<IIngredient>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     name: { type: String, required: true },
     sku: { type: String, required: true },
     category: {
@@ -74,10 +67,10 @@ const IngredientSchema = new Schema<IIngredient>(
 );
 
 // Indexes
-IngredientSchema.index({ tenantId: 1, sku: 1 }, { unique: true });
-IngredientSchema.index({ tenantId: 1, currentStock: 1, reorderPoint: 1 });
-IngredientSchema.index({ tenantId: 1, category: 1 });
-IngredientSchema.index({ tenantId: 1, createdAt: -1 });
+IngredientSchema.index({ sku: 1 }, { unique: true });
+IngredientSchema.index({ currentStock: 1, reorderPoint: 1 });
+IngredientSchema.index({ category: 1 });
+IngredientSchema.index({ createdAt: -1 });
 
 export const Ingredient =
   (mongoose.models.Ingredient as mongoose.Model<IIngredient>) ||

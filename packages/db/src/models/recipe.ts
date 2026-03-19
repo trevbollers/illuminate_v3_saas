@@ -28,7 +28,6 @@ export interface IRecipeYield {
 // --- Main interface ---
 
 export interface IRecipe extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   description?: string;
   category?: string;
@@ -42,16 +41,10 @@ export interface IRecipe extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const RecipeSchema = new Schema<IRecipe>(
+export const RecipeSchema = new Schema<IRecipe>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     name: { type: String, required: true },
     description: { type: String },
     category: { type: String },
@@ -91,8 +84,8 @@ const RecipeSchema = new Schema<IRecipe>(
 );
 
 // Indexes
-RecipeSchema.index({ tenantId: 1, createdAt: -1 });
-RecipeSchema.index({ tenantId: 1, category: 1 });
+RecipeSchema.index({ createdAt: -1 });
+RecipeSchema.index({ category: 1 });
 
 export const Recipe =
   (mongoose.models.Recipe as mongoose.Model<IRecipe>) ||

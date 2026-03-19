@@ -14,7 +14,6 @@ export interface IPurchaseOrderItem {
 // --- Main interface ---
 
 export interface IPurchaseOrder extends Document {
-  tenantId: Types.ObjectId;
   locationId: Types.ObjectId;
   poNumber: string;
   supplierId: Types.ObjectId;
@@ -39,16 +38,10 @@ export interface IPurchaseOrder extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
+export const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     locationId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -106,13 +99,10 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
 );
 
 // Indexes
-PurchaseOrderSchema.index(
-  { tenantId: 1, poNumber: 1 },
-  { unique: true }
-);
-PurchaseOrderSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
-PurchaseOrderSchema.index({ tenantId: 1, supplierId: 1 });
-PurchaseOrderSchema.index({ tenantId: 1, createdAt: -1 });
+PurchaseOrderSchema.index({ poNumber: 1 }, { unique: true });
+PurchaseOrderSchema.index({ status: 1, createdAt: -1 });
+PurchaseOrderSchema.index({ supplierId: 1 });
+PurchaseOrderSchema.index({ createdAt: -1 });
 
 export const PurchaseOrder =
   (mongoose.models.PurchaseOrder as mongoose.Model<IPurchaseOrder>) ||

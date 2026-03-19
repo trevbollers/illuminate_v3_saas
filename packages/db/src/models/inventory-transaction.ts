@@ -10,7 +10,6 @@ export interface ITransactionReference {
 // --- Main interface ---
 
 export interface IInventoryTransaction extends Document {
-  tenantId: Types.ObjectId;
   locationId: Types.ObjectId;
   ingredientId: Types.ObjectId;
   type: "receiving" | "production_use" | "adjustment" | "waste" | "transfer";
@@ -22,16 +21,10 @@ export interface IInventoryTransaction extends Document {
   createdAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const InventoryTransactionSchema = new Schema<IInventoryTransaction>(
+export const InventoryTransactionSchema = new Schema<IInventoryTransaction>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     locationId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -66,17 +59,9 @@ const InventoryTransactionSchema = new Schema<IInventoryTransaction>(
 );
 
 // Indexes
-InventoryTransactionSchema.index({
-  tenantId: 1,
-  ingredientId: 1,
-  createdAt: -1,
-});
-InventoryTransactionSchema.index({
-  tenantId: 1,
-  locationId: 1,
-  type: 1,
-});
-InventoryTransactionSchema.index({ tenantId: 1, createdAt: -1 });
+InventoryTransactionSchema.index({ ingredientId: 1, createdAt: -1 });
+InventoryTransactionSchema.index({ locationId: 1, type: 1 });
+InventoryTransactionSchema.index({ createdAt: -1 });
 
 export const InventoryTransaction =
   (mongoose.models

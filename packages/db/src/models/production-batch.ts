@@ -18,7 +18,6 @@ export interface IBatchTemperature {
 // --- Main interface ---
 
 export interface IProductionBatch extends Document {
-  tenantId: Types.ObjectId;
   locationId: Types.ObjectId;
   batchNumber: string;
   recipeId: Types.ObjectId;
@@ -37,16 +36,10 @@ export interface IProductionBatch extends Document {
   updatedAt: Date;
 }
 
-// --- Schema ---
+// --- Schema (exported for tenant-connection registration) ---
 
-const ProductionBatchSchema = new Schema<IProductionBatch>(
+export const ProductionBatchSchema = new Schema<IProductionBatch>(
   {
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
-      index: true,
-    },
     locationId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -100,13 +93,10 @@ const ProductionBatchSchema = new Schema<IProductionBatch>(
 );
 
 // Indexes
-ProductionBatchSchema.index(
-  { tenantId: 1, batchNumber: 1 },
-  { unique: true }
-);
-ProductionBatchSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
-ProductionBatchSchema.index({ tenantId: 1, recipeId: 1 });
-ProductionBatchSchema.index({ tenantId: 1, createdAt: -1 });
+ProductionBatchSchema.index({ batchNumber: 1 }, { unique: true });
+ProductionBatchSchema.index({ status: 1, createdAt: -1 });
+ProductionBatchSchema.index({ recipeId: 1 });
+ProductionBatchSchema.index({ createdAt: -1 });
 
 export const ProductionBatch =
   (mongoose.models.ProductionBatch as mongoose.Model<IProductionBatch>) ||

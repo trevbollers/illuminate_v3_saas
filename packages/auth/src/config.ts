@@ -45,18 +45,31 @@ async function findUserByEmail(email: string) {
 
 /**
  * Look up active tenant memberships for a user.
+ * Joins against the tenants collection to resolve the tenant slug,
+ * which is needed to connect to the tenant's isolated database.
  */
 async function findMemberships(userId: string): Promise<TenantMembership[]> {
   const client = await getClientPromise();
   const db = client.db();
 
-  const memberships = await db
-    .collection("tenant_memberships")
-    .find({ userId, isActive: true })
+  const user = await db.collection("users").findOne({ _id: userId });
+  if (!user?.memberships) return [];
+
+  const activeMemberships = user.memberships.filter((m: any) => m.isActive);
+
+  // Resolve tenant slugs
+  const tenantIds = activeMemberships.map((m: any) => m.tenantId);
+  const tenants = await db
+    .collection("tenants")
+    .find({ _id: { $in: tenantIds } })
+    .project({ _id: 1, slug: 1 })
     .toArray();
 
-  return memberships.map((m: any) => ({
+  const slugMap = new Map(tenants.map((t: any) => [t._id.toString(), t.slug]));
+
+  return activeMemberships.map((m: any) => ({
     tenantId: m.tenantId.toString(),
+    tenantSlug: slugMap.get(m.tenantId.toString()) ?? "",
     role: m.role as TenantRole,
     permissions: m.permissions ?? [],
     isActive: m.isActive,
@@ -80,7 +93,7 @@ async function updateLastLogin(userId: string): Promise<void> {
  */
 function resolveActiveTenant(
   memberships: TenantMembership[],
-): { tenantId: string; role: TenantRole; permissions: string[] } | null {
+): { tenantId: string; tenantSlug: string; role: TenantRole; permissions: string[] } | null {
   if (memberships.length === 0) return null;
 
   // Prefer owner role, then admin, then first available
@@ -88,6 +101,7 @@ function resolveActiveTenant(
   if (owned) {
     return {
       tenantId: owned.tenantId,
+      tenantSlug: owned.tenantSlug,
       role: owned.role,
       permissions: owned.permissions,
     };
@@ -97,6 +111,7 @@ function resolveActiveTenant(
   if (admin) {
     return {
       tenantId: admin.tenantId,
+      tenantSlug: admin.tenantSlug,
       role: admin.role,
       permissions: admin.permissions,
     };
@@ -105,6 +120,7 @@ function resolveActiveTenant(
   const first = memberships[0]!;
   return {
     tenantId: first.tenantId,
+    tenantSlug: first.tenantSlug,
     role: first.role,
     permissions: first.permissions,
   };
@@ -180,6 +196,7 @@ export const authConfig: NextAuthConfig = {
         const activeTenant = resolveActiveTenant(memberships);
 
         token.tenantId = activeTenant?.tenantId ?? null;
+        token.tenantSlug = activeTenant?.tenantSlug ?? null;
         token.role = activeTenant?.role ?? null;
         token.permissions = activeTenant?.permissions ?? [];
       }
@@ -193,6 +210,7 @@ export const authConfig: NextAuthConfig = {
 
         if (target) {
           token.tenantId = target.tenantId;
+          token.tenantSlug = target.tenantSlug;
           token.role = target.role;
           token.permissions = target.permissions;
         }
@@ -204,6 +222,7 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       session.user.id = token.userId;
       session.user.tenantId = token.tenantId;
+      session.user.tenantSlug = token.tenantSlug;
       session.user.role = token.role;
       session.user.platformRole = token.platformRole;
       session.user.permissions = token.permissions;
