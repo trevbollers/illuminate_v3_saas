@@ -178,6 +178,134 @@ illuminate_v3_saas/
 └── .env.example                # Environment variables template
 ```
 
+## URL Routing & Tenant Resolution
+
+### URL Structure
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  MARKETING SITE                                               │
+│  meatlocker.app                → apps/web                     │
+│  meatlocker.app/pricing        → apps/web                     │
+│  meatlocker.app/auth/login     → apps/web                     │
+├──────────────────────────────────────────────────────────────┤
+│  ADMIN PORTAL (super admins only)                             │
+│  admin.meatlocker.app          → apps/admin                   │
+├──────────────────────────────────────────────────────────────┤
+│  TENANT DASHBOARD (authenticated tenant users)                │
+│  acme.meatlocker.app/dashboard → apps/dashboard               │
+│  bobs-bbq.meatlocker.app      → apps/dashboard               │
+├──────────────────────────────────────────────────────────────┤
+│  STOREFRONT (public, tenant's customers)                      │
+│  acme.meatlocker.app/store     → apps/storefront              │
+│  shop.acmemeat.com             → apps/storefront (custom)     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Tenant Resolution Flow
+
+```
+Incoming Request
+  │
+  ├─ Check subdomain: acme.meatlocker.app
+  │   └─ Extract "acme" → validate format → x-tenant-slug header
+  │
+  ├─ Check custom domain: shop.acmemeat.com
+  │   └─ Pass domain → app does DB lookup → resolve tenant
+  │
+  └─ No tenant found
+      ├─ Dev: pass through (pages handle their own context)
+      └─ Prod: return 404 (don't reveal tenant existence)
+```
+
+### Reserved Subdomains
+
+The following subdomains are reserved and never resolve to tenants:
+`www`, `api`, `admin`, `app`, `auth`, `billing`, `docs`, `help`, `mail`,
+`status`, `support`
+
+## Authentication & Security Model
+
+### How Auth Works
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  LOGIN FLOW                                                   │
+│                                                               │
+│  1. User submits email + password (or clicks Google OAuth)    │
+│  2. NextAuth verifies credentials against platform DB         │
+│  3. JWT token created with:                                   │
+│     { userId, platformRole, tenantId, tenantSlug,             │
+│       role, permissions }                                     │
+│  4. Token is HttpOnly, Secure, SameSite cookie                │
+│  5. Session data derived from JWT (no DB hit per request)     │
+│  6. Tenant DB connection opened from tenantSlug in JWT        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Per-App Middleware Protection
+
+| App | Middleware | What It Checks |
+|-----|-----------|----------------|
+| **web** | None (public) | No auth needed for marketing/pricing pages |
+| **admin** | `auth()` → JWT | 1. Authenticated? 2. `platformRole === "super_admin"` from JWT claims |
+| **dashboard** | `auth()` → JWT | 1. Authenticated? 2. Has tenant context? 3. Subdomain matches session tenant? |
+| **storefront** | Tenant resolver | 1. Subdomain → extract slug. 2. Custom domain → pass for DB lookup. No auth for browsing. |
+
+### Security Protections
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  THREAT                    │  PROTECTION                      │
+├────────────────────────────┼──────────────────────────────────┤
+│  Session tampering         │  JWT signed with NEXTAUTH_SECRET │
+│  Role spoofing             │  Roles read from JWT claims,     │
+│                            │  NOT cookies/headers              │
+│  Cross-tenant access       │  Database-per-tenant isolation    │
+│                            │  + subdomain ↔ session matching   │
+│  Tenant enumeration        │  Generic 403/404 on mismatches   │
+│                            │  (no "tenant not found" errors)   │
+│  Admin portal discovery    │  Generic "Access Denied" page    │
+│                            │  (no mention of "admin portal")   │
+│  XSS token theft           │  HttpOnly + Secure + SameSite    │
+│                            │  cookies (NextAuth default)       │
+│  CSRF                      │  NextAuth built-in CSRF tokens    │
+│  Data leaks via API        │  withTenantAuth() enforces        │
+│                            │  tenant DB scoping on every route │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### JWT Token Contents
+
+The JWT is the single source of truth for authentication state. It is:
+- **Signed** with `NEXTAUTH_SECRET` (tamper-proof)
+- **HttpOnly** cookie (not accessible to JavaScript)
+- **30-day expiry** with refresh
+
+```typescript
+// JWT payload (set during sign-in, verified on every request)
+{
+  userId: "6507a...",              // MongoDB ObjectId
+  platformRole: "user",           // "super_admin" | "platform_admin" | "user"
+  tenantId: "6507b...",           // Active tenant's ObjectId
+  tenantSlug: "acme-meat-co",     // Active tenant's slug (used for DB + URLs)
+  role: "owner",                  // Tenant role: "owner" | "admin" | "member" | "viewer"
+  permissions: ["inventory:write"] // Granular permission overrides
+}
+```
+
+### Tenant Switching
+
+Users who belong to multiple tenants can switch via session update:
+
+```typescript
+// Client-side tenant switch
+await updateSession({ tenantId: "newTenantId" });
+// → JWT callback re-validates membership
+// → Updates tenantId, tenantSlug, role, permissions
+// → Subsequent requests use new tenant's database
+```
+
 ## Tech Stack
 
 | Layer | Technology |

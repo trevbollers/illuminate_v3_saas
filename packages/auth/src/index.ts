@@ -19,6 +19,13 @@ export {
 } from "./middleware";
 export type { TenantContext, } from "./middleware";
 
+// Tenant resolution
+export {
+  resolveTenantFromRequest,
+  extractCustomDomain,
+} from "./tenant-resolver";
+export type { ResolvedTenant } from "./tenant-resolver";
+
 // Types
 export type {
   PlatformRole,

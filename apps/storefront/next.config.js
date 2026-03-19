@@ -3,6 +3,7 @@ const nextConfig = {
   transpilePackages: [
     "@illuminate/ui",
     "@illuminate/db",
+    "@illuminate/auth",
   ],
 };
 

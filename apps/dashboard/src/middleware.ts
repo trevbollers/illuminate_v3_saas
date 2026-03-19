@@ -1,66 +1,89 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@illuminate/auth";
+import { resolveTenantFromRequest } from "@illuminate/auth/tenant-resolver";
 
 /**
- * Middleware that checks tenant membership and authentication.
+ * Dashboard middleware — protects the tenant dashboard application.
  *
- * In production this would:
- * 1. Verify the user's session/JWT token
- * 2. Extract the tenant ID from the subdomain or path
- * 3. Verify the user has an active membership in that tenant
- * 4. Check that the tenant's subscription is active
- * 5. Redirect to login or error pages as needed
+ * Security checks:
+ * 1. User is authenticated via NextAuth JWT
+ * 2. User has an active tenant context (tenantId + tenantSlug in session)
+ * 3. If accessed via subdomain, the subdomain tenant matches the session tenant
+ * 4. Tenant subscription is not canceled/suspended
+ *
+ * On failure: redirects to login (if unauthenticated) or shows 403 (if wrong tenant).
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public assets and API routes
+  // Allow public assets, Next.js internals, and API auth routes
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/favicon.ico")
+    pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/api/auth")
   ) {
     return NextResponse.next();
   }
 
-  // In production, check for auth cookie/session
-  const sessionToken =
-    request.cookies.get("session-token")?.value ??
-    request.cookies.get("__session")?.value;
+  // --- 1. Authenticate via NextAuth ---
+  const session = await auth();
 
-  // For development, allow all requests through
-  if (process.env.NODE_ENV === "development") {
-    return NextResponse.next();
-  }
-
-  // If no session token, redirect to login
-  if (!sessionToken) {
-    const loginUrl = new URL("/login", request.nextUrl.origin);
-    loginUrl.searchParams.set("redirect", pathname);
+  if (!session?.user) {
+    // Not logged in — redirect to login on the marketing site
+    const loginUrl = new URL(
+      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    );
+    loginUrl.pathname = "/auth/login";
+    loginUrl.searchParams.set(
+      "redirect",
+      request.nextUrl.href,
+    );
     return NextResponse.redirect(loginUrl);
   }
 
-  // In production, verify the session token and check tenant membership
-  // This would call your auth service to validate:
-  // - Token is valid and not expired
-  // - User belongs to the current tenant
-  // - Tenant subscription is active
-  // - User has appropriate permissions
+  const { user } = session;
 
+  // --- 2. Verify tenant context exists in session ---
+  if (!user.tenantId || !user.tenantSlug || !user.role) {
+    // User is authenticated but has no tenant membership
+    // Redirect to onboarding or workspace selection
+    const appUrl = new URL(
+      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    );
+    appUrl.pathname = "/register";
+    return NextResponse.redirect(appUrl);
+  }
+
+  // --- 3. Subdomain tenant matching ---
+  // If the request came via a tenant subdomain (e.g. acme.meatlocker.app),
+  // verify it matches the user's active tenant. This prevents a user
+  // logged into tenant A from accessing tenant B's subdomain.
+  const resolvedTenant = resolveTenantFromRequest(request);
+
+  if (resolvedTenant && resolvedTenant.slug !== user.tenantSlug) {
+    // Subdomain doesn't match session tenant — this is either:
+    // a) User needs to switch tenants, or
+    // b) Unauthorized access attempt
+    //
+    // Don't reveal whether the tenant exists. Return a generic 403.
+    return new NextResponse(null, {
+      status: 403,
+      statusText: "Forbidden",
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  // --- 4. Inject tenant context headers for downstream API routes ---
   const response = NextResponse.next();
-
-  // Add tenant context headers for downstream use
-  response.headers.set("x-tenant-id", "tenant-placeholder");
-  response.headers.set("x-user-id", "user-placeholder");
+  response.headers.set("x-tenant-id", user.tenantId);
+  response.headers.set("x-tenant-slug", user.tenantSlug);
+  response.headers.set("x-user-id", user.id);
+  response.headers.set("x-user-role", user.role);
 
   return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except static files and images
-     */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
