@@ -1,0 +1,27 @@
+{
+  "name": "illuminate-v3-saas",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "dev:web": "turbo dev --filter=@illuminate/web",
+    "dev:admin": "turbo dev --filter=@illuminate/admin",
+    "dev:dashboard": "turbo dev --filter=@illuminate/dashboard",
+    "dev:storefront": "turbo dev --filter=@illuminate/storefront",
+    "db:seed": "turbo db:seed --filter=@illuminate/db"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.9.4"
+}

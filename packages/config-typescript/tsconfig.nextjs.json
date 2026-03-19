@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/04/schema#",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "jsx": "preserve",
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@illuminate/permissions",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": { "type-check": "tsc --noEmit" },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@illuminate/config-typescript": "*"
+  }
+}
