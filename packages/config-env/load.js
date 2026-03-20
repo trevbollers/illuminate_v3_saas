@@ -1,13 +1,8 @@
-/**
- * Load environment variables from the monorepo root .env file.
- *
- * Next.js only reads .env from each app's own directory. In a Turborepo
- * monorepo we keep a single .env at the root, so each app's next.config.js
- * must call this before exporting its config.
- *
- * Usage (in apps/*/next.config.js):
- *   require("../../packages/config-env/load");
- */
+// Load environment variables from the monorepo root .env file.
+//
+// Next.js only reads .env from each app's own directory. In a Turborepo
+// monorepo we keep a single .env at the root, so each app's next.config.js
+// must call this before exporting its config.
 
 const { loadEnvConfig } = require("@next/env");
 const path = require("path");
