@@ -17,4 +17,9 @@ const projectDir = path.resolve(__dirname, "../..");
 
 // loadEnvConfig reads .env, .env.local, .env.development, etc.
 // from the specified directory and writes them to process.env.
-loadEnvConfig(projectDir);
+const { combinedEnv } = loadEnvConfig(projectDir);
+
+// Re-export the loaded env so next.config.js can spread it into
+// the `env` config key, ensuring all runtimes (server, edge, client)
+// receive the variables.
+module.exports = { combinedEnv };
