@@ -24,7 +24,7 @@ echo ""
 # --------------------------------------------------------------------------
 # Seed platform database (plans, admin user, sample tenant)
 # --------------------------------------------------------------------------
-docker exec "$CONTAINER" mongosh "$MONGO_URI" --quiet --eval "
+docker exec -i "$CONTAINER" mongosh "$MONGO_URI" --quiet <<'PLATFORM_SEED'
 const now = new Date();
 const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -79,10 +79,10 @@ const plans = [
 for (const plan of plans) {
   db.plans.updateOne(
     { planId: plan.planId },
-    { \\\$set: plan, \\\$setOnInsert: { createdAt: now, updatedAt: now } },
+    { $set: plan, $setOnInsert: { createdAt: now, updatedAt: now } },
     { upsert: true }
   );
-  print('   ok Plan: ' + plan.name + ' (\$' + (plan.pricing.monthly / 100) + '/mo)');
+  print('   ok Plan: ' + plan.name + ' ($' + (plan.pricing.monthly / 100) + '/mo)');
 }
 
 // --- Super Admin User ---
@@ -95,7 +95,7 @@ if (!existingAdmin) {
   const result = db.users.insertOne({
     email: 'admin@illuminate.dev',
     name: 'Super Admin',
-    passwordHash: '$ADMIN_HASH',
+    passwordHash: '$2a$12$xlRsO1/PlZejgrigOS1wa.u1xyU1Zw88fcP9L7bAkf.GhQjQ6O612',
     platformRole: 'saas_admin',
     emailVerified: now,
     memberships: [],
@@ -151,7 +151,7 @@ if (!existingTenant) {
     updatedAt: now
   });
   tenantId = result.insertedId;
-  print('   ok Created tenant \"Acme Meat Co\" on Professional plan');
+  print('   ok Created tenant "Acme Meat Co" on Professional plan');
 } else {
   tenantId = existingTenant._id;
   print('   ok Sample tenant already exists, skipping.');
@@ -167,7 +167,7 @@ if (!hasMembership) {
   db.users.updateOne(
     { _id: adminId },
     {
-      \\\$push: {
+      $push: {
         memberships: {
           tenantId: tenantId,
           role: 'owner',
@@ -177,7 +177,7 @@ if (!hasMembership) {
           joinedAt: now
         }
       },
-      \\\$set: { activeTenantId: tenantId, updatedAt: now }
+      $set: { activeTenantId: tenantId, updatedAt: now }
     }
   );
   print('   ok Added admin as owner of Acme Meat Co');
@@ -185,18 +185,17 @@ if (!hasMembership) {
 
 print('');
 print('Platform DB seeded successfully!');
-"
+PLATFORM_SEED
 
 # --------------------------------------------------------------------------
 # Seed tenant database (sample product & ingredient)
 # --------------------------------------------------------------------------
-# Build the tenant URI by replacing the DB name
 TENANT_URI=$(echo "$MONGO_URI" | sed "s|/illuminate_platform|/$TENANT_DB|")
 
 echo ""
 echo "Seeding tenant database ($TENANT_DB)..."
 
-docker exec "$CONTAINER" mongosh "$TENANT_URI" --quiet --eval "
+docker exec -i "$CONTAINER" mongosh "$TENANT_URI" --quiet <<'TENANT_SEED'
 const now = new Date();
 
 // --- Sample Ingredient ---
@@ -216,7 +215,7 @@ if (!db.ingredients.findOne({ sku: 'BRISKET-001' })) {
     createdAt: now,
     updatedAt: now
   });
-  print('   ok Created sample ingredient \"Whole Packer Brisket\"');
+  print('   ok Created sample ingredient "Whole Packer Brisket"');
 } else {
   print('   ok Sample ingredient already exists, skipping.');
 }
@@ -255,14 +254,14 @@ if (!db.products.findOne({ sku: 'SMKD-BRSK-001' })) {
     createdAt: now,
     updatedAt: now
   });
-  print('   ok Created sample product \"Smoked Brisket\"');
+  print('   ok Created sample product "Smoked Brisket"');
 } else {
   print('   ok Sample product already exists, skipping.');
 }
 
 print('');
 print('Tenant DB seeded successfully!');
-"
+TENANT_SEED
 
 echo ""
 echo "=== Seed complete ==="
