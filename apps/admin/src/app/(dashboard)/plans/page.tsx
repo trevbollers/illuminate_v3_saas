@@ -8,6 +8,9 @@ import {
   Save,
   X,
   CreditCard,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -63,6 +66,8 @@ export default function PlansPage() {
   const [editingPlan, setEditingPlan] = useState<string | null>(null);
   const [editingStripe, setEditingStripe] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ status: "success" | "error" | "partial"; message: string } | null>(null);
   const [priceEdit, setPriceEdit] = useState({
     monthly: 0,
     annual: 0,
@@ -102,6 +107,28 @@ export default function PlansPage() {
         stripePriceId: a.pricing.stripePriceId || "",
       })),
     });
+  };
+
+  const syncToStripe = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/plans/stripe-sync", { method: "POST" });
+      const data = await res.json();
+      const errors = data.results.filter((r: any) => r.status === "error");
+      if (errors.length === 0) {
+        setSyncResult({ status: "success", message: `All ${data.results.length} plans synced to Stripe.` });
+      } else if (errors.length < data.results.length) {
+        setSyncResult({ status: "partial", message: `${errors.length} plan(s) failed: ${errors.map((e: any) => e.planId).join(", ")}` });
+      } else {
+        setSyncResult({ status: "error", message: errors[0].details });
+      }
+      fetchPlans();
+    } catch {
+      setSyncResult({ status: "error", message: "Request failed. Check your STRIPE_SECRET_KEY." });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const savePricing = async (plan: Plan) => {
@@ -164,12 +191,41 @@ export default function PlansPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Plans & Pricing</h1>
-        <p className="mt-1 text-muted-foreground">
-          Manage subscription plans, pricing, and Stripe price IDs
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Plans & Pricing</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manage subscription plans, pricing, and Stripe price IDs
+          </p>
+        </div>
+        <Button onClick={syncToStripe} disabled={syncing} variant="outline">
+          {syncing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          {syncing ? "Syncing…" : "Sync to Stripe"}
+        </Button>
       </div>
+
+      {/* Sync result banner */}
+      {syncResult && (
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg border px-4 py-3 text-sm",
+            syncResult.status === "success" && "border-green-200 bg-green-50 text-green-800",
+            syncResult.status === "partial" && "border-yellow-200 bg-yellow-50 text-yellow-800",
+            syncResult.status === "error" && "border-destructive/30 bg-destructive/10 text-destructive",
+          )}
+        >
+          {syncResult.status === "success" ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 shrink-0" />
+          )}
+          {syncResult.message}
+        </div>
+      )}
 
       {/* Plan Cards */}
       <div className="grid gap-6 lg:grid-cols-3">
