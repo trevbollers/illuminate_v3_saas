@@ -8,6 +8,7 @@
 
 set -euo pipefail
 
+CONTAINER="${MONGO_CONTAINER:-illuminate-mongodb}"
 MONGO_URI="${MONGODB_URI:-mongodb://illuminate:illuminate_dev@localhost:27017/illuminate_platform?authSource=admin}"
 TENANT_DB="tenant_acme_meat_co"
 
@@ -17,12 +18,13 @@ ADMIN_HASH='$2a$12$xlRsO1/PlZejgrigOS1wa.u1xyU1Zw88fcP9L7bAkf.GhQjQ6O612'
 echo "=== Illuminate Database Seed ==="
 echo ""
 echo "Platform DB URI: $MONGO_URI"
+echo "Container:       $CONTAINER"
 echo ""
 
 # --------------------------------------------------------------------------
 # Seed platform database (plans, admin user, sample tenant)
 # --------------------------------------------------------------------------
-mongosh "$MONGO_URI" --quiet --eval "
+docker exec "$CONTAINER" mongosh "$MONGO_URI" --quiet --eval "
 const now = new Date();
 const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -194,7 +196,7 @@ TENANT_URI=$(echo "$MONGO_URI" | sed "s|/illuminate_platform|/$TENANT_DB|")
 echo ""
 echo "Seeding tenant database ($TENANT_DB)..."
 
-mongosh "$TENANT_URI" --quiet --eval "
+docker exec "$CONTAINER" mongosh "$TENANT_URI" --quiet --eval "
 const now = new Date();
 
 // --- Sample Ingredient ---
