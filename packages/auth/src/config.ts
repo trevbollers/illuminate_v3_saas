@@ -127,7 +127,7 @@ function resolveActiveTenant(
 }
 
 export const authConfig: NextAuthConfig = {
-  adapter: MongoDBAdapter(getClientPromise()),
+  adapter: MongoDBAdapter(() => getClientPromise()),
 
   providers: [
     Google({
