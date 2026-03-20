@@ -1,11 +1,14 @@
-// Load env (seed runs standalone, not through Next.js)
-import dotenv from "dotenv";
-import path from "path";
+// Load env BEFORE any other imports — TypeScript hoists `import` statements
+// above inline code, so we must use require() to ensure dotenv runs first.
+/* eslint-disable @typescript-eslint/no-var-requires */
+const dotenv = require("dotenv");
+const path = require("path");
 
 const root = path.resolve(__dirname, "../../..");
 // Try root .env first, then fall back to apps/admin/.env.local
 dotenv.config({ path: path.resolve(root, ".env") });
 dotenv.config({ path: path.resolve(root, "apps/admin/.env.local") });
+/* eslint-enable @typescript-eslint/no-var-requires */
 
 import mongoose from "mongoose";
 import { connectPlatformDB, connectTenantDB } from "./connection";
