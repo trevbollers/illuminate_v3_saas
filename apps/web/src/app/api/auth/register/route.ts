@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, randomBytes } from "crypto";
 import { connectPlatformDB, User, Tenant } from "@illuminate/db";
+import { sendEmail, VerifyEmail } from "@illuminate/email";
 
 const VALID_PLANS = ["beginner", "starter", "professional", "enterprise"];
 const FREE_PLANS = ["beginner", "starter"];
+
+function generateVerifyToken(userId: string): string {
+  const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24; // 24h
+  const secret = process.env.EMAIL_VERIFY_SECRET ?? "fallback-secret";
+  const payload = `${userId}:${expires}`;
+  const sig = createHmac("sha256", secret).update(payload).digest("hex");
+  return Buffer.from(`${payload}:${sig}`).toString("base64url");
+}
 
 function slugify(name: string): string {
   return name
@@ -130,6 +140,23 @@ export async function POST(req: NextRequest) {
     await user.save();
     console.log("[register] User membership updated, activeTenantId:", tenant._id.toString());
 
+    // Send verification email
+    const token = generateVerifyToken(user._id.toString());
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const verifyUrl = `${appUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Verify your Illuminate account",
+        react: VerifyEmail({ name: fullName, verifyUrl }),
+      });
+      console.log("[register] Verification email sent to:", email);
+    } catch (emailErr) {
+      // Non-blocking — user is created, email failure shouldn't fail registration
+      console.error("[register] Failed to send verification email:", emailErr);
+    }
+
     // Free plans go straight to the app; paid plans would go to Stripe checkout
     if (isFree) {
       console.log("[register] Registration complete (free plan) for:", email);
@@ -137,7 +164,6 @@ export async function POST(req: NextRequest) {
     }
 
     // TODO: Create Stripe checkout session for paid plans and return checkoutUrl
-    // For now, allow registration without payment
     console.log("[register] Registration complete (paid plan, no checkout yet) for:", email);
     return NextResponse.json({ checkoutUrl: null }, { status: 201 });
   } catch (error) {
