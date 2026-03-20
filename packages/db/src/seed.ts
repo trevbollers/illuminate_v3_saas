@@ -1,3 +1,8 @@
+// Load root .env (seed runs standalone, not through Next.js)
+import path from "path";
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(path.resolve(__dirname, "../../.."));
+
 import mongoose from "mongoose";
 import { connectPlatformDB, connectTenantDB } from "./connection";
 import { Plan } from "./models/plan";
