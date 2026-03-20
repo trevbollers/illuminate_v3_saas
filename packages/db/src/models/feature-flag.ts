@@ -43,8 +43,7 @@ const FeatureFlagSchema = new Schema<IFeatureFlag>(
   { timestamps: true }
 );
 
-// Indexes
-FeatureFlagSchema.index({ key: 1 }, { unique: true });
+// Indexes (key unique index is defined on the field above)
 FeatureFlagSchema.index({ enabled: 1 });
 
 export const FeatureFlag =

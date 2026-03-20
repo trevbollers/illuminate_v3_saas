@@ -82,8 +82,7 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
-// Indexes
-UserSchema.index({ email: 1 }, { unique: true });
+// Indexes (email unique index is defined on the field above)
 UserSchema.index({ "memberships.tenantId": 1 });
 
 export const User =

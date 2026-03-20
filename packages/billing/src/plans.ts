@@ -1,4 +1,4 @@
-import { Plan, type IPlan } from "@illuminate/db/models/plan";
+import { Plan, type IPlan } from "@illuminate/db";
 
 export type BillingInterval = "monthly" | "yearly";
 

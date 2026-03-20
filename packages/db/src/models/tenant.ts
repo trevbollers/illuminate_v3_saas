@@ -139,8 +139,7 @@ const TenantSchema = new Schema<ITenant>(
   { timestamps: true }
 );
 
-// Indexes
-TenantSchema.index({ slug: 1 }, { unique: true });
+// Indexes (slug unique index is defined on the field above)
 TenantSchema.index({ owner: 1 });
 TenantSchema.index({ "plan.status": 1 });
 

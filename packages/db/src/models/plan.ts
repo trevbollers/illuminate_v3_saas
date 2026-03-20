@@ -81,8 +81,7 @@ const PlanSchema = new Schema<IPlan>(
   { timestamps: true }
 );
 
-// Indexes
-PlanSchema.index({ planId: 1 }, { unique: true });
+// Indexes (planId unique index is defined on the field above)
 PlanSchema.index({ isActive: 1, sortOrder: 1 });
 
 export const Plan =
