@@ -13,11 +13,11 @@ const plans = [
   {
     planId: "starter",
     name: "Starter",
-    description: "For small shops getting started",
-    monthlyPrice: 4900,
-    yearlyPrice: 47000,
+    description: "Free forever — get started today",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
     features: [
-      "Up to 5 users",
+      "Up to 3 users",
       "1 location",
       "100 products",
       "Basic inventory tracking",
@@ -205,12 +205,13 @@ export default function PricingPage() {
               Not sure which plan is right for you?
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Start with a 14-day free trial on any plan. No credit card
-              required. Our team is happy to help you find the right fit.
+              Start free with our Starter plan — no credit card required.
+              Upgrade anytime as your business grows. Our team is happy to
+              help you find the right fit.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button size="lg" asChild>
-                <Link href="/register">Start Free Trial</Link>
+                <Link href="/register?plan=starter">Start Free</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <Link href="#">Contact Sales</Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -43,8 +43,10 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+const validPlans = ["starter", "professional", "enterprise"] as const;
+
 const planLabels: Record<string, string> = {
-  starter: "Starter",
+  starter: "Starter (Free)",
   professional: "Professional",
   enterprise: "Enterprise",
 };
@@ -52,9 +54,21 @@ const planLabels: Record<string, string> = {
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedPlan = searchParams.get("plan") || "starter";
+  const selectedPlan = searchParams.get("plan");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Redirect to pricing if no valid plan is selected
+  useEffect(() => {
+    if (!selectedPlan || !validPlans.includes(selectedPlan as any)) {
+      router.replace("/pricing");
+    }
+  }, [selectedPlan, router]);
+
+  // Don't render the form until we know the plan is valid
+  if (!selectedPlan || !validPlans.includes(selectedPlan as any)) {
+    return null;
+  }
 
   const {
     register,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB, User, Tenant } from "@illuminate/db";
 
+const VALID_PLANS = ["starter", "professional", "enterprise"];
+const FREE_PLANS = ["starter"];
+
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -34,6 +37,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!plan || !VALID_PLANS.includes(plan)) {
+      return NextResponse.json(
+        { error: "Please select a valid plan." },
+        { status: 400 },
+      );
+    }
+
     await connectPlatformDB();
 
     // Check if user already exists
@@ -53,6 +63,9 @@ export async function POST(req: NextRequest) {
       memberships: [],
     });
 
+    // Free plans are immediately active; paid plans start as trialing
+    const isFree = FREE_PLANS.includes(plan);
+
     // Create the tenant
     const slug = await generateUniqueSlug(businessName);
     const tenant = await Tenant.create({
@@ -60,8 +73,8 @@ export async function POST(req: NextRequest) {
       slug,
       owner: user._id,
       plan: {
-        planId: plan || "starter",
-        status: "trialing",
+        planId: plan,
+        status: isFree ? "active" : "trialing",
         addOns: [],
       },
       settings: {
@@ -94,9 +107,13 @@ export async function POST(req: NextRequest) {
     user.activeTenantId = tenant._id;
     await user.save();
 
-    // TODO: If Stripe billing is configured, create a checkout session here
-    // and return { checkoutUrl } instead.
+    // Free plans go straight to the app; paid plans would go to Stripe checkout
+    if (isFree) {
+      return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+    }
 
+    // TODO: Create Stripe checkout session for paid plans and return checkoutUrl
+    // For now, allow registration without payment
     return NextResponse.json({ checkoutUrl: null }, { status: 201 });
   } catch (error) {
     console.error("[register] Registration failed:", error);

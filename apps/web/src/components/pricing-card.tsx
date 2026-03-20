@@ -50,12 +50,23 @@ export function PricingCard({
       </CardHeader>
       <CardContent className="flex-1">
         <div className="mb-6">
-          <span className="text-4xl font-bold text-foreground">${displayPrice}</span>
-          <span className="text-muted-foreground">/mo</span>
-          {isAnnual && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Billed annually at ${(yearlyPrice / 100).toFixed(0)}/year
-            </p>
+          {monthlyPrice === 0 ? (
+            <>
+              <span className="text-4xl font-bold text-foreground">Free</span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                No credit card required
+              </p>
+            </>
+          ) : (
+            <>
+              <span className="text-4xl font-bold text-foreground">${displayPrice}</span>
+              <span className="text-muted-foreground">/mo</span>
+              {isAnnual && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Billed annually at ${(yearlyPrice / 100).toFixed(0)}/year
+                </p>
+              )}
+            </>
           )}
         </div>
         <ul className="space-y-3">
@@ -73,7 +84,9 @@ export function PricingCard({
           variant={isPopular ? "default" : "outline"}
           asChild
         >
-          <Link href={`/register?plan=${planId}`}>Get Started</Link>
+          <Link href={`/register?plan=${planId}`}>
+            {monthlyPrice === 0 ? "Start Free" : "Get Started"}
+          </Link>
         </Button>
       </CardFooter>
     </Card>

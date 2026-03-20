@@ -92,8 +92,8 @@ export default function HomePage() {
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
               <Button size="lg" className="gap-2 px-8 shadow-lg shadow-primary/25" asChild>
-                <Link href="/register">
-                  Start Free Trial
+                <Link href="/pricing">
+                  Get Started Free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -102,7 +102,7 @@ export default function HomePage() {
               </Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              14-day free trial. No credit card required.
+              Free Starter plan. No credit card required.
             </p>
           </div>
         </div>
@@ -155,13 +155,13 @@ export default function HomePage() {
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
               Join hundreds of meat businesses already using Illuminate to save
-              time, reduce waste, and grow revenue. Start your free trial today
+              time, reduce waste, and grow revenue. Get started free today
               and see the difference in your first week.
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Button size="lg" className="gap-2 px-8 shadow-lg shadow-primary/25" asChild>
-                <Link href="/register">
-                  Start Your Free Trial
+                <Link href="/pricing">
+                  Get Started Free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
