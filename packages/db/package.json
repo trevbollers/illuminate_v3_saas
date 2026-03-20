@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "mongoose": "^8.9.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
