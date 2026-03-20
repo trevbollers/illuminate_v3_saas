@@ -12,7 +12,7 @@
 const { loadEnvConfig } = require("@next/env");
 const path = require("path");
 
-// Resolve the monorepo root (two levels up from apps/<app>/)
+// Resolve the monorepo root (two levels up from packages/config-env/)
 const projectDir = path.resolve(__dirname, "../..");
 
 // loadEnvConfig reads .env, .env.local, .env.development, etc.
