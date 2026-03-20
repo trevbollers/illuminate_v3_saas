@@ -1,23 +1,5 @@
-// Load env BEFORE any other imports — TypeScript hoists `import` statements
-// above inline code, so we must use require() to ensure dotenv runs first.
-/* eslint-disable @typescript-eslint/no-var-requires */
-const dotenv = require("dotenv");
-const path = require("path");
-
-// packages/db/ -> monorepo root is 2 levels up from cwd (turbo sets cwd to package dir)
-const root = path.resolve(process.cwd(), "../..");
-dotenv.config({ path: path.resolve(root, ".env") });
-dotenv.config({ path: path.resolve(root, ".env.local") });
-dotenv.config({ path: path.resolve(root, "apps/admin/.env.local") });
-
-if (!process.env.MONGODB_URI) {
-  console.error("❌ MONGODB_URI not found. Looked in:");
-  console.error(`   ${path.resolve(root, ".env")}`);
-  console.error(`   ${path.resolve(root, ".env.local")}`);
-  console.error(`   ${path.resolve(root, "apps/admin/.env.local")}`);
-  process.exit(1);
-}
-/* eslint-enable @typescript-eslint/no-var-requires */
+// Load packages/db/.env before any other imports (dotenv defaults to cwd/.env)
+require("dotenv").config();
 
 import mongoose from "mongoose";
 import { connectPlatformDB, connectTenantDB } from "./connection";
