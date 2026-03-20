@@ -1,3 +1,6 @@
+// Load env vars from monorepo root .env
+require("../../packages/config-env/load");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [
