@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import bcrypt from "bcryptjs";
+import { ObjectId } from "mongodb";
 import type { NextAuthConfig } from "next-auth";
 import type { TenantMembership, PlatformRole, TenantRole } from "./types";
 
@@ -52,7 +53,7 @@ async function findMemberships(userId: string): Promise<TenantMembership[]> {
   const client = await getClientPromise();
   const db = client.db();
 
-  const user = await db.collection("users").findOne({ _id: userId });
+  const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
   if (!user?.memberships) return [];
 
   const activeMemberships = user.memberships.filter((m: any) => m.isActive);
@@ -84,7 +85,7 @@ async function updateLastLogin(userId: string): Promise<void> {
   const db = client.db();
   await db
     .collection("users")
-    .updateOne({ _id: userId }, { $set: { lastLoginAt: new Date() } });
+    .updateOne({ _id: new ObjectId(userId) }, { $set: { lastLoginAt: new Date() } });
 }
 
 /**
