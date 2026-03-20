@@ -1,13 +1,11 @@
 export { stripe } from "./stripe";
 
 export {
-  PLANS,
-  ADDONS,
+  getPlan,
+  getPlans,
   getPlanByPriceId,
   getAddonByPriceId,
   getPriceId,
-  type PlanConfig,
-  type AddonConfig,
   type BillingInterval,
 } from "./plans";
 

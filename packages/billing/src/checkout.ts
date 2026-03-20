@@ -25,7 +25,7 @@ export async function createCheckoutSession(
     cancelUrl,
   } = params;
 
-  const priceId = getPriceId(planId, billingInterval);
+  const priceId = await getPriceId(planId, billingInterval);
   if (!priceId) {
     throw new Error(
       `Invalid plan "${planId}" or interval "${billingInterval}"`

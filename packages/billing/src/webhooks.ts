@@ -155,7 +155,7 @@ async function updateTenantSubscription(
 ): Promise<WebhookResult> {
   const primaryItem = subscription.items.data[0];
   const priceId = primaryItem?.price?.id;
-  const plan = priceId ? getPlanByPriceId(priceId) : undefined;
+  const plan = priceId ? await getPlanByPriceId(priceId) : null;
 
   const updateFields: Record<string, unknown> = {
     "billing.status": subscription.status as SubscriptionStatus,
@@ -169,7 +169,7 @@ async function updateTenantSubscription(
   };
 
   if (plan) {
-    updateFields["billing.planId"] = plan.id;
+    updateFields["billing.planId"] = plan.planId;
   }
 
   if (subscription.trial_end) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@illuminate/auth";
 import { createCheckoutSession } from "@illuminate/billing/src/checkout";
-import { PLANS } from "@illuminate/billing/src/plans";
+import { getPlan } from "@illuminate/billing/src/plans";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { planId, billingInterval = "monthly" } = body;
 
-    if (!planId || !PLANS[planId]) {
+    const plan = planId ? await getPlan(planId) : null;
+    if (!plan) {
       return NextResponse.json(
         { error: "Invalid plan selected" },
         { status: 400 }
