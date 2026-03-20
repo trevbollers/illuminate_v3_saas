@@ -4,10 +4,19 @@
 const dotenv = require("dotenv");
 const path = require("path");
 
-const root = path.resolve(__dirname, "../../..");
-// Try root .env first, then fall back to apps/admin/.env.local
+// packages/db/ -> monorepo root is 2 levels up from cwd (turbo sets cwd to package dir)
+const root = path.resolve(process.cwd(), "../..");
 dotenv.config({ path: path.resolve(root, ".env") });
+dotenv.config({ path: path.resolve(root, ".env.local") });
 dotenv.config({ path: path.resolve(root, "apps/admin/.env.local") });
+
+if (!process.env.MONGODB_URI) {
+  console.error("❌ MONGODB_URI not found. Looked in:");
+  console.error(`   ${path.resolve(root, ".env")}`);
+  console.error(`   ${path.resolve(root, ".env.local")}`);
+  console.error(`   ${path.resolve(root, "apps/admin/.env.local")}`);
+  process.exit(1);
+}
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 import mongoose from "mongoose";

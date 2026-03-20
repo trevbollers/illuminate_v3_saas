@@ -11,16 +11,7 @@ import mongoose, { Connection } from "mongoose";
 //                 pooled and cached for the process lifetime.
 // ---------------------------------------------------------------------------
 
-// Read lazily so that dotenv can load before first use
-function getMongoURI(): string {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error(
-      "Please define the MONGODB_URI environment variable inside .env or .env.local"
-    );
-  }
-  return uri;
-}
+const MONGODB_URI = process.env.MONGODB_URI!;
 
 // --- Platform DB (default mongoose connection) ---
 
@@ -47,8 +38,14 @@ if (!global.mongooseCache) global.mongooseCache = cached;
 export async function connectPlatformDB(): Promise<typeof mongoose> {
   if (cached.conn) return cached.conn;
 
+  if (!MONGODB_URI) {
+    throw new Error(
+      "Please define the MONGODB_URI environment variable inside .env"
+    );
+  }
+
   if (!cached.promise) {
-    cached.promise = mongoose.connect(getMongoURI(), {
+    cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
     });
   }
@@ -84,7 +81,7 @@ if (!global.tenantDBCache) global.tenantDBCache = tenantCache;
  */
 function buildTenantURI(tenantSlug: string): string {
   const dbName = `tenant_${tenantSlug.replace(/-/g, "_")}`;
-  const url = new URL(getMongoURI());
+  const url = new URL(MONGODB_URI);
   // URL pathname is "/<dbname>" — replace it
   url.pathname = `/${dbName}`;
   return url.toString();
