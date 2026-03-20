@@ -7,7 +7,9 @@ const nextConfig = {
     "@illuminate/billing",
     "@illuminate/permissions",
   ],
-  serverExternalPackages: ["mongodb", "mongoose", "bcryptjs"],
+  experimental: {
+    serverComponentsExternalPackages: ["mongodb", "mongoose", "bcryptjs"],
+  },
 };
 
 module.exports = nextConfig;
