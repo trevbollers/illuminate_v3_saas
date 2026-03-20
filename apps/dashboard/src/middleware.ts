@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@illuminate/auth";
+import { auth } from "@illuminate/auth/edge";
 import { resolveTenantFromRequest } from "@illuminate/auth/tenant-resolver";
 
 /**
