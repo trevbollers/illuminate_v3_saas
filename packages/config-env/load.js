@@ -12,7 +12,14 @@ const projectDir = path.resolve(__dirname, "../..");
 
 // loadEnvConfig reads .env, .env.local, .env.development, etc.
 // from the specified directory and writes them to process.env.
-const { combinedEnv } = loadEnvConfig(projectDir);
+const { combinedEnv: rawEnv } = loadEnvConfig(projectDir);
+
+// Next.js reserves certain env keys (e.g. NEXT_RUNTIME) that cannot be
+// set via the `env` config key. Filter them out to avoid build errors.
+const RESERVED_KEYS = ["NEXT_RUNTIME"];
+const combinedEnv = Object.fromEntries(
+  Object.entries(rawEnv).filter(([key]) => !RESERVED_KEYS.includes(key))
+);
 
 // Re-export the loaded env so next.config.js can spread it into
 // the `env` config key, ensuring all runtimes (server, edge, client)
