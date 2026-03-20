@@ -86,16 +86,7 @@ else
   info ".env already exists — skipping."
 fi
 
-# ---- 5. Create packages/db/.env for seed script ----
-DB_ENV="$PROJECT_ROOT/packages/db/.env"
-if [ ! -f "$DB_ENV" ]; then
-  echo "MONGODB_URI=mongodb://illuminate:illuminate_dev@localhost:27017/illuminate_platform?authSource=admin" > "$DB_ENV"
-  info "Created packages/db/.env for seed script."
-else
-  info "packages/db/.env already exists — skipping."
-fi
-
-# ---- 6. Verify MongoDB connection ----
+# ---- 5. Verify MongoDB connection ----
 MONGO_URI="mongodb://illuminate:illuminate_dev@localhost:27017/illuminate_platform?authSource=admin"
 
 info "Verifying MongoDB connection..."
@@ -118,7 +109,7 @@ else
   exit 1
 fi
 
-# ---- 7. Summary ----
+# ---- 6. Summary ----
 echo ""
 echo "=============================================="
 info "Local development environment is ready!"
