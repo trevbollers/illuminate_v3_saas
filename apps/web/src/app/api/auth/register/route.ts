@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB, User, Tenant } from "@illuminate/db";
 
-const VALID_PLANS = ["starter", "professional", "enterprise"];
-const FREE_PLANS = ["starter"];
+const VALID_PLANS = ["beginner", "starter", "professional", "enterprise"];
+const FREE_PLANS = ["beginner", "starter"];
 
 function slugify(name: string): string {
   return name

@@ -5,154 +5,121 @@ import { stripe } from "@illuminate/billing";
 /**
  * POST /api/plans/stripe-sync
  *
- * Provisions Stripe products and prices from the plans in MongoDB,
- * then writes the resulting price IDs back to the DB.
+ * Imports all active Stripe products into MongoDB as plans.
+ * Stripe is the source of truth for: name, description, pricing, price IDs.
+ * MongoDB (admin UI) is the source of truth for: features, limits.
  *
- * Idempotent — uses plan metadata on the Stripe product to find existing
- * products instead of creating duplicates on repeated runs.
+ * - Skips add-on products (those with illuminate_addon_id metadata)
+ * - Handles free plans (no recurring prices → monthly/annual = 0)
+ * - Preserves existing features & limits if the plan already exists in DB
+ * - Sets illuminate_plan_id metadata on Stripe products that don't have it
+ * - Idempotent — safe to run multiple times
  */
+
+function toPlanId(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+const DEFAULT_LIMITS: Record<string, object> = {
+  beginner:     { users: 1,   locations: 1, products: 25,   ordersPerMonth: 50,    storageGb: 1   },
+  starter:      { users: 5,   locations: 1, products: 50,   ordersPerMonth: 100,   storageGb: 5   },
+  professional: { users: 25,  locations: 5, products: 500,  ordersPerMonth: 1000,  storageGb: 25  },
+  enterprise:   { users: 999, locations: 999, products: 9999, ordersPerMonth: 99999, storageGb: 100 },
+};
+
 export async function POST() {
   await connectPlatformDB();
 
-  const plans = await Plan.find().sort({ sortOrder: 1 }).lean();
-  const results: { planId: string; status: string; details: string }[] = [];
+  const stripeProducts = await stripe.products.list({ active: true, limit: 100 });
 
-  for (const plan of plans) {
+  // Skip add-on products — they have their own metadata key
+  const planProducts = stripeProducts.data.filter(
+    (p) => !p.metadata.illuminate_addon_id
+  );
+
+  const results: { planId: string; name: string; status: string; details: string }[] = [];
+
+  for (const product of planProducts) {
     try {
-      // --- Find or create the Stripe Product ---
-      const existingProducts = await stripe.products.search({
-        query: `metadata["illuminate_plan_id"]:"${plan.planId}"`,
+      // Derive planId from metadata or slugify the product name
+      let planId = product.metadata.illuminate_plan_id || toPlanId(product.name);
+
+      // Fetch all active prices for this product
+      const priceList = await stripe.prices.list({
+        product: product.id,
+        active: true,
+        limit: 10,
       });
 
-      let product = existingProducts.data[0];
+      const monthlyPrice = priceList.data.find((p) => p.recurring?.interval === "month");
+      const annualPrice  = priceList.data.find((p) => p.recurring?.interval === "year");
 
-      if (!product) {
-        product = await stripe.products.create({
-          name: plan.name,
-          description: plan.description,
-          metadata: { illuminate_plan_id: plan.planId },
-        });
-      }
+      const monthlyAmount = monthlyPrice?.unit_amount ?? 0;
+      const annualAmount  = annualPrice?.unit_amount ?? 0;
 
-      // --- Find or create Monthly Price ---
-      let monthlyPriceId = plan.pricing.stripePriceIdMonthly;
-      if (!monthlyPriceId) {
-        const existingMonthly = await stripe.prices.search({
-          query: `product:"${product.id}" metadata["illuminate_interval"]:"monthly"`,
-        });
+      // Find existing DB plan to preserve features, limits, and any already-set price IDs
+      const existing = await Plan.findOne({ planId }).lean();
 
-        if (existingMonthly.data[0]) {
-          monthlyPriceId = existingMonthly.data[0].id;
-        } else {
-          const price = await stripe.prices.create({
-            product: product.id,
-            currency: "usd",
-            unit_amount: plan.pricing.monthly,
-            recurring: { interval: "month" },
-            nickname: `${plan.name} — Monthly`,
-            metadata: {
-              illuminate_plan_id: plan.planId,
-              illuminate_interval: "monthly",
-            },
-          });
-          monthlyPriceId = price.id;
-        }
-      }
+      // Only overwrite price IDs if Stripe has them; otherwise keep existing DB values
+      const monthlyPriceId =
+        monthlyPrice?.id ?? (existing as any)?.pricing?.stripePriceIdMonthly ?? "";
+      const annualPriceId =
+        annualPrice?.id ?? (existing as any)?.pricing?.stripePriceIdAnnual ?? "";
 
-      // --- Find or create Annual Price ---
-      let annualPriceId = plan.pricing.stripePriceIdAnnual;
-      if (!annualPriceId) {
-        const existingAnnual = await stripe.prices.search({
-          query: `product:"${product.id}" metadata["illuminate_interval"]:"annual"`,
-        });
+      const description = product.description ?? (existing as any)?.description ?? "";
 
-        if (existingAnnual.data[0]) {
-          annualPriceId = existingAnnual.data[0].id;
-        } else {
-          const price = await stripe.prices.create({
-            product: product.id,
-            currency: "usd",
-            unit_amount: plan.pricing.annual,
-            recurring: { interval: "year" },
-            nickname: `${plan.name} — Annual`,
-            metadata: {
-              illuminate_plan_id: plan.planId,
-              illuminate_interval: "annual",
-            },
-          });
-          annualPriceId = price.id;
-        }
-      }
+      // Sort order: free = 0, otherwise use monthly price amount as a natural sort key
+      const sortOrder = monthlyAmount === 0 ? 0 : monthlyAmount;
 
-      // --- Find or create Add-on Prices ---
-      const updatedAddOns = await Promise.all(
-        plan.addOns.map(async (addon) => {
-          let addonPriceId = addon.pricing.stripePriceId;
-
-          if (!addonPriceId) {
-            const existingAddon = await stripe.prices.search({
-              query: `metadata["illuminate_addon_id"]:"${addon.featureId}" metadata["illuminate_plan_id"]:"${plan.planId}"`,
-            });
-
-            if (existingAddon.data[0]) {
-              addonPriceId = existingAddon.data[0].id;
-            } else {
-              // Add-ons use their own Stripe product
-              const addonProducts = await stripe.products.search({
-                query: `metadata["illuminate_addon_id"]:"${addon.featureId}"`,
-              });
-
-              let addonProduct = addonProducts.data[0];
-              if (!addonProduct) {
-                addonProduct = await stripe.products.create({
-                  name: addon.name,
-                  description: addon.description,
-                  metadata: { illuminate_addon_id: addon.featureId },
-                });
-              }
-
-              const price = await stripe.prices.create({
-                product: addonProduct.id,
-                currency: "usd",
-                unit_amount: addon.pricing.monthly,
-                recurring: { interval: "month" },
-                nickname: addon.name,
-                metadata: {
-                  illuminate_addon_id: addon.featureId,
-                  illuminate_plan_id: plan.planId,
-                },
-              });
-              addonPriceId = price.id;
-            }
-          }
-
-          return {
-            ...addon,
-            pricing: { ...addon.pricing, stripePriceId: addonPriceId },
-          };
-        })
-      );
-
-      // --- Write price IDs back to MongoDB ---
       await Plan.findOneAndUpdate(
-        { planId: plan.planId },
+        { planId },
         {
           $set: {
+            name: product.name,
+            description,
+            "pricing.monthly": monthlyAmount,
+            "pricing.annual": annualAmount,
             "pricing.stripePriceIdMonthly": monthlyPriceId,
             "pricing.stripePriceIdAnnual": annualPriceId,
-            addOns: updatedAddOns,
+            isActive: true,
+            sortOrder,
+            updatedAt: new Date(),
           },
-        }
+          $setOnInsert: {
+            planId,
+            features: [],
+            limits: DEFAULT_LIMITS[planId] ?? DEFAULT_LIMITS.starter,
+            addOns: [],
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true }
       );
 
+      // Tag the Stripe product with our planId so future syncs are deterministic
+      if (!product.metadata.illuminate_plan_id) {
+        await stripe.products.update(product.id, {
+          metadata: { ...product.metadata, illuminate_plan_id: planId },
+        });
+      }
+
       results.push({
-        planId: plan.planId,
+        planId,
+        name: product.name,
         status: "ok",
-        details: `monthly: ${monthlyPriceId} | annual: ${annualPriceId}`,
+        details:
+          monthlyAmount === 0
+            ? "free plan"
+            : `monthly: $${(monthlyAmount / 100).toFixed(2)} | annual: $${(annualAmount / 100).toFixed(2)}`,
       });
     } catch (err: any) {
       results.push({
-        planId: plan.planId,
+        planId: product.metadata.illuminate_plan_id || toPlanId(product.name),
+        name: product.name,
         status: "error",
         details: err?.message ?? "Unknown error",
       });
@@ -160,8 +127,5 @@ export async function POST() {
   }
 
   const hasErrors = results.some((r) => r.status === "error");
-  return NextResponse.json(
-    { results },
-    { status: hasErrors ? 207 : 200 }
-  );
+  return NextResponse.json({ results }, { status: hasErrors ? 207 : 200 });
 }

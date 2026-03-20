@@ -1,70 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@illuminate/ui/src/components/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@illuminate/ui/src/components/card";
-import { Check, Sparkles, Brain } from "lucide-react";
+import { Loader2, Sparkles, Brain } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { PricingCard } from "@/components/pricing-card";
 
-const plans = [
-  {
-    planId: "starter",
-    name: "Starter",
-    description: "Free forever — get started today",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    features: [
-      "Up to 3 users",
-      "1 location",
-      "100 products",
-      "Basic inventory tracking",
-      "Order management",
-      "Email support",
-      "Basic analytics",
-    ],
-  },
-  {
-    planId: "professional",
-    name: "Professional",
-    description: "For growing businesses that need more",
-    monthlyPrice: 14900,
-    yearlyPrice: 142800,
-    isPopular: true,
-    features: [
-      "Up to 25 users",
-      "5 locations",
-      "Unlimited products",
-      "Advanced inventory & lot tracking",
-      "Recipe & production management",
-      "Order management with routing",
-      "Priority support",
-      "Advanced analytics & reports",
-      "Custom integrations",
-    ],
-  },
-  {
-    planId: "enterprise",
-    name: "Enterprise",
-    description: "For large operations with advanced needs",
-    monthlyPrice: 39900,
-    yearlyPrice: 382800,
-    features: [
-      "Unlimited users",
-      "Unlimited locations",
-      "Unlimited products",
-      "Full inventory & production suite",
-      "Advanced order fulfillment",
-      "Dedicated account manager",
-      "SSO / SAML authentication",
-      "Audit logs & compliance",
-      "SLA guarantee",
-      "Custom integrations & API",
-    ],
-  },
-];
+interface Plan {
+  planId: string;
+  name: string;
+  description: string;
+  features: string[];
+  pricing: {
+    monthly: number;
+    annual: number;
+  };
+}
 
 const addons = [
   {
@@ -83,8 +37,23 @@ const addons = [
   },
 ];
 
+// Which plan to highlight as "Most Popular"
+const POPULAR_PLAN = "professional";
+
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/plans")
+      .then((r) => r.json())
+      .then((data) => {
+        setPlans(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -99,8 +68,7 @@ export default function PricingPage() {
               Simple, transparent pricing
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Choose the plan that fits your business. Upgrade or downgrade
-              anytime.
+              Choose the plan that fits your business. Upgrade or downgrade anytime.
             </p>
 
             {/* Billing toggle */}
@@ -146,15 +114,27 @@ export default function PricingPage() {
         {/* Pricing cards */}
         <section className="pb-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-8 md:grid-cols-3 lg:gap-6 items-start">
-              {plans.map((plan) => (
-                <PricingCard
-                  key={plan.planId}
-                  {...plan}
-                  isAnnual={isAnnual}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-6 items-start">
+                {plans.map((plan) => (
+                  <PricingCard
+                    key={plan.planId}
+                    planId={plan.planId}
+                    name={plan.name}
+                    description={plan.description}
+                    monthlyPrice={plan.pricing.monthly}
+                    yearlyPrice={plan.pricing.annual}
+                    features={plan.features}
+                    isAnnual={isAnnual}
+                    isPopular={plan.planId === POPULAR_PLAN}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -166,8 +146,7 @@ export default function PricingPage() {
                 Powerful AI Add-ons
               </h2>
               <p className="mt-3 text-muted-foreground">
-                Supercharge your workflow with AI-powered tools. Available on any
-                plan.
+                Supercharge your workflow with AI-powered tools. Available on any plan.
               </p>
             </div>
             <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
@@ -186,9 +165,7 @@ export default function PricingPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-foreground">
-                        +{addon.price}
-                      </span>
+                      <span className="text-2xl font-bold text-foreground">+{addon.price}</span>
                       <span className="text-muted-foreground">/mo</span>
                     </div>
                   </CardContent>
@@ -198,20 +175,19 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* FAQ-style CTA */}
+        {/* CTA */}
         <section className="py-20">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Not sure which plan is right for you?
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Start free with our Starter plan — no credit card required.
-              Upgrade anytime as your business grows. Our team is happy to
-              help you find the right fit.
+              Start free with our Beginner plan — no credit card required.
+              Upgrade anytime as your business grows.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button size="lg" asChild>
-                <Link href="/register?plan=starter">Start Free</Link>
+                <Link href="/register?plan=beginner">Start Free</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <Link href="#">Contact Sales</Link>

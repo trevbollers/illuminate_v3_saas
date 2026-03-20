@@ -43,30 +43,40 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-const validPlans = ["starter", "professional", "enterprise"] as const;
-
-const planLabels: Record<string, string> = {
-  starter: "Starter (Free)",
-  professional: "Professional",
-  enterprise: "Enterprise",
-};
-
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedPlan = searchParams.get("plan");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [validPlans, setValidPlans] = useState<string[]>([]);
+  const [planLabel, setPlanLabel] = useState<string>("");
 
-  // Redirect to pricing if no valid plan is selected
+  // Load valid plans from the API
   useEffect(() => {
-    if (!selectedPlan || !validPlans.includes(selectedPlan as any)) {
+    fetch("/api/plans")
+      .then((r) => r.json())
+      .then((data: { planId: string; name: string; pricing: { monthly: number } }[]) => {
+        const ids = data.map((p) => p.planId);
+        setValidPlans(ids);
+        const match = data.find((p) => p.planId === selectedPlan);
+        if (match) {
+          setPlanLabel(
+            match.pricing.monthly === 0 ? `${match.name} (Free)` : match.name
+          );
+        }
+      });
+  }, [selectedPlan]);
+
+  // Redirect to pricing if plans loaded and selected plan is invalid
+  useEffect(() => {
+    if (validPlans.length > 0 && selectedPlan && !validPlans.includes(selectedPlan)) {
       router.replace("/pricing");
     }
-  }, [selectedPlan, router]);
+  }, [validPlans, selectedPlan, router]);
 
-  // Don't render the form until we know the plan is valid
-  if (!selectedPlan || !validPlans.includes(selectedPlan as any)) {
+  // Don't render the form until plans are loaded and plan is validated
+  if (!selectedPlan || (validPlans.length > 0 && !validPlans.includes(selectedPlan))) {
     return null;
   }
 
@@ -141,7 +151,7 @@ export default function RegisterPage() {
             <CardDescription>
               Get started with the{" "}
               <span className="font-semibold text-primary">
-                {planLabels[selectedPlan] || "Starter"}
+                {planLabel || selectedPlan}
               </span>{" "}
               plan
             </CardDescription>
