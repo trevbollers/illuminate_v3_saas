@@ -3,22 +3,23 @@ import type { NextRequest } from "next/server";
 import { auth } from "@illuminate/auth";
 
 /**
- * Admin portal middleware — restricts access to super_admin users only.
+ * Admin portal middleware — restricts access to saas_admin users only.
  *
  * Security checks:
  * 1. User is authenticated via NextAuth JWT (not a spoofable cookie)
- * 2. User has platformRole === "super_admin" in their verified JWT claims
+ * 2. User has platformRole === "saas_admin" in their verified JWT claims
  *
  * On failure:
- * - Unauthenticated → redirect to login
+ * - Unauthenticated → redirect to /login
  * - Wrong role → 403 (generic, no information leakage)
  */
 export async function middleware(request: NextRequest) {
-  // Allow Next.js internals and static assets through
+  // Allow Next.js internals, static assets, auth API, and login page through
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/favicon.ico") ||
-    request.nextUrl.pathname.startsWith("/api/auth")
+    request.nextUrl.pathname.startsWith("/api/auth") ||
+    request.nextUrl.pathname === "/login"
   ) {
     return NextResponse.next();
   }
@@ -27,20 +28,13 @@ export async function middleware(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user) {
-    // Not logged in — redirect to login
-    const loginUrl = new URL(
-      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    );
-    loginUrl.pathname = "/auth/login";
-    loginUrl.searchParams.set("redirect", request.nextUrl.href);
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // --- 2. Verify super_admin role from JWT claims ---
-  // This comes from the verified JWT token, NOT a cookie or header.
-  // The platformRole is set during sign-in from the database and cannot
-  // be tampered with by the client.
-  if (session.user.platformRole !== "super_admin") {
+  // --- 2. Verify saas_admin role from JWT claims ---
+  if (session.user.platformRole !== "saas_admin") {
     const isApiRequest =
       request.headers.get("accept")?.includes("application/json");
 
@@ -51,7 +45,6 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    // Generic denial page — don't reveal that this is an admin portal
     return new NextResponse(
       `<!DOCTYPE html>
 <html>

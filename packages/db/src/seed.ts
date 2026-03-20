@@ -158,7 +158,7 @@ async function seed() {
       email: "admin@illuminate.dev",
       name: "Super Admin",
       passwordHash: "admin123", // Will be hashed by pre-save hook
-      platformRole: "super_admin",
+      platformRole: "saas_admin",
       emailVerified: new Date(),
       memberships: [],
     });

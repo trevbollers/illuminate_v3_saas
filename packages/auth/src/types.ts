@@ -1,6 +1,6 @@
 import type { DefaultSession, DefaultJWT } from "next-auth";
 
-export type PlatformRole = "super_admin" | "platform_admin" | "user";
+export type PlatformRole = "saas_admin" | "platform_admin" | "user";
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
 

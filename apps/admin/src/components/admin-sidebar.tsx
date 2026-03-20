@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Building2,
@@ -27,6 +28,16 @@ const navItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const initials = session?.user?.name
+    ? session.user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "SA";
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -72,12 +83,14 @@ export function AdminSidebar() {
       <div className="p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <span className="text-sm font-semibold">SA</span>
+            <span className="text-sm font-semibold">{initials}</span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="truncate text-sm font-medium">Super Admin</p>
+            <p className="truncate text-sm font-medium">
+              {session?.user?.name ?? "Admin"}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
-              admin@illuminate.dev
+              {session?.user?.email ?? ""}
             </p>
           </div>
         </div>
@@ -85,6 +98,7 @@ export function AdminSidebar() {
           variant="ghost"
           size="sm"
           className="mt-3 w-full justify-start gap-2 text-muted-foreground"
+          onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="h-4 w-4" />
           Log out

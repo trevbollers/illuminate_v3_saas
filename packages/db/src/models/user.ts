@@ -21,7 +21,7 @@ export interface IUser extends Document {
   name: string;
   image?: string;
   phone?: string;
-  platformRole?: "super_admin" | null;
+  platformRole?: "saas_admin" | null;
   memberships: IMembership[];
   activeTenantId?: Types.ObjectId;
   lastLoginAt?: Date;
@@ -57,7 +57,7 @@ const UserSchema = new Schema<IUser>(
     phone: { type: String },
     platformRole: {
       type: String,
-      enum: ["super_admin", null],
+      enum: ["saas_admin", null],
       default: null,
     },
     memberships: [MembershipSchema],

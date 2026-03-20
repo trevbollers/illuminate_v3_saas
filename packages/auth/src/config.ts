@@ -155,12 +155,12 @@ export const authConfig: NextAuthConfig = {
           return null;
         }
 
-        if (!user.hashedPassword) {
+        if (!user.passwordHash) {
           // User signed up via OAuth and has no password set
           return null;
         }
 
-        const isValid = await bcrypt.compare(password, user.hashedPassword);
+        const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) {
           return null;
         }
