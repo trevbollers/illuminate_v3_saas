@@ -1,0 +1,28 @@
+# Local development services for Illuminate V3
+# Usage: docker compose up -d
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: illuminate-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: illuminate
+      MONGO_INITDB_ROOT_PASSWORD: illuminate_dev
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: illuminate-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongodb_data:
+  redis_data:
