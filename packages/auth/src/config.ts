@@ -238,7 +238,10 @@ export const authConfig: NextAuthConfig = {
       if (isAuthPage) {
         // Redirect logged-in users away from auth pages
         if (isLoggedIn) {
-          return Response.redirect(new URL("/dashboard", request.nextUrl));
+          const dashboardUrl =
+            process.env.NEXT_PUBLIC_DASHBOARD_URL ??
+            new URL("/dashboard", request.nextUrl).toString();
+          return Response.redirect(new URL(dashboardUrl));
         }
         return true;
       }

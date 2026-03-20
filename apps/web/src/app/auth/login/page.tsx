@@ -58,8 +58,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      window.location.href =
+        process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3002";
     } catch {
       setServerError("Something went wrong. Please try again.");
     } finally {
@@ -69,7 +69,9 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     const { signIn } = await import("next-auth/react");
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("google", {
+      callbackUrl: process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3002",
+    });
   }
 
   return (
