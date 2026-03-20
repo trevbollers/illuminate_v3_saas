@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   DollarSign,
   Building2,
@@ -7,6 +8,7 @@ import {
   TrendingDown,
   ArrowUpRight,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -28,63 +30,52 @@ import { Badge } from "@illuminate/ui/src/components/badge";
 import { Button } from "@illuminate/ui/src/components/button";
 import { StatCard } from "@/components/stat-card";
 
-const revenueData = [
-  { month: "Jul", revenue: 28400 },
-  { month: "Aug", revenue: 31200 },
-  { month: "Sep", revenue: 33800 },
-  { month: "Oct", revenue: 35100 },
-  { month: "Nov", revenue: 38400 },
-  { month: "Dec", revenue: 40200 },
-  { month: "Jan", revenue: 42800 },
-  { month: "Feb", revenue: 44100 },
-  { month: "Mar", revenue: 47600 },
-];
-
-const recentSignups = [
-  {
-    business: "Coastal Coffee Co.",
-    owner: "Sarah Mitchell",
-    plan: "Professional",
-    date: "Mar 18, 2026",
-  },
-  {
-    business: "Urban Bites",
-    owner: "James Chen",
-    plan: "Starter",
-    date: "Mar 17, 2026",
-  },
-  {
-    business: "Fresh & Local Market",
-    owner: "Maria Rodriguez",
-    plan: "Enterprise",
-    date: "Mar 16, 2026",
-  },
-  {
-    business: "The Daily Grind",
-    owner: "Tom Baker",
-    plan: "Professional",
-    date: "Mar 15, 2026",
-  },
-  {
-    business: "Sakura Sushi Bar",
-    owner: "Yuki Tanaka",
-    plan: "Starter",
-    date: "Mar 14, 2026",
-  },
-];
+interface Stats {
+  mrr: number;
+  activeTenants: number;
+  newSignupsThisMonth: number;
+  churnRate: string;
+  revenueByMonth: { month: string; revenue: number }[];
+  recentSignups: {
+    business: string;
+    owner: string;
+    plan: string;
+    date: string;
+  }[];
+}
 
 const planBadgeVariant = (plan: string) => {
-  switch (plan) {
-    case "Enterprise":
-      return "default" as const;
-    case "Professional":
-      return "secondary" as const;
-    default:
-      return "outline" as const;
-  }
+  const lower = plan.toLowerCase();
+  if (lower === "enterprise") return "default" as const;
+  if (lower === "professional") return "secondary" as const;
+  return "outline" as const;
 };
 
+function fmt(dollars: number) {
+  if (dollars >= 1000)
+    return `$${(dollars / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `$${dollars.toLocaleString()}`;
+}
+
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/stats")
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -99,35 +90,27 @@ export default function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Monthly Recurring Revenue"
-          value="$47,600"
-          change="+8.2%"
-          changeType="positive"
+          value={`$${(stats?.mrr ?? 0).toLocaleString()}`}
           icon={DollarSign}
-          description="from last month"
+          description="active subscriptions"
         />
         <StatCard
           title="Active Tenants"
-          value="284"
-          change="+12"
-          changeType="positive"
+          value={String(stats?.activeTenants ?? 0)}
           icon={Building2}
-          description="this month"
+          description="active + trialing"
         />
         <StatCard
           title="New Signups"
-          value="38"
-          change="+14.3%"
-          changeType="positive"
+          value={String(stats?.newSignupsThisMonth ?? 0)}
           icon={UserPlus}
           description="this month"
         />
         <StatCard
           title="Churn Rate"
-          value="2.4%"
-          change="-0.3%"
-          changeType="positive"
+          value={`${stats?.churnRate ?? "0.0"}%`}
           icon={TrendingDown}
-          description="from last month"
+          description="canceled last 30 days"
         />
       </div>
 
@@ -137,63 +120,72 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle className="text-base">Revenue Trend</CardTitle>
             <CardDescription>
-              Monthly recurring revenue over the past 9 months
+              Monthly recurring revenue over the past 6 months
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={revenueData}>
-                <defs>
-                  <linearGradient
-                    id="revenueGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(221.2, 83.2%, 53.3%)"
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(221.2, 83.2%, 53.3%)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis
-                  dataKey="month"
-                  className="text-xs"
-                  tick={{ fill: "hsl(215.4, 16.3%, 46.9%)" }}
-                />
-                <YAxis
-                  className="text-xs"
-                  tick={{ fill: "hsl(215.4, 16.3%, 46.9%)" }}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    `$${value.toLocaleString()}`,
-                    "Revenue",
-                  ]}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid hsl(214.3, 31.8%, 91.4%)",
-                    fontSize: "12px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(221.2, 83.2%, 53.3%)"
-                  strokeWidth={2}
-                  fill="url(#revenueGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {(stats?.revenueByMonth?.length ?? 0) > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={stats!.revenueByMonth}>
+                  <defs>
+                    <linearGradient
+                      id="revenueGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="hsl(221.2, 83.2%, 53.3%)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="hsl(221.2, 83.2%, 53.3%)"
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
+                  <XAxis
+                    dataKey="month"
+                    className="text-xs"
+                    tick={{ fill: "hsl(215.4, 16.3%, 46.9%)" }}
+                  />
+                  <YAxis
+                    className="text-xs"
+                    tick={{ fill: "hsl(215.4, 16.3%, 46.9%)" }}
+                    tickFormatter={(v) => fmt(v)}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `$${value.toLocaleString()}`,
+                      "Revenue",
+                    ]}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "1px solid hsl(214.3, 31.8%, 91.4%)",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="hsl(221.2, 83.2%, 53.3%)"
+                    strokeWidth={2}
+                    fill="url(#revenueGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                No revenue data yet
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -236,10 +228,16 @@ export default function AdminDashboard() {
                 <ArrowUpRight className="ml-auto h-3 w-3 opacity-50" />
               </a>
             </Button>
-            <Button variant="outline" className="justify-start gap-2">
-              <ExternalLink className="h-4 w-4" />
-              Open Stripe Dashboard
-              <ArrowUpRight className="ml-auto h-3 w-3 opacity-50" />
+            <Button variant="outline" className="justify-start gap-2" asChild>
+              <a
+                href="https://dashboard.stripe.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Stripe Dashboard
+                <ArrowUpRight className="ml-auto h-3 w-3 opacity-50" />
+              </a>
             </Button>
           </CardContent>
         </Card>
@@ -254,45 +252,53 @@ export default function AdminDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Business
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Owner
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Plan
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentSignups.map((signup, i) => (
-                  <tr
-                    key={i}
-                    className="border-b last:border-0 hover:bg-muted/50"
-                  >
-                    <td className="py-3 font-medium">{signup.business}</td>
-                    <td className="py-3 text-muted-foreground">
-                      {signup.owner}
-                    </td>
-                    <td className="py-3">
-                      <Badge variant={planBadgeVariant(signup.plan)}>
-                        {signup.plan}
-                      </Badge>
-                    </td>
-                    <td className="py-3 text-muted-foreground">{signup.date}</td>
+          {(stats?.recentSignups?.length ?? 0) === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No signups yet
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Business
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Owner
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Plan
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Date
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {stats!.recentSignups.map((signup, i) => (
+                    <tr
+                      key={i}
+                      className="border-b last:border-0 hover:bg-muted/50"
+                    >
+                      <td className="py-3 font-medium">{signup.business}</td>
+                      <td className="py-3 text-muted-foreground">
+                        {signup.owner}
+                      </td>
+                      <td className="py-3">
+                        <Badge variant={planBadgeVariant(signup.plan)}>
+                          {signup.plan}
+                        </Badge>
+                      </td>
+                      <td className="py-3 text-muted-foreground">
+                        {signup.date}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

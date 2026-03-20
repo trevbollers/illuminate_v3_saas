@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@illuminate/ui";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { auth } from "@illuminate/auth/edge";
+import { connectPlatformDB, Tenant } from "@illuminate/db";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -11,23 +12,56 @@ export const metadata: Metadata = {
   description: "Meat locker operations management dashboard",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+
+  let tenantName = "Your Business";
+  let planName = "free";
+  let locations: { id: string; name: string }[] = [];
+
+  if (session?.user?.tenantSlug) {
+    try {
+      await connectPlatformDB();
+      const tenant = await Tenant.findOne({ slug: session.user.tenantSlug })
+        .select("name plan.planId locations")
+        .lean();
+
+      if (tenant) {
+        tenantName = tenant.name;
+        planName = tenant.plan.planId;
+        locations = (tenant.locations ?? [])
+          .filter((l: any) => l.isActive !== false)
+          .map((l: any) => ({ id: l._id.toString(), name: l.name }));
+      }
+    } catch (err) {
+      console.error("[dashboard:layout] Failed to fetch tenant:", err);
+    }
+  }
+
+  const sidebarUser = session?.user
+    ? {
+        name: session.user.name ?? "User",
+        email: session.user.email ?? "",
+        role: (session.user.role as string) ?? "staff",
+        image: session.user.image ?? null,
+      }
+    : null;
+
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SidebarProvider>
-          <DashboardSidebar />
-          <SidebarInset>
-            <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <SidebarTrigger />
-            </header>
-            <div className="flex-1 p-6">{children}</div>
-          </SidebarInset>
-        </SidebarProvider>
+        <DashboardShell
+          businessName={tenantName}
+          planName={planName}
+          locations={locations}
+          user={sidebarUser}
+        >
+          {children}
+        </DashboardShell>
       </body>
     </html>
   );

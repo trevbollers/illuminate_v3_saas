@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Package,
@@ -47,7 +48,6 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-  Separator,
 } from "@illuminate/ui";
 
 const navGroups = [
@@ -91,48 +91,70 @@ const navGroups = [
   },
 ];
 
-const mockLocations = [
-  { id: "loc-1", name: "Main Processing Facility" },
-  { id: "loc-2", name: "Downtown Retail Shop" },
-];
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
-const mockUser = {
-  name: "Mike Johnson",
-  email: "mike@premiummeats.com",
-  role: "Owner",
-  avatar: null,
-  initials: "MJ",
-};
+function formatPlanName(planId: string): string {
+  return planId.charAt(0).toUpperCase() + planId.slice(1) + " Plan";
+}
 
-export function DashboardSidebar() {
+interface SidebarUser {
+  name: string;
+  email: string;
+  role: string;
+  image: string | null;
+}
+
+interface DashboardSidebarProps {
+  businessName: string;
+  planName: string;
+  locations: { id: string; name: string }[];
+  user: SidebarUser | null;
+}
+
+export function DashboardSidebar({
+  businessName,
+  planName,
+  locations,
+  user,
+}: DashboardSidebarProps) {
   const pathname = usePathname();
   const { open } = useSidebar();
+
+  const displayName = user?.name ?? "User";
+  const initials = getInitials(displayName);
+  const businessInitials = getInitials(businessName);
 
   return (
     <Sidebar>
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-            PM
+            {businessInitials}
           </div>
           {open && (
             <div className="flex flex-col overflow-hidden">
               <span className="truncate text-sm font-semibold">
-                Premium Meats Co.
+                {businessName}
               </span>
               <span className="truncate text-xs text-muted-foreground">
-                Pro Plan
+                {formatPlanName(planName)}
               </span>
             </div>
           )}
         </div>
-        {open && mockLocations.length > 1 && (
-          <Select defaultValue={mockLocations[0]?.id}>
+        {open && locations.length > 1 && (
+          <Select defaultValue={locations[0]?.id}>
             <SelectTrigger className="mt-2 h-8 text-xs">
               <SelectValue placeholder="Select location" />
             </SelectTrigger>
             <SelectContent>
-              {mockLocations.map((loc) => (
+              {locations.map((loc) => (
                 <SelectItem key={loc.id} value={loc.id} className="text-xs">
                   {loc.name}
                 </SelectItem>
@@ -175,19 +197,17 @@ export function DashboardSidebar() {
           <DropdownMenuTrigger asChild>
             <button className="flex w-full items-center gap-3 rounded-md p-1 text-sm hover:bg-sidebar-accent transition-colors">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={mockUser.avatar ?? undefined} />
-                <AvatarFallback className="text-xs">
-                  {mockUser.initials}
-                </AvatarFallback>
+                <AvatarImage src={user?.image ?? undefined} />
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
               {open && (
                 <>
                   <div className="flex flex-col items-start overflow-hidden">
                     <span className="truncate text-sm font-medium">
-                      {mockUser.name}
+                      {displayName}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {mockUser.role}
+                    <span className="truncate text-xs text-muted-foreground capitalize">
+                      {user?.role ?? "staff"}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
@@ -198,9 +218,9 @@ export function DashboardSidebar() {
           <DropdownMenuContent side="top" align="start" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col">
-                <span>{mockUser.name}</span>
+                <span>{displayName}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  {mockUser.email}
+                  {user?.email}
                 </span>
               </div>
             </DropdownMenuLabel>
@@ -218,7 +238,15 @@ export function DashboardSidebar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() =>
+                signOut({
+                  callbackUrl:
+                    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+                })
+              }
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@illuminate/auth";
-import { createCheckoutSession } from "@illuminate/billing/src/checkout";
-import { getPlan } from "@illuminate/billing/src/plans";
+import { createCheckoutSession, getPlan } from "@illuminate/billing";
 
 export async function POST(req: NextRequest) {
   try {

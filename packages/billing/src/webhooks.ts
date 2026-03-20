@@ -114,12 +114,12 @@ async function handleCheckoutCompleted(
   }
 
   await updateTenant(tenantId, {
-    "billing.stripeCustomerId": customerId ?? null,
-    "billing.stripeSubscriptionId": subscriptionId ?? null,
-    "billing.planId": planId ?? "starter",
-    "billing.status": "trialing" as SubscriptionStatus,
-    "billing.checkoutCompletedAt": new Date(),
-    "billing.checkoutUserId": userId ?? null,
+    "plan.stripeCustomerId": customerId ?? null,
+    "plan.stripeSubscriptionId": subscriptionId ?? null,
+    "plan.planId": planId ?? "starter",
+    "plan.status": "trialing" as SubscriptionStatus,
+    "plan.checkoutCompletedAt": new Date(),
+    "plan.checkoutUserId": userId ?? null,
   });
 
   return {
@@ -158,22 +158,22 @@ async function updateTenantSubscription(
   const plan = priceId ? await getPlanByPriceId(priceId) : null;
 
   const updateFields: Record<string, unknown> = {
-    "billing.status": subscription.status as SubscriptionStatus,
-    "billing.currentPeriodStart": new Date(
+    "plan.status": subscription.status as SubscriptionStatus,
+    "plan.currentPeriodStart": new Date(
       subscription.current_period_start * 1000
     ),
-    "billing.currentPeriodEnd": new Date(
+    "plan.currentPeriodEnd": new Date(
       subscription.current_period_end * 1000
     ),
-    "billing.cancelAtPeriodEnd": subscription.cancel_at_period_end,
+    "plan.cancelAtPeriodEnd": subscription.cancel_at_period_end,
   };
 
   if (plan) {
-    updateFields["billing.planId"] = plan.planId;
+    updateFields["plan.planId"] = plan.planId;
   }
 
   if (subscription.trial_end) {
-    updateFields["billing.trialEnd"] = new Date(
+    updateFields["plan.trialEnd"] = new Date(
       subscription.trial_end * 1000
     );
   }
@@ -205,9 +205,9 @@ async function handleSubscriptionDeleted(
   }
 
   await updateTenant(resolvedTenantId, {
-    "billing.status": "canceled" as SubscriptionStatus,
-    "billing.canceledAt": new Date(),
-    "billing.cancelAtPeriodEnd": false,
+    "plan.status": "canceled" as SubscriptionStatus,
+    "plan.canceledAt": new Date(),
+    "plan.cancelAtPeriodEnd": false,
   });
 
   return {
@@ -243,9 +243,9 @@ async function handleInvoicePaymentSucceeded(
   }
 
   await updateTenant(tenant._id.toString(), {
-    "billing.lastPaymentAt": new Date(),
-    "billing.lastPaymentAmount": invoice.amount_paid,
-    "billing.lastPaymentStatus": "succeeded",
+    "plan.lastPaymentAt": new Date(),
+    "plan.lastPaymentAmount": invoice.amount_paid,
+    "plan.lastPaymentStatus": "succeeded",
   });
 
   return {
@@ -281,10 +281,10 @@ async function handleInvoicePaymentFailed(
   }
 
   await updateTenant(tenant._id.toString(), {
-    "billing.status": "past_due" as SubscriptionStatus,
-    "billing.lastPaymentAt": new Date(),
-    "billing.lastPaymentAmount": invoice.amount_due,
-    "billing.lastPaymentStatus": "failed",
+    "plan.status": "past_due" as SubscriptionStatus,
+    "plan.lastPaymentAt": new Date(),
+    "plan.lastPaymentAmount": invoice.amount_due,
+    "plan.lastPaymentStatus": "failed",
   });
 
   return {
@@ -335,7 +335,7 @@ async function findTenantBySubscription(
   }
 
   const tenant = await db.collection("tenants").findOne(
-    { "billing.stripeSubscriptionId": stripeSubscriptionId },
+    { "plan.stripeSubscriptionId": stripeSubscriptionId },
     { projection: { _id: 1 } }
   );
 

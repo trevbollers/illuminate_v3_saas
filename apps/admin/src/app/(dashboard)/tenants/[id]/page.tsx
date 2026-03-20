@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -14,6 +16,8 @@ import {
   ArrowUpCircle,
   Clock,
   Trash2,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -24,62 +28,38 @@ import {
 } from "@illuminate/ui/src/components/card";
 import { Badge } from "@illuminate/ui/src/components/badge";
 import { Button } from "@illuminate/ui/src/components/button";
-import { Separator } from "@illuminate/ui/src/components/separator";
 
-// Mock tenant data
-const tenant = {
-  id: "t_1",
-  businessName: "Coastal Coffee Co.",
-  slug: "coastal-coffee",
-  status: "active",
-  createdAt: "January 12, 2026",
-  plan: "Professional",
-  subscriptionStatus: "active",
-  renewalDate: "April 12, 2026",
-  mrr: 79,
-  trialEndsAt: null,
+interface TenantDetail {
+  id: string;
+  businessName: string;
+  slug: string;
+  status: string;
+  createdAt: string;
+  plan: string;
+  planId: string;
+  subscriptionStatus: string;
+  renewalDate: string | null;
+  trialEnd: string | null;
+  mrr: number;
+  limits: {
+    users: number;
+    locations: number;
+    products: number;
+    ordersPerMonth: number;
+  } | null;
   usage: {
-    users: 8,
-    maxUsers: 15,
-    locations: 3,
-    maxLocations: 5,
-    products: 142,
-    maxProducts: 500,
-    orders: 1284,
-  },
-  users: [
-    {
-      name: "Sarah Mitchell",
-      email: "sarah@coastalcoffee.com",
-      role: "owner",
-      lastActive: "2 hours ago",
-    },
-    {
-      name: "Mike Johnson",
-      email: "mike@coastalcoffee.com",
-      role: "admin",
-      lastActive: "1 day ago",
-    },
-    {
-      name: "Emma Wilson",
-      email: "emma@coastalcoffee.com",
-      role: "staff",
-      lastActive: "3 hours ago",
-    },
-    {
-      name: "Alex Brown",
-      email: "alex@coastalcoffee.com",
-      role: "staff",
-      lastActive: "5 days ago",
-    },
-    {
-      name: "Chris Lee",
-      email: "chris@coastalcoffee.com",
-      role: "staff",
-      lastActive: "1 hour ago",
-    },
-  ],
-};
+    users: number;
+    maxUsers: number;
+    locations: number;
+    maxLocations: number;
+  };
+  members: {
+    name: string;
+    email: string;
+    role: string;
+    lastActive: string;
+  }[];
+}
 
 function UsageBar({
   current,
@@ -90,13 +70,14 @@ function UsageBar({
   max: number;
   label: string;
 }) {
-  const pct = Math.min((current / max) * 100, 100);
+  const pct = max > 0 ? Math.min((current / max) * 100, 100) : 0;
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium">
-          {current} / {max}
+          {current}
+          {max > 0 ? ` / ${max}` : ""}
         </span>
       </div>
       <div className="h-2 rounded-full bg-muted">
@@ -109,10 +90,65 @@ function UsageBar({
   );
 }
 
+const statusBadgeVariant = (status: string) => {
+  switch (status) {
+    case "active": return "default" as const;
+    case "trialing": return "secondary" as const;
+    case "past_due": return "destructive" as const;
+    default: return "outline" as const;
+  }
+};
+
 export default function TenantDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [tenant, setTenant] = useState<TenantDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/admin/tenants/${id}`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error ?? "Failed to load tenant");
+        }
+        return r.json();
+      })
+      .then(setTenant)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !tenant) {
+    return (
+      <div className="space-y-4">
+        <Link
+          href="/tenants"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Tenants
+        </Link>
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error ?? "Tenant not found"}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Back link + header */}
+      {/* Back + Header */}
       <div>
         <Link
           href="/tenants"
@@ -136,9 +172,7 @@ export default function TenantDetailPage() {
             </div>
           </div>
           <Badge
-            variant={
-              tenant.status === "active" ? "default" : "destructive"
-            }
+            variant={tenant.status === "active" ? "default" : "destructive"}
             className="text-sm"
           >
             {tenant.status}
@@ -156,7 +190,10 @@ export default function TenantDetailPage() {
           <Clock className="h-4 w-4" />
           Extend Trial
         </Button>
-        <Button variant="outline" className="gap-2 text-orange-600 hover:text-orange-700">
+        <Button
+          variant="outline"
+          className="gap-2 text-orange-600 hover:text-orange-700"
+        >
           <Ban className="h-4 w-4" />
           Suspend
         </Button>
@@ -177,28 +214,38 @@ export default function TenantDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Plan</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <Badge variant="secondary">{tenant.plan}</Badge>
+                <div className="mt-1">
+                  <Badge variant="secondary" className="capitalize">
+                    {tenant.plan}
+                  </Badge>
                 </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Status</p>
                 <div className="mt-1">
-                  <Badge variant="default">{tenant.subscriptionStatus}</Badge>
+                  <Badge variant={statusBadgeVariant(tenant.subscriptionStatus)}>
+                    {tenant.subscriptionStatus.replace("_", " ")}
+                  </Badge>
                 </div>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Renewal Date</p>
+                <p className="text-sm text-muted-foreground">
+                  {tenant.subscriptionStatus === "trialing"
+                    ? "Trial Ends"
+                    : "Renewal Date"}
+                </p>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  {tenant.renewalDate}
+                  {tenant.subscriptionStatus === "trialing"
+                    ? tenant.trialEnd ?? "—"
+                    : tenant.renewalDate ?? "—"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">MRR</p>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium">
                   <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-                  ${tenant.mrr}/mo
+                  {tenant.mrr > 0 ? `$${tenant.mrr}/mo` : "Free"}
                 </p>
               </div>
             </div>
@@ -222,43 +269,26 @@ export default function TenantDetailPage() {
               max={tenant.usage.maxLocations}
               label="Locations"
             />
-            <UsageBar
-              current={tenant.usage.products}
-              max={tenant.usage.maxProducts}
-              label="Products"
-            />
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total Orders</span>
-              <span className="font-medium">
-                {tenant.usage.orders.toLocaleString()}
-              </span>
-            </div>
+            {tenant.limits && (
+              <UsageBar
+                current={0}
+                max={tenant.limits.products}
+                label="Products (limit)"
+              />
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Usage Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         {[
+          { label: "Team Members", value: tenant.usage.users, icon: Users },
+          { label: "Locations", value: tenant.usage.locations, icon: MapPin },
           {
-            label: "Users",
-            value: tenant.usage.users,
-            icon: Users,
-          },
-          {
-            label: "Locations",
-            value: tenant.usage.locations,
-            icon: MapPin,
-          },
-          {
-            label: "Products",
-            value: tenant.usage.products,
+            label: "Product Limit",
+            value: tenant.limits?.products ?? "—",
             icon: Package,
-          },
-          {
-            label: "Orders",
-            value: tenant.usage.orders.toLocaleString(),
-            icon: ShoppingCart,
           },
         ].map((item) => (
           <Card key={item.label}>
@@ -275,72 +305,79 @@ export default function TenantDetailPage() {
         ))}
       </div>
 
-      {/* Users List */}
+      {/* Team Members */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Team Members</CardTitle>
           <CardDescription>
-            Users associated with this tenant
+            {tenant.members.length} user
+            {tenant.members.length !== 1 ? "s" : ""} associated with this
+            tenant
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Name
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Email
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Role
-                  </th>
-                  <th className="pb-3 text-left font-medium text-muted-foreground">
-                    Last Active
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenant.users.map((user, i) => (
-                  <tr
-                    key={i}
-                    className="border-b last:border-0"
-                  >
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                          {user.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
+          {tenant.members.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No team members found
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Name
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Email
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Role
+                    </th>
+                    <th className="pb-3 text-left font-medium text-muted-foreground">
+                      Last Active
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenant.members.map((member, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                            {member.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </div>
+                          <span className="font-medium">{member.name}</span>
                         </div>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 text-muted-foreground">{user.email}</td>
-                    <td className="py-3">
-                      <Badge
-                        variant={
-                          user.role === "owner"
-                            ? "default"
-                            : user.role === "admin"
+                      </td>
+                      <td className="py-3 text-muted-foreground">
+                        {member.email}
+                      </td>
+                      <td className="py-3">
+                        <Badge
+                          variant={
+                            member.role === "owner"
+                              ? "default"
+                              : member.role === "admin"
                               ? "secondary"
                               : "outline"
-                        }
-                      >
-                        {user.role}
-                      </Badge>
-                    </td>
-                    <td className="py-3 text-muted-foreground">
-                      {user.lastActive}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          }
+                        >
+                          {member.role}
+                        </Badge>
+                      </td>
+                      <td className="py-3 text-muted-foreground">
+                        {member.lastActive}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Zap,
 } from "lucide-react";
 import { cn } from "@illuminate/ui/src/lib/utils";
 import { Button } from "@illuminate/ui/src/components/button";
@@ -23,6 +24,7 @@ const navItems = [
   { label: "Billing", href: "/billing", icon: CreditCard },
   { label: "Feature Flags", href: "/features", icon: Flag },
   { label: "Plans & Pricing", href: "/plans", icon: Tags },
+  { label: "Stripe", href: "/stripe", icon: Zap },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

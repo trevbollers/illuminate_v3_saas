@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, randomBytes } from "crypto";
-import { connectPlatformDB, User, Tenant } from "@illuminate/db";
+import { connectPlatformDB, connectTenantDB, User, Tenant } from "@illuminate/db";
 import { sendEmail, VerifyEmail } from "@illuminate/email";
+import { createCheckoutSession } from "@illuminate/billing";
 
 const VALID_PLANS = ["beginner", "starter", "professional", "enterprise"];
-const FREE_PLANS = ["beginner", "starter"];
+const FREE_PLANS = ["beginner"];
 
 function generateVerifyToken(userId: string): string {
   const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24; // 24h
@@ -140,6 +141,15 @@ export async function POST(req: NextRequest) {
     await user.save();
     console.log("[register] User membership updated, activeTenantId:", tenant._id.toString());
 
+    // Initialize the tenant's isolated database
+    try {
+      await connectTenantDB(slug);
+      console.log("[register] Tenant DB initialized for slug:", slug);
+    } catch (dbErr) {
+      // Non-blocking — tenant DB will be created on first access if this fails
+      console.error("[register] Failed to initialize tenant DB:", dbErr);
+    }
+
     // Send verification email
     const token = generateVerifyToken(user._id.toString());
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -157,15 +167,33 @@ export async function POST(req: NextRequest) {
       console.error("[register] Failed to send verification email:", emailErr);
     }
 
-    // Free plans go straight to the app; paid plans would go to Stripe checkout
+    // Free plans go straight to the app
     if (isFree) {
       console.log("[register] Registration complete (free plan) for:", email);
       return NextResponse.json({ checkoutUrl: null }, { status: 201 });
     }
 
-    // TODO: Create Stripe checkout session for paid plans and return checkoutUrl
-    console.log("[register] Registration complete (paid plan, no checkout yet) for:", email);
-    return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+    // Paid plans: create Stripe checkout session and return the redirect URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3002";
+
+    try {
+      const checkoutSession = await createCheckoutSession({
+        planId: plan,
+        billingInterval: "monthly",
+        tenantId: tenant._id.toString(),
+        userId: user._id.toString(),
+        email: email.toLowerCase(),
+        successUrl: `${dashboardUrl}?checkout=success`,
+        cancelUrl: `${appUrl}/register?plan=${plan}&checkout=cancelled`,
+      });
+      console.log("[register] Stripe checkout session created for:", email);
+      return NextResponse.json({ checkoutUrl: checkoutSession.url }, { status: 201 });
+    } catch (stripeErr) {
+      console.error("[register] Failed to create Stripe checkout session:", stripeErr);
+      // Registration succeeded — return null checkout URL so client can still proceed
+      return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+    }
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("[register] Registration failed:", {

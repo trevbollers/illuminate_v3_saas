@@ -27,7 +27,14 @@ export interface ITenantPlan {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   status: "trialing" | "active" | "past_due" | "canceled";
+  currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
+  trialEnd?: Date;
+  cancelAtPeriodEnd?: boolean;
+  canceledAt?: Date;
+  lastPaymentAt?: Date;
+  lastPaymentAmount?: number;
+  lastPaymentStatus?: string;
   addOns: ITenantPlanAddOn[];
 }
 
@@ -102,7 +109,14 @@ const TenantSchema = new Schema<ITenant>(
         enum: ["trialing", "active", "past_due", "canceled"],
         default: "trialing",
       },
+      currentPeriodStart: { type: Date },
       currentPeriodEnd: { type: Date },
+      trialEnd: { type: Date },
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+      canceledAt: { type: Date },
+      lastPaymentAt: { type: Date },
+      lastPaymentAmount: { type: Number },
+      lastPaymentStatus: { type: String },
       addOns: [
         {
           featureId: { type: String, required: true },
