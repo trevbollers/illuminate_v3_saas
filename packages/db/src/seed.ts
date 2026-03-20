@@ -1,7 +1,11 @@
-// Load root .env (seed runs standalone, not through Next.js)
+// Load env (seed runs standalone, not through Next.js)
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
+const root = path.resolve(__dirname, "../../..");
+// Try root .env first, then fall back to apps/admin/.env.local
+dotenv.config({ path: path.resolve(root, ".env") });
+dotenv.config({ path: path.resolve(root, "apps/admin/.env.local") });
 
 import mongoose from "mongoose";
 import { connectPlatformDB, connectTenantDB } from "./connection";
