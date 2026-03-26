@@ -2,38 +2,36 @@
 
 import React, { useState, useMemo } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Separator } from "@illuminate/ui/src/components/separator";
-import { ProductCard } from "@/components/product-card";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Separator } from "@goparticipate/ui/src/components/separator";
+import { ProgramCard } from "@/components/product-card";
 
-const allProducts = [
-  { name: "Ribeye Steak", slug: "ribeye-steak", price: 32.99, unit: "lb", category: "Beef", isConfigurable: true },
-  { name: "Filet Mignon", slug: "filet-mignon", price: 45.99, unit: "lb", category: "Beef" },
-  { name: "New York Strip", slug: "new-york-strip", price: 29.99, unit: "lb", category: "Beef", isConfigurable: true },
-  { name: "T-Bone Steak", slug: "t-bone-steak", price: 27.99, unit: "lb", category: "Beef" },
-  { name: "Ground Beef (80/20)", slug: "ground-beef-80-20", price: 9.99, unit: "lb", category: "Beef" },
-  { name: "Smoked Brisket", slug: "smoked-brisket", price: 28.99, unit: "lb", category: "Beef" },
-  { name: "Beef Short Ribs", slug: "beef-short-ribs", price: 19.99, unit: "lb", category: "Beef" },
-  { name: "Baby Back Ribs", slug: "baby-back-ribs", price: 18.99, unit: "lb", category: "Pork", isConfigurable: true },
-  { name: "Pork Chops", slug: "pork-chops", price: 14.99, unit: "lb", category: "Pork" },
-  { name: "Pork Tenderloin", slug: "pork-tenderloin", price: 16.99, unit: "lb", category: "Pork" },
-  { name: "Pulled Pork", slug: "pulled-pork", price: 15.99, unit: "lb", category: "Pork" },
-  { name: "Bacon (Thick Cut)", slug: "thick-cut-bacon", price: 12.99, unit: "lb", category: "Pork" },
-  { name: "Free-Range Whole Chicken", slug: "free-range-whole-chicken", price: 12.99, unit: "each", category: "Poultry" },
-  { name: "Chicken Breast", slug: "chicken-breast", price: 10.99, unit: "lb", category: "Poultry" },
-  { name: "Chicken Thighs", slug: "chicken-thighs", price: 8.99, unit: "lb", category: "Poultry" },
-  { name: "Duck Breast", slug: "duck-breast", price: 22.99, unit: "lb", category: "Poultry" },
-  { name: "Turkey Breast", slug: "turkey-breast", price: 14.99, unit: "lb", category: "Poultry" },
-  { name: "Wagyu Burger Patties", slug: "wagyu-burger-patties", price: 24.99, unit: "pack", category: "Specialty", isConfigurable: true },
-  { name: "Italian Sausage Links", slug: "italian-sausage-links", price: 11.99, unit: "lb", category: "Specialty" },
-  { name: "Beef Jerky (Original)", slug: "beef-jerky-original", price: 18.99, unit: "bag", category: "Specialty" },
-  { name: "Lamb Chops", slug: "lamb-chops", price: 34.99, unit: "lb", category: "Specialty" },
-  { name: "Venison Steaks", slug: "venison-steaks", price: 38.99, unit: "lb", category: "Specialty" },
+const allPrograms = [
+  { name: "7v7 Flag Football — Ages 8-10", slug: "7v7-flag-8-10", price: 149, unit: "season", category: "Flag Football", isConfigurable: true },
+  { name: "7v7 Flag Football — Ages 11-13", slug: "7v7-flag-11-13", price: 149, unit: "season", category: "Flag Football" },
+  { name: "Elite 7v7 — Ages 14-17", slug: "elite-7v7-14-17", price: 179, unit: "season", category: "Flag Football", isConfigurable: true },
+  { name: "7v7 Combine Prep", slug: "7v7-combine-prep", price: 99, unit: "program", category: "Flag Football" },
+  { name: "Flag Football — Ages 6-7 (Intro)", slug: "flag-football-intro-6-7", price: 79, unit: "season", category: "Flag Football" },
+  { name: "7v7 Spring Tournament Team", slug: "7v7-spring-tournament", price: 199, unit: "season", category: "Flag Football", isConfigurable: true },
+  { name: "Rec Basketball — Ages 6-8", slug: "rec-basketball-6-8", price: 89, unit: "season", category: "Basketball" },
+  { name: "Rec Basketball — Ages 9-11", slug: "rec-basketball-9-11", price: 99, unit: "season", category: "Basketball" },
+  { name: "Travel Basketball — U12", slug: "travel-basketball-u12", price: 199, unit: "season", category: "Basketball", isConfigurable: true },
+  { name: "Travel Basketball — U14", slug: "travel-basketball-u14", price: 199, unit: "season", category: "Basketball", isConfigurable: true },
+  { name: "Basketball Skills Academy", slug: "basketball-skills-academy", price: 129, unit: "program", category: "Basketball" },
+  { name: "Summer Skills Camp — Football", slug: "summer-skills-camp-football", price: 75, unit: "camp", category: "Camps", isConfigurable: true },
+  { name: "Summer Skills Camp — Basketball", slug: "summer-skills-camp-basketball", price: 75, unit: "camp", category: "Camps" },
+  { name: "Holiday Basketball Clinic", slug: "holiday-basketball-clinic", price: 45, unit: "clinic", category: "Camps" },
+  { name: "Spring Football Combine", slug: "spring-football-combine", price: 55, unit: "event", category: "Camps" },
+  { name: "Custom Team Jersey", slug: "custom-team-jersey", price: 38, unit: "each", category: "Uniforms", isConfigurable: true },
+  { name: "Practice Shorts", slug: "practice-shorts", price: 22, unit: "each", category: "Uniforms", isConfigurable: true },
+  { name: "Team Hoodie", slug: "team-hoodie", price: 45, unit: "each", category: "Uniforms", isConfigurable: true },
+  { name: "Athletic Socks (3-Pack)", slug: "athletic-socks-3pack", price: 14, unit: "pack", category: "Uniforms" },
+  { name: "Team Bag", slug: "team-bag", price: 35, unit: "each", category: "Uniforms" },
 ];
 
-const categories = ["All", "Beef", "Pork", "Poultry", "Specialty"];
+const categories = ["All", "Flag Football", "Basketball", "Camps", "Uniforms"];
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc" | "newest";
 
@@ -45,24 +43,24 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: "newest", label: "Newest First" },
 ];
 
-export default function ProductCatalogPage() {
+export default function ProgramCatalogPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  const filteredProducts = useMemo(() => {
-    let products = [...allProducts];
+  const filteredPrograms = useMemo(() => {
+    let programs = [...allPrograms];
 
     // Filter by category
     if (selectedCategory !== "All") {
-      products = products.filter((p) => p.category === selectedCategory);
+      programs = programs.filter((p) => p.category === selectedCategory);
     }
 
     // Filter by search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      products = products.filter(
+      programs = programs.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
           p.category.toLowerCase().includes(query)
@@ -72,23 +70,23 @@ export default function ProductCatalogPage() {
     // Sort
     switch (sortBy) {
       case "name-asc":
-        products.sort((a, b) => a.name.localeCompare(b.name));
+        programs.sort((a, b) => a.name.localeCompare(b.name));
         break;
       case "name-desc":
-        products.sort((a, b) => b.name.localeCompare(a.name));
+        programs.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case "price-asc":
-        products.sort((a, b) => a.price - b.price);
+        programs.sort((a, b) => a.price - b.price);
         break;
       case "price-desc":
-        products.sort((a, b) => b.price - a.price);
+        programs.sort((a, b) => b.price - a.price);
         break;
       case "newest":
-        products.reverse();
+        programs.reverse();
         break;
     }
 
-    return products;
+    return programs;
   }, [searchQuery, selectedCategory, sortBy]);
 
   const Sidebar = () => (
@@ -101,8 +99,8 @@ export default function ProductCatalogPage() {
           {categories.map((category) => {
             const count =
               category === "All"
-                ? allProducts.length
-                : allProducts.filter((p) => p.category === category).length;
+                ? allPrograms.length
+                : allPrograms.filter((p) => p.category === category).length;
             return (
               <button
                 key={category}
@@ -157,10 +155,10 @@ export default function ProductCatalogPage() {
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Our Products
+          Programs &amp; Teams
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Browse our full selection of premium meats
+          Browse open registrations, camps, and uniform orders
         </p>
       </div>
 
@@ -170,7 +168,7 @@ export default function ProductCatalogPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search products..."
+            placeholder="Search programs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -255,12 +253,12 @@ export default function ProductCatalogPage() {
           </div>
         )}
 
-        {/* Product Grid */}
+        {/* Program Grid */}
         <div className="flex-1">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {filteredProducts.length} product
-              {filteredProducts.length !== 1 ? "s" : ""}
+              {filteredPrograms.length} program
+              {filteredPrograms.length !== 1 ? "s" : ""}
             </p>
             <select
               value={sortBy}
@@ -275,16 +273,16 @@ export default function ProductCatalogPage() {
             </select>
           </div>
 
-          {filteredProducts.length > 0 ? (
+          {filteredPrograms.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.slug} {...product} />
+              {filteredPrograms.map((program) => (
+                <ProgramCard key={program.slug} {...program} />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
               <p className="text-lg font-medium text-muted-foreground">
-                No products found
+                No programs found
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Try adjusting your search or filter criteria

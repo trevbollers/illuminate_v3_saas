@@ -1,5 +1,5 @@
 {
-  "name": "@illuminate/auth",
+  "name": "@goparticipate/auth",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -20,8 +20,8 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "typescript": "^5.7.0",
-    "@illuminate/config-typescript": "*",
-    "@illuminate/db": "*"
+    "@goparticipate/config-typescript": "*",
+    "@goparticipate/db": "*"
   },
   "peerDependencies": {
     "next": "^14.2.0"

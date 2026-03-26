@@ -1,0 +1,41 @@
+{
+  "name": "@goparticipate/league",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4002",
+    "build": "next build",
+    "start": "next start -p 4002",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@goparticipate/auth": "*",
+    "@goparticipate/billing": "*",
+    "@goparticipate/db": "*",
+    "@goparticipate/permissions": "*",
+    "@goparticipate/ui": "*",
+    "@hookform/resolvers": "^3.9.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.460.0",
+    "next": "^14.2.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-hook-form": "^7.53.0",
+    "recharts": "^2.13.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@goparticipate/config-eslint": "*",
+    "@goparticipate/config-typescript": "*",
+    "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}

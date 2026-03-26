@@ -5,8 +5,9 @@ import bcrypt from "bcryptjs";
 
 export interface IMembership {
   tenantId: Types.ObjectId;
-  role: "owner" | "admin" | "manager" | "staff" | "viewer";
-  locationAccess: Types.ObjectId[];
+  tenantType: "league" | "organization";
+  role: string;
+  teamIds: Types.ObjectId[];
   permissions: string[];
   isActive: boolean;
   joinedAt: Date;
@@ -21,9 +22,11 @@ export interface IUser extends Document {
   name: string;
   image?: string;
   phone?: string;
-  platformRole?: "saas_admin" | null;
+  platformRole?: "gp_admin" | "gp_support" | null;
+  platformPermissions: string[];
   memberships: IMembership[];
   activeTenantId?: Types.ObjectId;
+  familyId?: Types.ObjectId;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -34,12 +37,13 @@ export interface IUser extends Document {
 const MembershipSchema = new Schema<IMembership>(
   {
     tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
-    role: {
+    tenantType: {
       type: String,
-      enum: ["owner", "admin", "manager", "staff", "viewer"],
+      enum: ["league", "organization"],
       required: true,
     },
-    locationAccess: [{ type: Schema.Types.ObjectId }],
+    role: { type: String, required: true },
+    teamIds: [{ type: Schema.Types.ObjectId }],
     permissions: [{ type: String }],
     isActive: { type: Boolean, default: true },
     joinedAt: { type: Date, default: Date.now },
@@ -57,22 +61,22 @@ const UserSchema = new Schema<IUser>(
     phone: { type: String },
     platformRole: {
       type: String,
-      enum: ["saas_admin", null],
+      enum: ["gp_admin", "gp_support", null],
       default: null,
     },
+    platformPermissions: [{ type: String }],
     memberships: [MembershipSchema],
     activeTenantId: { type: Schema.Types.ObjectId, ref: "Tenant" },
+    familyId: { type: Schema.Types.ObjectId, ref: "Family" },
     lastLoginAt: { type: Date },
   },
   { timestamps: true }
 );
 
-// Pre-save hook for password hashing
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("passwordHash") || !this.passwordHash) {
     return next();
   }
-
   try {
     const salt = await bcrypt.genSalt(12);
     this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
@@ -82,8 +86,8 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
-// Indexes (email unique index is defined on the field above)
 UserSchema.index({ "memberships.tenantId": 1 });
+UserSchema.index({ familyId: 1 });
 
 export const User =
   (mongoose.models.User as mongoose.Model<IUser>) ||

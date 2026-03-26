@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 
 const forgotPasswordSchema = z.object({
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
                 <span className="text-sm font-bold text-primary-foreground">I</span>
               </div>
               <span className="text-2xl font-bold tracking-tight text-foreground">
-                Illuminate
+                Go Participate
               </span>
             </Link>
           </div>
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
               <span className="text-sm font-bold text-primary-foreground">I</span>
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
-              Illuminate
+              Go Participate
             </span>
           </Link>
         </div>

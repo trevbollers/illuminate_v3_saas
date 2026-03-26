@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@illuminate/auth/edge";
-import { connectPlatformDB, Tenant } from "@illuminate/db";
+import { auth } from "@goparticipate/auth/edge";
+import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
 export const runtime = "nodejs";
 

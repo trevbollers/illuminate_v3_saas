@@ -19,7 +19,7 @@ export function CategoryCard({
   return (
     <Link href={`/products?category=${slug}`} className="group block">
       <div className="relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-        <div className="flex aspect-[3/2] items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+        <div className="flex aspect-[3/2] items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
           <span className="text-7xl transition-transform duration-300 group-hover:scale-110">
             {emoji}
           </span>
@@ -29,7 +29,7 @@ export function CategoryCard({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           {productCount !== undefined && (
             <p className="mt-2 text-xs font-medium text-primary">
-              {productCount} products
+              {productCount} programs
             </p>
           )}
         </div>

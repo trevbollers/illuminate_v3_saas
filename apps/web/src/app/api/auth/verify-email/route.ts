@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { ObjectId } from "mongodb";
-import { connectPlatformDB, User } from "@illuminate/db";
+import { connectPlatformDB, User } from "@goparticipate/db";
 
 function verifyToken(token: string): { userId: string } | null {
   try {

@@ -69,10 +69,10 @@ export function Footer() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
               <span className="text-xs font-bold text-primary-foreground">I</span>
             </div>
-            <span className="text-sm font-semibold text-foreground">Illuminate</span>
+            <span className="text-sm font-semibold text-foreground">Go Participate</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Illuminate. All rights reserved.
+            &copy; {new Date().getFullYear()} Go Participate. All rights reserved.
           </p>
         </div>
       </div>

@@ -18,14 +18,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
-import { Separator } from "@illuminate/ui/src/components/separator";
-import { Textarea } from "@illuminate/ui/src/components/textarea";
-import { cn } from "@illuminate/ui/src/lib/utils";
+} from "@goparticipate/ui/src/components/card";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
+import { Separator } from "@goparticipate/ui/src/components/separator";
+import { Textarea } from "@goparticipate/ui/src/components/textarea";
+import { cn } from "@goparticipate/ui/src/lib/utils";
 
 interface PlanAddOn {
   featureId: string;
@@ -39,9 +39,9 @@ interface PlanAddOn {
 
 interface PlanLimits {
   users: number;
-  locations: number;
-  products: number;
-  ordersPerMonth: number;
+  teams: number;
+  players: number;
+  eventsPerYear: number;
   storageGb: number;
 }
 
@@ -65,9 +65,9 @@ interface Plan {
 
 const LIMIT_LABELS: Record<keyof PlanLimits, string> = {
   users: "Max Users",
-  locations: "Max Locations",
-  products: "Max Products",
-  ordersPerMonth: "Orders / Month",
+  teams: "Max Teams",
+  players: "Max Players",
+  eventsPerYear: "Events / Year",
   storageGb: "Storage (GB)",
 };
 
@@ -97,9 +97,9 @@ export default function PlansPage() {
   const [editingLimits, setEditingLimits] = useState<string | null>(null);
   const [limitsEdit, setLimitsEdit] = useState<PlanLimits>({
     users: 0,
-    locations: 0,
-    products: 0,
-    ordersPerMonth: 0,
+    teams: 0,
+    players: 0,
+    eventsPerYear: 0,
     storageGb: 0,
   });
 
@@ -593,7 +593,7 @@ export default function PlansPage() {
                       onChange={(e) => setFeaturesEdit(e.target.value)}
                       rows={6}
                       className="font-mono text-xs"
-                      placeholder="Basic inventory tracking&#10;Up to 3 users&#10;Email support"
+                      placeholder="1 team, up to 15 players&#10;Basic scheduling and RSVP&#10;Team chat&#10;Email support"
                     />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => saveFeatures(plan)} disabled={saving}>

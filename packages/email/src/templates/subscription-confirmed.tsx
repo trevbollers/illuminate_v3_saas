@@ -34,10 +34,10 @@ export function SubscriptionConfirmedEmail({
       <Body style={body}>
         <Container style={container}>
           <Img
-            src="https://illuminate.app/logo.png"
+            src="https://goparticipate.app/logo.png"
             width="140"
             height="40"
-            alt="Illuminate"
+            alt="Go Participate"
             style={logo}
           />
 
@@ -79,8 +79,8 @@ export function SubscriptionConfirmedEmail({
               billing settings
             </Link>
             . If you have any questions, contact us at{" "}
-            <Link href="mailto:support@illuminate.app" style={link}>
-              support@illuminate.app
+            <Link href="mailto:support@goparticipate.app" style={link}>
+              support@goparticipate.app
             </Link>
             .
           </Text>

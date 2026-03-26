@@ -25,9 +25,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Button } from "@illuminate/ui/src/components/button";
+} from "@goparticipate/ui/src/components/card";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
 import { StatCard } from "@/components/stat-card";
 
 interface Stats {
@@ -46,8 +46,8 @@ interface Stats {
 
 const planBadgeVariant = (plan: string) => {
   const lower = plan.toLowerCase();
-  if (lower === "enterprise") return "default" as const;
-  if (lower === "professional") return "secondary" as const;
+  if (lower === "league") return "default" as const;
+  if (lower === "organization") return "secondary" as const;
   return "outline" as const;
 };
 
@@ -248,7 +248,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-base">Recent Signups</CardTitle>
           <CardDescription>
-            Latest businesses that joined the platform
+            Latest leagues and organizations that joined the platform
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b">
                     <th className="pb-3 text-left font-medium text-muted-foreground">
-                      Business
+                      Tenant
                     </th>
                     <th className="pb-3 text-left font-medium text-muted-foreground">
                       Owner

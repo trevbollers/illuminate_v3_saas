@@ -1,5 +1,5 @@
 {
-  "extends": "@illuminate/config-typescript/tsconfig.base.json",
+  "extends": "@goparticipate/config-typescript/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "outDir": "./dist"

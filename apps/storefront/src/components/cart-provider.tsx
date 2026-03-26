@@ -30,7 +30,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_STORAGE_KEY = "illuminate-storefront-cart";
+const CART_STORAGE_KEY = "goparticipate-storefront-cart";
 
 function generateCartItemId(item: Omit<CartItem, "id">): string {
   const configKey = item.configOptions

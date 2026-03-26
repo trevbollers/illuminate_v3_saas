@@ -16,12 +16,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
-import { Separator } from "@illuminate/ui/src/components/separator";
+} from "@goparticipate/ui/src/components/card";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
+import { Separator } from "@goparticipate/ui/src/components/separator";
 
 interface FeatureFlag {
   id: string;
@@ -37,29 +37,29 @@ interface FeatureFlag {
 const initialFlags: FeatureFlag[] = [
   {
     id: "ff_1",
-    name: "AI Menu Descriptions",
-    key: "ai_menu_descriptions",
-    description: "Generate product descriptions using AI",
+    name: "AI Coach",
+    key: "ai_coach",
+    description: "AI-generated practice plans, lineups, and game recaps",
     enabled: true,
     rolloutType: "plan_based",
-    rolloutValue: "Professional, Enterprise",
+    rolloutValue: "Team Pro, Organization, League",
     updatedAt: "Mar 15, 2026",
   },
   {
     id: "ff_2",
-    name: "Multi-Location Support",
-    key: "multi_location",
-    description: "Allow tenants to manage multiple business locations",
+    name: "AI Scout",
+    key: "ai_scout",
+    description: "AI-powered player evaluation and development reports",
     enabled: true,
     rolloutType: "plan_based",
-    rolloutValue: "Professional, Enterprise",
+    rolloutValue: "Team Pro, Organization, League",
     updatedAt: "Mar 10, 2026",
   },
   {
     id: "ff_3",
     name: "Advanced Analytics",
     key: "advanced_analytics",
-    description: "Enhanced reporting and analytics dashboard",
+    description: "Enhanced reporting and player stats dashboard",
     enabled: true,
     rolloutType: "percentage",
     rolloutValue: "75%",
@@ -69,17 +69,17 @@ const initialFlags: FeatureFlag[] = [
     id: "ff_4",
     name: "Custom Domain",
     key: "custom_domain",
-    description: "Allow tenants to use their own domain for storefront",
+    description: "Allow tenants to connect their own domain to their storefront",
     enabled: true,
     rolloutType: "plan_based",
-    rolloutValue: "Enterprise",
+    rolloutValue: "League",
     updatedAt: "Feb 28, 2026",
   },
   {
     id: "ff_5",
-    name: "Beta: Table Ordering",
-    key: "table_ordering",
-    description: "In-restaurant QR code table ordering system",
+    name: "Beta: Live Bracket View",
+    key: "live_bracket_view",
+    description: "Real-time tournament bracket display for event day operations",
     enabled: false,
     rolloutType: "tenant_list",
     rolloutValue: "3 tenants",
@@ -87,9 +87,9 @@ const initialFlags: FeatureFlag[] = [
   },
   {
     id: "ff_6",
-    name: "Beta: Loyalty Program",
-    key: "loyalty_program",
-    description: "Customer loyalty points and rewards system",
+    name: "Beta: YPS Media Integration",
+    key: "yps_media_integration",
+    description: "Your Prep Sports media arm content and highlights integration",
     enabled: false,
     rolloutType: "percentage",
     rolloutValue: "10%",
@@ -102,7 +102,7 @@ const initialFlags: FeatureFlag[] = [
     description: "REST API access for third-party integrations",
     enabled: true,
     rolloutType: "plan_based",
-    rolloutValue: "Enterprise",
+    rolloutValue: "League",
     updatedAt: "Jan 15, 2026",
   },
 ];
@@ -220,7 +220,7 @@ export default function FeaturesPage() {
                 <Label htmlFor="flag-name">Name</Label>
                 <Input
                   id="flag-name"
-                  placeholder="e.g., Beta: Reservation System"
+                  placeholder="e.g., Beta: Age Verification Scanner"
                   value={newFlag.name}
                   onChange={(e) =>
                     setNewFlag((p) => ({ ...p, name: e.target.value }))
@@ -231,7 +231,7 @@ export default function FeaturesPage() {
                 <Label htmlFor="flag-key">Key</Label>
                 <Input
                   id="flag-key"
-                  placeholder="e.g., reservation_system"
+                  placeholder="e.g., age_verification_scanner"
                   value={newFlag.key}
                   onChange={(e) =>
                     setNewFlag((p) => ({ ...p, key: e.target.value }))

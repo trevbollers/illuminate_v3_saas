@@ -1,6 +1,7 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { createCheckoutSession } from "@illuminate/billing";
-import { connectPlatformDB, Plan } from "@illuminate/db";
+import { createCheckoutSession } from "@goparticipate/billing";
+import { connectPlatformDB, Plan } from "@goparticipate/db";
 
 export async function POST(req: NextRequest) {
   const { planId, billingInterval = "monthly" } = await req.json();
@@ -31,8 +32,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4000";
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:4001";
 
   try {
     const session = await createCheckoutSession({
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       billingInterval,
       tenantId: "test_tenant_admin",
       userId: "test_user_admin",
-      email: "test@illuminate-admin.dev",
+      email: "test@goparticipate-admin.dev",
       successUrl: `${adminUrl}/stripe?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${adminUrl}/stripe?checkout=cancelled`,
     });

@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Filter, Building2, Loader2 } from "lucide-react";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Badge } from "@illuminate/ui/src/components/badge";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Badge } from "@goparticipate/ui/src/components/badge";
 import { DataTable } from "@/components/data-table";
 
 interface Tenant {
@@ -33,8 +33,8 @@ const statusBadgeVariant = (status: string) => {
 
 const planBadgeVariant = (plan: string) => {
   const lower = plan.toLowerCase();
-  if (lower === "enterprise") return "default" as const;
-  if (lower === "professional") return "secondary" as const;
+  if (lower === "league") return "default" as const;
+  if (lower === "organization") return "secondary" as const;
   return "outline" as const;
 };
 
@@ -69,7 +69,7 @@ export default function TenantsPage() {
   const columns = [
     {
       key: "businessName",
-      header: "Business Name",
+      header: "Tenant Name",
       sortable: true,
       render: (row: Tenant) => (
         <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export default function TenantsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenants</h1>
           <p className="mt-1 text-muted-foreground">
-            Manage all businesses on the platform
+            Manage all leagues and organizations on the platform
           </p>
         </div>
       </div>

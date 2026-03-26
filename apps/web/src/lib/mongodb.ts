@@ -1,24 +1,25 @@
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI!;
-
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
 declare global {
   // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-if (process.env.NODE_ENV === "development") {
+const uri = process.env.MONGODB_URI;
+
+let clientPromise: Promise<MongoClient>;
+
+if (!uri) {
+  // Build-time: MONGODB_URI isn't available. Return a deferred promise
+  // so module evaluation doesn't crash. At runtime the env var will exist.
+  clientPromise = new Promise(() => {});
+} else if (process.env.NODE_ENV === "development") {
   if (!global._mongoClientPromise) {
-    client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
+    global._mongoClientPromise = new MongoClient(uri).connect();
   }
   clientPromise = global._mongoClientPromise;
 } else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
+  clientPromise = new MongoClient(uri).connect();
 }
 
 export default clientPromise;

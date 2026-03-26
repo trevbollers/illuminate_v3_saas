@@ -10,13 +10,14 @@ import {
   Flag,
   Tags,
   Settings,
+  Settings2,
   LogOut,
   Shield,
   Zap,
 } from "lucide-react";
-import { cn } from "@illuminate/ui/src/lib/utils";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Separator } from "@illuminate/ui/src/components/separator";
+import { cn } from "@goparticipate/ui/src/lib/utils";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Separator } from "@goparticipate/ui/src/components/separator";
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -25,6 +26,7 @@ const navItems = [
   { label: "Feature Flags", href: "/features", icon: Flag },
   { label: "Plans & Pricing", href: "/plans", icon: Tags },
   { label: "Stripe", href: "/stripe", icon: Zap },
+  { label: "System", href: "/system", icon: Settings2 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -49,7 +51,7 @@ export function AdminSidebar() {
           <Shield className="h-4 w-4 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-sm font-semibold tracking-tight">Illuminate</h1>
+          <h1 className="text-sm font-semibold tracking-tight">Go Participate</h1>
           <p className="text-xs text-muted-foreground">Admin Portal</p>
         </div>
       </div>

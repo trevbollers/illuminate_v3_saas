@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Login | Illuminate Admin",
+  title: "Login | Go Participate Admin",
 };
 
 export default function LoginLayout({

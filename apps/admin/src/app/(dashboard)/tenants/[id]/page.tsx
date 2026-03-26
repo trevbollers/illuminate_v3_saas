@@ -7,9 +7,7 @@ import {
   ArrowLeft,
   Building2,
   Users,
-  MapPin,
-  Package,
-  ShoppingCart,
+  Trophy,
   Calendar,
   CreditCard,
   Ban,
@@ -25,9 +23,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Button } from "@illuminate/ui/src/components/button";
+} from "@goparticipate/ui/src/components/card";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
 
 interface TenantDetail {
   id: string;
@@ -43,15 +41,15 @@ interface TenantDetail {
   mrr: number;
   limits: {
     users: number;
-    locations: number;
-    products: number;
-    ordersPerMonth: number;
+    teams: number;
+    players: number;
+    eventsPerYear: number;
   } | null;
   usage: {
     users: number;
     maxUsers: number;
-    locations: number;
-    maxLocations: number;
+    teams: number;
+    maxTeams: number;
   };
   members: {
     name: string;
@@ -265,15 +263,15 @@ export default function TenantDetailPage() {
               label="Users"
             />
             <UsageBar
-              current={tenant.usage.locations}
-              max={tenant.usage.maxLocations}
-              label="Locations"
+              current={tenant.usage.teams}
+              max={tenant.usage.maxTeams}
+              label="Teams"
             />
             {tenant.limits && (
               <UsageBar
                 current={0}
-                max={tenant.limits.products}
-                label="Products (limit)"
+                max={tenant.limits.players}
+                label="Players (limit)"
               />
             )}
           </CardContent>
@@ -283,12 +281,12 @@ export default function TenantDetailPage() {
       {/* Usage Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "Team Members", value: tenant.usage.users, icon: Users },
-          { label: "Locations", value: tenant.usage.locations, icon: MapPin },
+          { label: "Staff Members", value: tenant.usage.users, icon: Users },
+          { label: "Teams", value: tenant.usage.teams, icon: Trophy },
           {
-            label: "Product Limit",
-            value: tenant.limits?.products ?? "—",
-            icon: Package,
+            label: "Player Limit",
+            value: tenant.limits?.players ?? "—",
+            icon: Calendar,
           },
         ].map((item) => (
           <Card key={item.label}>

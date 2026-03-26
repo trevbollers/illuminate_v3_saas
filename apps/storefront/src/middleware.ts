@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import {
   resolveTenantFromRequest,
   extractCustomDomain,
-} from "@illuminate/auth/tenant-resolver";
+} from "@goparticipate/auth/tenant-resolver";
 
 /**
  * Storefront middleware — resolves which tenant's storefront to serve.
@@ -13,8 +13,8 @@ import {
  * configuration to load.
  *
  * Resolution methods:
- * 1. Subdomain: acme.meatlocker.app → tenant slug "acme"
- * 2. Custom domain: shop.acmemeat.com → DB lookup by customDomain field
+ * 1. Subdomain: acme.goparticipate.com → tenant slug "acme"
+ * 2. Custom domain: kcthunder.goparticipate.com → DB lookup by customDomain field
  * 3. x-tenant-slug header (development only)
  *
  * On failure: 404 (generic — doesn't reveal whether the tenant exists).

@@ -101,17 +101,17 @@ PLATFORM (Go Participate)
 ```
 go_participate/
 ├── apps/
-│   ├── web/           # Marketing site + event discovery (port 3000)
+│   ├── web/           # Marketing site + event discovery (port 4000)
 │   │                  # goparticipate.com
-│   ├── admin/         # Platform admin portal (port 3001)
+│   ├── admin/         # Platform admin portal (port 4001)
 │   │                  # admin.goparticipate.com
-│   ├── league/        # League management dashboard (port 3002)
+│   ├── league/        # League management dashboard (port 4002)
 │   │                  # <league>.goparticipate.com
-│   ├── dashboard/     # Org/team management dashboard (port 3003)
+│   ├── dashboard/     # Org/team management dashboard (port 4003)
 │   │                  # <org>.goparticipate.com
-│   ├── family/        # Parent/player portal — mobile-first (port 3004)
+│   ├── family/        # Parent/player portal — mobile-first (port 4004)
 │   │                  # family.goparticipate.com or native app
-│   └── media/         # Your Prep Sports (port 3005)
+│   └── media/         # Your Prep Sports (port 4005)
 │                      # yourprepsports.com
 │
 ├── packages/

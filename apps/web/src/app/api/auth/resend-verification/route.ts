@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
-import { connectPlatformDB, User } from "@illuminate/db";
-import { sendEmail, VerifyEmail } from "@illuminate/email";
+import { connectPlatformDB, User } from "@goparticipate/db";
+import { sendEmail, VerifyEmail } from "@goparticipate/email";
 
 function generateVerifyToken(userId: string): string {
   const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
   }
 
   const token = generateVerifyToken(user._id.toString());
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4000";
   const verifyUrl = `${appUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
   try {
     await sendEmail({
       to: email,
-      subject: "Verify your Illuminate account",
+      subject: "Verify your Go Participate account",
       react: VerifyEmail({ name: user.name, verifyUrl }),
     });
   } catch (err) {

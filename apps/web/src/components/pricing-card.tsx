@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@illuminate/ui/src/components/card";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@goparticipate/ui/src/components/card";
 import { Check } from "lucide-react";
 
 interface PricingCardProps {

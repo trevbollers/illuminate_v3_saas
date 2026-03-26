@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Button } from "@illuminate/ui/src/components/button";
+import { Button } from "@goparticipate/ui/src/components/button";
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 import { Mail, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function VerifyEmailPage() {
@@ -119,7 +119,7 @@ export default function VerifyEmailPage() {
               <span className="text-sm font-bold text-primary-foreground">I</span>
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
-              Illuminate
+              Go Participate
             </span>
           </Link>
         </div>

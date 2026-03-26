@@ -4,16 +4,16 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Shield, Loader2 } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Shield className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-xl">Illuminate Admin</CardTitle>
+          <CardTitle className="text-xl">Go Participate Admin</CardTitle>
           <CardDescription>
             Sign in to the SaaS admin portal
           </CardDescription>
@@ -64,7 +64,7 @@ export default function AdminLoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@illuminate.dev"
+                placeholder="admin@goparticipate.dev"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

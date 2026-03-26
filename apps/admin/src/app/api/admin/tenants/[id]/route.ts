@@ -1,5 +1,6 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { connectPlatformDB, Tenant, User, Plan } from "@illuminate/db";
+import { connectPlatformDB, Tenant, User, Plan } from "@goparticipate/db";
 import mongoose from "mongoose";
 
 export async function GET(
@@ -90,8 +91,8 @@ export async function GET(
     usage: {
       users: memberRows.length,
       maxUsers: planDoc?.limits?.users ?? 0,
-      locations: tenant.locations?.length ?? 0,
-      maxLocations: planDoc?.limits?.locations ?? 0,
+      teams: 0,
+      maxTeams: planDoc?.limits?.teams ?? 0,
     },
     members: memberRows,
   });

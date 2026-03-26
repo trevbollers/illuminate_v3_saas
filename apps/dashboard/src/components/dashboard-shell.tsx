@@ -1,6 +1,6 @@
 "use client";
 
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@illuminate/ui";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@goparticipate/ui";
 import { DashboardSidebar } from "./dashboard-sidebar";
 
 interface DashboardShellProps {

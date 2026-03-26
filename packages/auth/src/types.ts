@@ -1,13 +1,15 @@
-import type { DefaultSession, DefaultJWT } from "next-auth";
+import type { DefaultSession } from "next-auth";
+import type { DefaultJWT } from "next-auth/jwt";
 
-export type PlatformRole = "saas_admin" | "platform_admin" | "user";
+export type PlatformRole = "gp_admin" | "gp_support" | "user";
 
-export type TenantRole = "owner" | "admin" | "member" | "viewer";
+export type TenantType = "league" | "organization";
 
 export interface TenantMembership {
   tenantId: string;
   tenantSlug: string;
-  role: TenantRole;
+  tenantType: TenantType;
+  role: string;
   permissions: string[];
   isActive: boolean;
 }
@@ -18,14 +20,14 @@ declare module "next-auth" {
       id: string;
       tenantId: string | null;
       tenantSlug: string | null;
-      role: TenantRole | null;
+      tenantType: TenantType | null;
+      role: string | null;
       platformRole: PlatformRole;
       permissions: string[];
     } & DefaultSession["user"];
   }
 
   interface User {
-    id: string;
     platformRole?: PlatformRole;
     memberships?: TenantMembership[];
   }
@@ -36,7 +38,8 @@ declare module "next-auth/jwt" {
     userId: string;
     tenantId: string | null;
     tenantSlug: string | null;
-    role: TenantRole | null;
+    tenantType: TenantType | null;
+    role: string | null;
     platformRole: PlatformRole;
     permissions: string[];
   }

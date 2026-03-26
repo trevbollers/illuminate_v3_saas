@@ -1,5 +1,12 @@
 export { getResendClient } from "./client";
 export { sendEmail, type SendEmailOptions, type SendEmailResult } from "./send";
+export {
+  sendSMS,
+  detectSMSProvider,
+  normalizePhone,
+  type SendSMSOptions,
+  type SendSMSResult,
+} from "./sms";
 
 // Templates
 export {

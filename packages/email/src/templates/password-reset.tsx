@@ -27,10 +27,10 @@ export function PasswordResetEmail({
       <Body style={body}>
         <Container style={container}>
           <Img
-            src="https://illuminate.app/logo.png"
+            src="https://goparticipate.app/logo.png"
             width="140"
             height="40"
-            alt="Illuminate"
+            alt="Go Participate"
             style={logo}
           />
 
@@ -39,7 +39,7 @@ export function PasswordResetEmail({
           <Text style={paragraph}>Hi {name},</Text>
 
           <Text style={paragraph}>
-            We received a request to reset the password for your Illuminate
+            We received a request to reset the password for your Go Participate
             account. Click the button below to choose a new password. This link
             will expire in 1 hour.
           </Text>

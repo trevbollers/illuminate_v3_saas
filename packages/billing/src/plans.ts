@@ -1,9 +1,10 @@
-import { Plan, type IPlan } from "@illuminate/db";
+import { Plan, type IPlan } from "@goparticipate/db";
 
 export type BillingInterval = "monthly" | "yearly";
+export type PlanScope = "league" | "organization" | "family";
 
 /**
- * Look up a plan by its planId (e.g. "starter", "professional").
+ * Look up a plan by its planId (e.g. "free", "team_pro", "league").
  * Returns null if not found or inactive.
  */
 export async function getPlan(planId: string): Promise<IPlan | null> {
@@ -12,9 +13,12 @@ export async function getPlan(planId: string): Promise<IPlan | null> {
 
 /**
  * Get all active plans, ordered by sortOrder.
+ * Optionally filter by scope (league, organization, family).
  */
-export async function getPlans(): Promise<IPlan[]> {
-  return Plan.find({ isActive: true }).sort({ sortOrder: 1 });
+export async function getPlans(scope?: PlanScope): Promise<IPlan[]> {
+  const filter: Record<string, unknown> = { isActive: true };
+  if (scope) filter.scope = scope;
+  return Plan.find(filter).sort({ sortOrder: 1 });
 }
 
 /**

@@ -15,9 +15,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Button } from "@illuminate/ui/src/components/button";
+} from "@goparticipate/ui/src/components/card";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
 import { StatCard } from "@/components/stat-card";
 
 interface BillingData {

@@ -1,6 +1,6 @@
 import { type LucideIcon } from "lucide-react";
-import { Card, CardContent } from "@illuminate/ui";
-import { cn } from "@illuminate/ui";
+import { Card, CardContent } from "@goparticipate/ui";
+import { cn } from "@goparticipate/ui";
 
 interface StatCardProps {
   title: string;

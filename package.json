@@ -1,5 +1,5 @@
 {
-  "name": "illuminate-v3-saas",
+  "name": "go-participate",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -10,10 +10,11 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
-    "dev:web": "turbo dev --filter=@illuminate/web",
-    "dev:admin": "turbo dev --filter=@illuminate/admin",
-    "dev:dashboard": "turbo dev --filter=@illuminate/dashboard",
-    "dev:storefront": "turbo dev --filter=@illuminate/storefront",
+    "dev:web": "turbo dev --filter=@goparticipate/web",
+    "dev:admin": "turbo dev --filter=@goparticipate/admin",
+    "dev:league": "turbo dev --filter=@goparticipate/league",
+    "dev:dashboard": "turbo dev --filter=@goparticipate/dashboard",
+    "dev:storefront": "turbo dev --filter=@goparticipate/storefront",
     "db:seed": "bash scripts/seed.sh"
   },
   "devDependencies": {
@@ -23,5 +24,9 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.9.4"
+  "packageManager": "npm@10.9.4",
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.1017.0",
+    "twilio": "^5.13.1"
+  }
 }

@@ -5,22 +5,21 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
-  Package,
-  ChefHat,
-  Warehouse,
-  Factory,
-  ShoppingCart,
-  Truck,
   Users,
-  UserCog,
-  MapPin,
-  Store,
+  UserCheck,
+  Calendar,
+  ClipboardList,
+  DollarSign,
+  BarChart2,
+  MessageSquare,
   Settings,
   HelpCircle,
   ChevronsUpDown,
   LogOut,
   CreditCard,
   User,
+  Shield,
+  ShoppingCart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,7 +47,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@illuminate/ui";
+} from "@goparticipate/ui";
 
 const navGroups = [
   {
@@ -58,28 +57,23 @@ const navGroups = [
     ],
   },
   {
+    label: "Team Management",
+    items: [
+      { title: "Teams", href: "/teams", icon: Shield },
+      { title: "Roster", href: "/roster", icon: Users },
+      { title: "Schedule", href: "/schedule", icon: Calendar },
+      { title: "Attendance", href: "/attendance", icon: UserCheck },
+      { title: "League Events", href: "/events", icon: ClipboardList },
+      { title: "Registration Cart", href: "/registration-cart", icon: ShoppingCart },
+    ],
+  },
+  {
     label: "Operations",
     items: [
-      { title: "Products", href: "/products", icon: Package },
-      { title: "Recipes", href: "/recipes", icon: ChefHat },
-      { title: "Inventory", href: "/inventory", icon: Warehouse },
-      { title: "Production", href: "/production", icon: Factory },
-    ],
-  },
-  {
-    label: "Commerce",
-    items: [
-      { title: "Sales Orders", href: "/sales", icon: ShoppingCart },
-      { title: "Purchasing", href: "/purchasing", icon: Truck },
-      { title: "Suppliers", href: "/suppliers", icon: Users },
-    ],
-  },
-  {
-    label: "Management",
-    items: [
-      { title: "Team", href: "/team", icon: UserCog },
-      { title: "Locations", href: "/locations", icon: MapPin },
-      { title: "Storefront", href: "/storefront", icon: Store },
+      { title: "Payments", href: "/payments", icon: DollarSign },
+      { title: "Payment Settings", href: "/settings/payments", icon: CreditCard },
+      { title: "Stats", href: "/stats", icon: BarChart2 },
+      { title: "Communication", href: "/communication", icon: MessageSquare },
     ],
   },
   {
@@ -151,7 +145,7 @@ export function DashboardSidebar({
         {open && locations.length > 1 && (
           <Select defaultValue={locations[0]?.id}>
             <SelectTrigger className="mt-2 h-8 text-xs">
-              <SelectValue placeholder="Select location" />
+              <SelectValue placeholder="Select team" />
             </SelectTrigger>
             <SelectContent>
               {locations.map((loc) => (
@@ -243,7 +237,7 @@ export function DashboardSidebar({
               onClick={() =>
                 signOut({
                   callbackUrl:
-                    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+                    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4000",
                 })
               }
             >

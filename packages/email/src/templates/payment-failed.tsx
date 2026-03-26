@@ -34,10 +34,10 @@ export function PaymentFailedEmail({
       <Body style={body}>
         <Container style={container}>
           <Img
-            src="https://illuminate.app/logo.png"
+            src="https://goparticipate.app/logo.png"
             width="140"
             height="40"
-            alt="Illuminate"
+            alt="Go Participate"
             style={logo}
           />
 
@@ -79,8 +79,8 @@ export function PaymentFailedEmail({
           <Text style={footer}>
             If you believe this is an error or need assistance, please contact
             our support team at{" "}
-            <Link href="mailto:support@illuminate.app" style={link}>
-              support@illuminate.app
+            <Link href="mailto:support@goparticipate.app" style={link}>
+              support@goparticipate.app
             </Link>
             .
           </Text>

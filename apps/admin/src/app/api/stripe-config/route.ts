@@ -1,6 +1,7 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { stripe } from "@illuminate/billing";
-import { connectPlatformDB, Plan } from "@illuminate/db";
+import { stripe } from "@goparticipate/billing";
+import { connectPlatformDB, Plan } from "@goparticipate/db";
 
 function maskKey(key: string | undefined): string {
   if (!key) return "Not configured";
@@ -12,7 +13,7 @@ export async function GET() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4000";
 
   const mode = secretKey?.startsWith("sk_live_")
     ? "live"

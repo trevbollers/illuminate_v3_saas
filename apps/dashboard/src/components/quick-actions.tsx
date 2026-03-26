@@ -1,50 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { Package, ShoppingCart, Warehouse, ChefHat, Factory, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@illuminate/ui";
+import { UserPlus, CalendarPlus, MessageSquarePlus, DollarSign, ClipboardList, BarChart2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@goparticipate/ui";
 
 const actions = [
   {
-    title: "New Product",
-    description: "Add a new product to your catalog",
-    href: "/products/new",
-    icon: Package,
+    title: "Add Player",
+    description: "Add a player to the roster",
+    href: "/roster/new",
+    icon: UserPlus,
     color: "bg-blue-100 text-blue-600",
   },
   {
-    title: "New Order",
-    description: "Create a sales order or quote",
-    href: "/sales/new",
-    icon: ShoppingCart,
+    title: "Create Event",
+    description: "Schedule a game or practice",
+    href: "/schedule/new",
+    icon: CalendarPlus,
     color: "bg-emerald-100 text-emerald-600",
   },
   {
-    title: "Check Inventory",
-    description: "View and adjust stock levels",
-    href: "/inventory",
-    icon: Warehouse,
+    title: "Send Message",
+    description: "Message your team or parents",
+    href: "/communication/new",
+    icon: MessageSquarePlus,
     color: "bg-amber-100 text-amber-600",
   },
   {
-    title: "New Recipe",
-    description: "Create a processing recipe",
-    href: "/recipes/new",
-    icon: ChefHat,
+    title: "Collect Payment",
+    description: "Request dues or event fees",
+    href: "/payments/new",
+    icon: DollarSign,
     color: "bg-purple-100 text-purple-600",
   },
   {
-    title: "New Batch",
-    description: "Start a production batch",
-    href: "/production",
-    icon: Factory,
+    title: "Take Attendance",
+    description: "Record practice or game attendance",
+    href: "/attendance/new",
+    icon: ClipboardList,
     color: "bg-pink-100 text-pink-600",
   },
   {
-    title: "Purchase Order",
-    description: "Create a new purchase order",
-    href: "/purchasing",
-    icon: FileText,
+    title: "Log Stats",
+    description: "Enter game stats and results",
+    href: "/stats/new",
+    icon: BarChart2,
     color: "bg-indigo-100 text-indigo-600",
   },
 ];

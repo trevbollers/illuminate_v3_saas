@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "@illuminate/ui/src/globals.css";
+import "@goparticipate/ui/src/globals.css";
+
+export const dynamic = "force-dynamic";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Illuminate Admin",
-  description: "SaaS admin portal for managing the Illuminate platform",
+  title: "Go Participate Admin",
+  description: "SaaS admin portal for managing the Go Participate platform",
 };
 
 export default function RootLayout({

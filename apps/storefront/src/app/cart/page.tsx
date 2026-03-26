@@ -3,16 +3,16 @@
 import React from "react";
 import Link from "next/link";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Separator } from "@illuminate/ui/src/components/separator";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Separator } from "@goparticipate/ui/src/components/separator";
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 import { useCart } from "@/components/cart-provider";
 
 export default function CartPage() {
@@ -33,11 +33,11 @@ export default function CartPage() {
             Your cart is empty
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Looks like you haven&apos;t added any products yet.
+            You haven&apos;t added any programs or items yet.
           </p>
           <Link href="/products" className="mt-6">
             <Button className="gap-2">
-              Browse Products
+              Browse Programs
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
@@ -51,7 +51,7 @@ export default function CartPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Shopping Cart
+            Registration Cart
           </h1>
           <p className="mt-1 text-muted-foreground">
             {itemCount} item{itemCount !== 1 ? "s" : ""} in your cart
@@ -70,7 +70,7 @@ export default function CartPage() {
             <CardContent className="divide-y p-0">
               {/* Table Header - Desktop */}
               <div className="hidden grid-cols-12 gap-4 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:grid">
-                <div className="col-span-5">Product</div>
+                <div className="col-span-5">Program / Item</div>
                 <div className="col-span-2 text-center">Qty</div>
                 <div className="col-span-2 text-right">Unit Price</div>
                 <div className="col-span-2 text-right">Total</div>
@@ -80,14 +80,14 @@ export default function CartPage() {
               {items.map((item) => (
                 <div key={item.id} className="px-6 py-4">
                   <div className="grid items-center gap-4 sm:grid-cols-12">
-                    {/* Product Info */}
+                    {/* Item Info */}
                     <div className="flex items-center gap-4 sm:col-span-5">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-100">
-                        <span className="text-2xl">{"\u{1F969}"}</span>
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-indigo-100">
+                        <span className="text-2xl">{"\u{1F3C6}"}</span>
                       </div>
                       <div className="min-w-0">
                         <Link
-                          href={`/products/${item.slug}`}
+                          href={`/programs/${item.slug}`}
                           className="font-semibold text-foreground hover:text-primary"
                         >
                           {item.name}
@@ -168,7 +168,7 @@ export default function CartPage() {
             <Link href="/products">
               <Button variant="ghost" className="gap-2">
                 <ArrowRight className="h-4 w-4 rotate-180" />
-                Continue Shopping
+                Continue Browsing
               </Button>
             </Link>
           </div>
@@ -190,7 +190,7 @@ export default function CartPage() {
                 <span className="font-medium">${estimatedTax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Shipping</span>
+                <span className="text-muted-foreground">Processing Fee</span>
                 <span className="font-medium text-primary">
                   Calculated at checkout
                 </span>

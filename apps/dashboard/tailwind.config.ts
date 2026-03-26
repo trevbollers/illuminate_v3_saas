@@ -1,5 +1,5 @@
 import type { Config } from "tailwindcss";
-import baseConfig from "@illuminate/ui/tailwind.config";
+import baseConfig from "@goparticipate/ui/tailwind.config";
 
 const config: Config = {
   ...baseConfig,

@@ -27,12 +27,12 @@ export interface SendEmailResult {
  *
  * @example
  * ```ts
- * import { sendEmail } from "@illuminate/email";
- * import { WelcomeEmail } from "@illuminate/email/templates/welcome";
+ * import { sendEmail } from "@goparticipate/email";
+ * import { WelcomeEmail } from "@goparticipate/email/templates/welcome";
  *
  * await sendEmail({
  *   to: "user@example.com",
- *   subject: "Welcome to Illuminate!",
+ *   subject: "Welcome to Go Participate!",
  *   react: WelcomeEmail({ name: "Jane", verifyUrl: "https://..." }),
  * });
  * ```
@@ -45,7 +45,7 @@ export async function sendEmail(
   const from =
     options.from ??
     process.env.RESEND_FROM_EMAIL ??
-    "Illuminate <noreply@illuminate.app>";
+    "Go Participate <noreply@goparticipate.app>";
 
   const { data, error } = await resend.emails.send({
     from,

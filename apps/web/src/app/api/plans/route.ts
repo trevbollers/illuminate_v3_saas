@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { connectPlatformDB, Plan } from "@illuminate/db";
+import { connectPlatformDB, Plan } from "@goparticipate/db";
+
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/plans

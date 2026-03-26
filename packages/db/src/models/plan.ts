@@ -14,9 +14,9 @@ export interface IPlanAddOn {
 
 export interface IPlanLimits {
   users: number;
-  locations: number;
-  products: number;
-  ordersPerMonth: number;
+  teams: number;
+  players: number;
+  eventsPerMonth: number;
   storageGb: number;
 }
 
@@ -33,6 +33,7 @@ export interface IPlan extends Document {
   planId: string;
   name: string;
   description: string;
+  scope: "league" | "organization" | "family";
   features: string[];
   limits: IPlanLimits;
   pricing: IPlanPricing;
@@ -50,12 +51,17 @@ const PlanSchema = new Schema<IPlan>(
     planId: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     description: { type: String },
+    scope: {
+      type: String,
+      enum: ["league", "organization", "family"],
+      required: true,
+    },
     features: [{ type: String }],
     limits: {
       users: { type: Number, required: true },
-      locations: { type: Number, required: true },
-      products: { type: Number, required: true },
-      ordersPerMonth: { type: Number, required: true },
+      teams: { type: Number, required: true },
+      players: { type: Number, required: true },
+      eventsPerMonth: { type: Number, required: true },
       storageGb: { type: Number, required: true },
     },
     pricing: {
@@ -81,8 +87,8 @@ const PlanSchema = new Schema<IPlan>(
   { timestamps: true }
 );
 
-// Indexes (planId unique index is defined on the field above)
 PlanSchema.index({ isActive: 1, sortOrder: 1 });
+PlanSchema.index({ scope: 1 });
 
 export const Plan =
   (mongoose.models.Plan as mongoose.Model<IPlan>) ||

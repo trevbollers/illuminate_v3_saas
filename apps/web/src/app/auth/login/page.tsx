@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
@@ -58,8 +58,23 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href =
-        process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3002";
+      // Fetch session to determine where to route the user
+      try {
+        const sessionRes = await fetch("/api/auth/session");
+        const session = await sessionRes.json();
+        const tenantType = session?.user?.tenantType;
+        const platformRole = session?.user?.platformRole;
+
+        if (platformRole === "gp_admin") {
+          window.location.href = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:4001";
+        } else if (tenantType === "league") {
+          window.location.href = process.env.NEXT_PUBLIC_LEAGUE_URL ?? "http://localhost:4002";
+        } else {
+          window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003";
+        }
+      } catch {
+        window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003";
+      }
     } catch {
       setServerError("Something went wrong. Please try again.");
     } finally {
@@ -69,8 +84,10 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     const { signIn } = await import("next-auth/react");
+    // Google OAuth can't do post-login routing client-side, so default to dashboard.
+    // The dashboard/league middleware will redirect if it's the wrong tenant type.
     await signIn("google", {
-      callbackUrl: process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3002",
+      callbackUrl: process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003",
     });
   }
 
@@ -84,7 +101,7 @@ export default function LoginPage() {
               <span className="text-sm font-bold text-primary-foreground">I</span>
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
-              Illuminate
+              Go Participate
             </span>
           </Link>
         </div>

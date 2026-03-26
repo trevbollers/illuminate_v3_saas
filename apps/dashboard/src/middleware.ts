@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@illuminate/auth/edge";
-import { resolveTenantFromRequest } from "@illuminate/auth/tenant-resolver";
+import { auth } from "@goparticipate/auth/edge";
+import { resolveTenantFromRequest } from "@goparticipate/auth/tenant-resolver";
 
 /**
  * Dashboard middleware — protects the tenant dashboard application.
@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    pathname === "/login"
   ) {
     return NextResponse.next();
   }
@@ -30,15 +31,8 @@ export async function middleware(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user) {
-    // Not logged in — redirect to login on the marketing site
-    const loginUrl = new URL(
-      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    );
-    loginUrl.pathname = "/auth/login";
-    loginUrl.searchParams.set(
-      "redirect",
-      request.nextUrl.href,
-    );
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -46,17 +40,20 @@ export async function middleware(request: NextRequest) {
 
   // --- 2. Verify tenant context exists in session ---
   if (!user.tenantId || !user.tenantSlug || !user.role) {
-    // User is authenticated but has no tenant membership
-    // Redirect to onboarding or workspace selection
-    const appUrl = new URL(
-      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    );
-    appUrl.pathname = "/register";
-    return NextResponse.redirect(appUrl);
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "invalid_account");
+    return NextResponse.redirect(loginUrl);
   }
 
-  // --- 3. Subdomain tenant matching ---
-  // If the request came via a tenant subdomain (e.g. acme.meatlocker.app),
+  // --- 3. Verify this is an organization tenant ---
+  if (user.tenantType !== "organization") {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "invalid_account");
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // --- 4. Subdomain tenant matching ---
+  // If the request came via a tenant subdomain (e.g. acme.goparticipate.com),
   // verify it matches the user's active tenant. This prevents a user
   // logged into tenant A from accessing tenant B's subdomain.
   const resolvedTenant = resolveTenantFromRequest(request);
@@ -74,7 +71,7 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // --- 4. Inject tenant context headers for downstream API routes ---
+  // --- 5. Inject tenant context headers for downstream API routes ---
   const response = NextResponse.next();
   response.headers.set("x-tenant-id", user.tenantId);
   response.headers.set("x-tenant-slug", user.tenantSlug);

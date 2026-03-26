@@ -4,14 +4,25 @@ import mongoose, { Connection } from "mongoose";
 // Database-per-tenant connection architecture
 //
 // - PLATFORM DB:  Single database for SaaS-level data (tenants, users, plans,
-//                 feature flags). Connected via the default mongoose instance.
+//                 feature flags, players, families, verifications, sports).
+//                 Connected via the default mongoose instance.
 //
-// - TENANT DBs:   Each tenant gets its own MongoDB database, resolved by
-//                 tenant slug (e.g. "tenant_acme_meat_co"). Connections are
-//                 pooled and cached for the process lifetime.
+// - LEAGUE DBs:   Each league tenant gets its own MongoDB database, resolved
+//                 by slug (e.g. "league_midamerica_7v7").
+//
+// - ORG DBs:      Each org tenant gets its own MongoDB database, resolved
+//                 by slug (e.g. "org_kc_thunder").
 // ---------------------------------------------------------------------------
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+function getMongoURI(): string {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error(
+      "Please define the MONGODB_URI environment variable inside .env"
+    );
+  }
+  return uri;
+}
 
 // --- Platform DB (default mongoose connection) ---
 
@@ -30,22 +41,11 @@ const cached: MongooseCache = global.mongooseCache ?? {
 };
 if (!global.mongooseCache) global.mongooseCache = cached;
 
-/**
- * Connect to the **platform** database (tenants, users, plans, feature flags).
- * Uses the default mongoose connection. Safe to call multiple times — returns
- * the cached connection after the first call.
- */
 export async function connectPlatformDB(): Promise<typeof mongoose> {
   if (cached.conn) return cached.conn;
 
-  if (!MONGODB_URI) {
-    throw new Error(
-      "Please define the MONGODB_URI environment variable inside .env"
-    );
-  }
-
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
+    cached.promise = mongoose.connect(getMongoURI(), {
       bufferCommands: false,
     });
   }
@@ -54,7 +54,7 @@ export async function connectPlatformDB(): Promise<typeof mongoose> {
   return cached.conn;
 }
 
-/** @deprecated Use connectPlatformDB() instead. Alias kept for migration convenience. */
+/** @deprecated Use connectPlatformDB() instead. */
 export const connectDB = connectPlatformDB;
 
 // --- Tenant DB connections ---
@@ -63,6 +63,7 @@ interface TenantDBCache {
   [tenantSlug: string]: {
     conn: Connection | null;
     promise: Promise<Connection> | null;
+    tenantType: "league" | "organization";
   };
 }
 
@@ -74,15 +75,13 @@ const tenantCache: TenantDBCache = global.tenantDBCache ?? {};
 if (!global.tenantDBCache) global.tenantDBCache = tenantCache;
 
 /**
- * Derive the MongoDB URI for a tenant database. Given a platform URI like
- * `mongodb+srv://user:pass@cluster.mongodb.net/illuminate?retryWrites=true`
- * this returns
- * `mongodb+srv://user:pass@cluster.mongodb.net/tenant_<slug>?retryWrites=true`
+ * Derive the MongoDB URI for a tenant database.
+ * League tenants → `league_<slug>`, Org tenants → `org_<slug>`.
  */
-function buildTenantURI(tenantSlug: string): string {
-  const dbName = `tenant_${tenantSlug.replace(/-/g, "_")}`;
-  const url = new URL(MONGODB_URI);
-  // URL pathname is "/<dbname>" — replace it
+function buildTenantURI(tenantSlug: string, tenantType: "league" | "organization"): string {
+  const prefix = tenantType === "league" ? "league" : "org";
+  const dbName = `${prefix}_${tenantSlug.replace(/-/g, "_")}`;
+  const url = new URL(getMongoURI());
   url.pathname = `/${dbName}`;
   return url.toString();
 }
@@ -90,41 +89,43 @@ function buildTenantURI(tenantSlug: string): string {
 /**
  * Get (or create) a cached Mongoose Connection to a **tenant database**.
  *
- * Each tenant's data (products, recipes, ingredients, orders, etc.) lives in
- * its own database, providing full data isolation at the database level.
+ * League and org tenants each get their own database with type-appropriate
+ * models registered on the connection.
  *
- * The returned Connection already has all tenant-scoped models registered on
- * it via `registerTenantModels()`.
- *
- * @param tenantSlug - The tenant's unique slug (e.g. "acme-meat-co")
+ * @param tenantSlug - The tenant's unique slug (e.g. "midamerica-7v7")
+ * @param tenantType - "league" or "organization"
  */
-export async function connectTenantDB(tenantSlug: string): Promise<Connection> {
+export async function connectTenantDB(
+  tenantSlug: string,
+  tenantType: "league" | "organization",
+): Promise<Connection> {
   if (!tenantSlug) {
     throw new Error("connectTenantDB requires a non-empty tenantSlug");
   }
 
-  // Return cached connection if available
   if (tenantCache[tenantSlug]?.conn) {
     return tenantCache[tenantSlug].conn!;
   }
 
-  // Ensure platform DB is connected first (mongoose default connection)
   await connectPlatformDB();
 
   if (!tenantCache[tenantSlug]) {
-    tenantCache[tenantSlug] = { conn: null, promise: null };
+    tenantCache[tenantSlug] = { conn: null, promise: null, tenantType };
   }
 
   if (!tenantCache[tenantSlug].promise) {
-    const uri = buildTenantURI(tenantSlug);
+    const uri = buildTenantURI(tenantSlug, tenantType);
     const conn = mongoose.createConnection(uri, {
       bufferCommands: false,
     });
 
     tenantCache[tenantSlug].promise = conn.asPromise().then((c) => {
-      // Register tenant-scoped models on this connection
-      const { registerTenantModels } = require("./models/tenant-models");
-      registerTenantModels(c);
+      const { registerLeagueModels, registerOrgModels } = require("./models/tenant-models");
+      if (tenantType === "league") {
+        registerLeagueModels(c);
+      } else {
+        registerOrgModels(c);
+      }
       return c;
     });
   }
@@ -133,10 +134,6 @@ export async function connectTenantDB(tenantSlug: string): Promise<Connection> {
   return tenantCache[tenantSlug].conn!;
 }
 
-/**
- * Close a specific tenant's database connection. Useful for cleanup or
- * when a tenant is suspended.
- */
 export async function disconnectTenantDB(tenantSlug: string): Promise<void> {
   const entry = tenantCache[tenantSlug];
   if (entry?.conn) {
@@ -145,9 +142,6 @@ export async function disconnectTenantDB(tenantSlug: string): Promise<void> {
   }
 }
 
-/**
- * Close ALL tenant database connections. Useful during graceful shutdown.
- */
 export async function disconnectAllTenantDBs(): Promise<void> {
   const slugs = Object.keys(tenantCache);
   await Promise.all(slugs.map((slug) => disconnectTenantDB(slug)));

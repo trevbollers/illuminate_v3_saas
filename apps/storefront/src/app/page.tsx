@@ -1,87 +1,87 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, Truck, Award, ShieldCheck, Clock } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Separator } from "@illuminate/ui/src/components/separator";
-import { ProductCard } from "@/components/product-card";
+import { ArrowRight, Users, Calendar, ShieldCheck, Trophy } from "lucide-react";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Separator } from "@goparticipate/ui/src/components/separator";
+import { ProgramCard } from "@/components/product-card";
 import { CategoryCard } from "@/components/category-card";
 
-const featuredProducts = [
+const featuredPrograms = [
   {
-    name: "Ribeye Steak",
-    slug: "ribeye-steak",
-    price: 32.99,
-    unit: "lb",
-    category: "Beef",
+    name: "7v7 Flag Football — Ages 8-10",
+    slug: "7v7-flag-8-10",
+    price: 149,
+    unit: "season",
+    category: "Flag Football",
     isConfigurable: true,
   },
   {
-    name: "Filet Mignon",
-    slug: "filet-mignon",
-    price: 45.99,
-    unit: "lb",
-    category: "Beef",
+    name: "7v7 Flag Football — Ages 11-13",
+    slug: "7v7-flag-11-13",
+    price: 149,
+    unit: "season",
+    category: "Flag Football",
   },
   {
-    name: "Baby Back Ribs",
-    slug: "baby-back-ribs",
-    price: 18.99,
-    unit: "lb",
-    category: "Pork",
+    name: "Travel Basketball — U12",
+    slug: "travel-basketball-u12",
+    price: 199,
+    unit: "season",
+    category: "Basketball",
     isConfigurable: true,
   },
   {
-    name: "Free-Range Whole Chicken",
-    slug: "free-range-whole-chicken",
-    price: 12.99,
-    unit: "each",
-    category: "Poultry",
+    name: "Rec Basketball — Ages 6-8",
+    slug: "rec-basketball-6-8",
+    price: 89,
+    unit: "season",
+    category: "Basketball",
   },
   {
-    name: "Wagyu Burger Patties",
-    slug: "wagyu-burger-patties",
-    price: 24.99,
-    unit: "pack",
-    category: "Specialty",
+    name: "Summer Skills Camp — Football",
+    slug: "summer-skills-camp-football",
+    price: 75,
+    unit: "camp",
+    category: "Camps",
     isConfigurable: true,
   },
   {
-    name: "Smoked Brisket",
-    slug: "smoked-brisket",
-    price: 28.99,
-    unit: "lb",
-    category: "Beef",
+    name: "Elite 7v7 — Ages 14-17",
+    slug: "elite-7v7-14-17",
+    price: 179,
+    unit: "season",
+    category: "Flag Football",
   },
 ];
 
 const categories = [
   {
-    name: "Beef",
-    slug: "beef",
-    description: "Premium cuts from grass-fed cattle",
-    emoji: "\u{1F969}",
-    productCount: 24,
+    name: "Flag Football",
+    slug: "flag-football",
+    description: "7v7 leagues and travel teams for all ages",
+    emoji: "\u{1F3C8}",
+    productCount: 6,
   },
   {
-    name: "Pork",
-    slug: "pork",
-    description: "Heritage breed pork, farm-raised",
-    emoji: "\u{1F356}",
-    productCount: 18,
+    name: "Basketball",
+    slug: "basketball",
+    description: "Rec leagues, travel teams, and skill sessions",
+    emoji: "\u{1F3C0}",
+    productCount: 5,
   },
   {
-    name: "Poultry",
-    slug: "poultry",
-    description: "Free-range chicken, duck & turkey",
-    emoji: "\u{1F357}",
-    productCount: 15,
+    name: "Camps",
+    slug: "camps",
+    description: "Summer and holiday skill development camps",
+    emoji: "\u{26BD}",
+    productCount: 4,
   },
   {
-    name: "Specialty",
-    slug: "specialty",
-    description: "Sausages, jerky & artisan creations",
-    emoji: "\u{1F32D}",
-    productCount: 12,
+    name: "Uniforms",
+    slug: "uniforms",
+    description: "Custom jerseys, shorts, and team gear",
+    emoji: "\u{1F455}",
+    productCount: 8,
   },
 ];
 
@@ -89,39 +89,39 @@ export default function StorefrontHomePage() {
   return (
     <div>
       {/* Hero Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-amber-900 via-amber-800 to-orange-900">
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxIDAgNiAyLjY5IDYgNnMtMi42OSA2LTYgNi02LTIuNjktNi02IDIuNjktNiA2LTZ6IiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiIHN0cm9rZS13aWR0aD0iMiIvPjwvZz48L3N2Zz4=')] opacity-30" />
         <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-amber-200">
-              Farm to Table Excellence
+            <p className="text-sm font-semibold uppercase tracking-widest text-blue-200">
+              Youth Sports — Powered by Go Participate
             </p>
             <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Premium Meats,{" "}
-              <span className="text-amber-300">Delivered Fresh</span>
+              Register Your Athlete.{" "}
+              <span className="text-blue-300">Play This Season.</span>
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-amber-100/80">
-              Locally sourced from trusted farms, expertly butchered by master
-              craftsmen. Experience the difference that quality makes in every
-              cut, every bite.
+            <p className="mt-6 text-lg leading-relaxed text-blue-100/80">
+              Browse open teams and programs, pay dues online, and order team
+              uniforms — all from one place. Sign up today and get your athlete
+              on the field.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/products">
                 <Button
                   size="lg"
-                  className="gap-2 bg-white text-amber-900 hover:bg-amber-50"
+                  className="gap-2 bg-white text-blue-900 hover:bg-blue-50"
                 >
-                  Browse All Products
+                  Browse Programs
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/quote">
+              <Link href="/#upcoming-events">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="gap-2 border-amber-300/50 text-white hover:bg-amber-800/50"
+                  className="gap-2 border-blue-300/50 text-white hover:bg-blue-800/50"
                 >
-                  Request Bulk Quote
+                  Upcoming Events
                 </Button>
               </Link>
             </div>
@@ -134,24 +134,24 @@ export default function StorefrontHomePage() {
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-8 sm:px-6 md:grid-cols-4 lg:px-8">
           {[
             {
-              icon: Award,
-              title: "Premium Quality",
-              desc: "Hand-selected cuts",
+              icon: Users,
+              title: "Join a Team",
+              desc: "Open rosters for all skill levels",
             },
             {
-              icon: Truck,
-              title: "Fast Delivery",
-              desc: "Fresh to your door",
+              icon: Calendar,
+              title: "Upcoming Events",
+              desc: "Leagues, tournaments & camps",
             },
             {
               icon: ShieldCheck,
-              title: "100% Satisfaction",
-              desc: "Guaranteed freshness",
+              title: "Safe & Verified",
+              desc: "Background-checked coaches",
             },
             {
-              icon: Clock,
-              title: "Same-Day Orders",
-              desc: "Order by 2pm",
+              icon: Trophy,
+              title: "Compete & Grow",
+              desc: "Development-first programs",
             },
           ].map((item) => (
             <div
@@ -172,15 +172,15 @@ export default function StorefrontHomePage() {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Featured Programs */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              Featured Products
+              Open Programs
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Our most popular cuts, hand-picked for you
+              Teams and programs currently accepting registrations
             </p>
           </div>
           <Link href="/products" className="hidden sm:block">
@@ -191,15 +191,15 @@ export default function StorefrontHomePage() {
         </div>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.slug} {...product} />
+          {featuredPrograms.map((program) => (
+            <ProgramCard key={program.slug} {...program} />
           ))}
         </div>
 
         <div className="mt-8 text-center sm:hidden">
           <Link href="/products">
             <Button variant="outline" className="gap-2">
-              View All Products <ArrowRight className="h-4 w-4" />
+              View All Programs <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
@@ -211,10 +211,10 @@ export default function StorefrontHomePage() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            Shop by Category
+            Browse by Sport
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Find exactly what you&apos;re looking for
+            Find the right program for your athlete
           </p>
         </div>
 
@@ -225,38 +225,36 @@ export default function StorefrontHomePage() {
         </div>
       </section>
 
-      {/* About Section */}
-      <section id="about" className="bg-muted/40">
+      {/* Upcoming Events */}
+      <section id="upcoming-events" className="bg-muted/40">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
             <div>
               <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                Crafted with Care,{" "}
-                <span className="text-primary">Since 2010</span>
+                Built for Families,{" "}
+                <span className="text-primary">By Coaches</span>
               </h2>
               <div className="mt-6 space-y-4 text-muted-foreground">
                 <p>
-                  At Premium Meats, we believe that great food starts with great
-                  ingredients. Our family-owned butcher shop has been serving the
-                  community for over a decade, building lasting relationships with
-                  local farmers and ranchers who share our commitment to quality.
+                  Go Participate brings your sports organization online so
+                  families can register athletes, pay dues, track schedules, and
+                  order team gear — all without paper forms or group chats.
                 </p>
                 <p>
-                  Every cut is hand-selected by our master butchers, ensuring that
-                  only the finest meats make it to your table. We practice
-                  sustainable sourcing, supporting humane farming practices and
-                  responsible land stewardship.
+                  Coaches and org admins manage rosters, communicate with
+                  families, collect payments, and run events from a single
+                  dashboard. Everything a youth sports org needs, in one place.
                 </p>
                 <p>
-                  Whether you&apos;re grilling for the family, hosting a dinner
-                  party, or stocking up for the week, we&apos;re here to provide
-                  the quality and service you deserve.
+                  Whether you&apos;re signing up for your first recreational
+                  season or joining a competitive travel program, we make the
+                  process simple so you can focus on the game.
                 </p>
               </div>
               <div className="mt-8">
                 <Link href="/products">
                   <Button size="lg" className="gap-2">
-                    Browse All Products
+                    Browse All Programs
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -265,21 +263,21 @@ export default function StorefrontHomePage() {
 
             <div className="flex items-center justify-center">
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-amber-900">15+</p>
-                  <p className="mt-1 text-sm text-amber-700">Years of Experience</p>
+                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
+                  <p className="text-4xl font-bold text-blue-900">200+</p>
+                  <p className="mt-1 text-sm text-blue-700">Athletes Registered</p>
                 </div>
-                <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-amber-900">50+</p>
-                  <p className="mt-1 text-sm text-amber-700">Product Varieties</p>
+                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
+                  <p className="text-4xl font-bold text-blue-900">15+</p>
+                  <p className="mt-1 text-sm text-blue-700">Active Teams</p>
                 </div>
-                <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-amber-900">10K+</p>
-                  <p className="mt-1 text-sm text-amber-700">Happy Customers</p>
+                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
+                  <p className="text-4xl font-bold text-blue-900">2</p>
+                  <p className="mt-1 text-sm text-blue-700">Sports Offered</p>
                 </div>
-                <div className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-amber-900">100%</p>
-                  <p className="mt-1 text-sm text-amber-700">Locally Sourced</p>
+                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
+                  <p className="text-4xl font-bold text-blue-900">100%</p>
+                  <p className="mt-1 text-sm text-blue-700">Online Registration</p>
                 </div>
               </div>
             </div>
@@ -291,11 +289,11 @@ export default function StorefrontHomePage() {
       <section className="bg-primary">
         <div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-primary-foreground sm:text-3xl">
-            Ready to taste the difference?
+            Ready to get your athlete on the field?
           </h2>
           <p className="mt-3 text-primary-foreground/80">
-            Order today and experience premium quality meats delivered fresh to
-            your door.
+            Registration is open now. Join a team, pay dues online, and order
+            your uniforms in minutes.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link href="/products">
@@ -303,17 +301,17 @@ export default function StorefrontHomePage() {
                 size="lg"
                 className="gap-2 bg-white text-primary hover:bg-white/90"
               >
-                Browse All Products
+                Browse All Programs
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/quote">
+            <Link href="/programs?category=uniforms">
               <Button
                 size="lg"
                 variant="outline"
                 className="gap-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
               >
-                Request Bulk Quote
+                Order Uniforms
               </Button>
             </Link>
           </div>

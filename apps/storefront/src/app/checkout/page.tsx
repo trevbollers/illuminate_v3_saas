@@ -4,26 +4,26 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, Truck, Store, Lock } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Input } from "@illuminate/ui/src/components/input";
-import { Label } from "@illuminate/ui/src/components/label";
-import { Separator } from "@illuminate/ui/src/components/separator";
-import { Badge } from "@illuminate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Input } from "@goparticipate/ui/src/components/input";
+import { Label } from "@goparticipate/ui/src/components/label";
+import { Separator } from "@goparticipate/ui/src/components/separator";
+import { Badge } from "@goparticipate/ui/src/components/badge";
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
+} from "@goparticipate/ui/src/components/card";
 import { useCart } from "@/components/cart-provider";
 
-type FulfillmentMethod = "delivery" | "pickup";
+type FulfillmentMethod = "online" | "pickup";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
-  const [fulfillment, setFulfillment] = useState<FulfillmentMethod>("delivery");
+  const [fulfillment, setFulfillment] = useState<FulfillmentMethod>("online");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [contactInfo, setContactInfo] = useState({
@@ -41,7 +41,7 @@ export default function CheckoutPage() {
     zipCode: "",
   });
 
-  const shippingCost = fulfillment === "delivery" ? 9.99 : 0;
+  const shippingCost: number = fulfillment === "online" ? 0 : 0;
   const estimatedTax = subtotal * 0.0825;
   const total = subtotal + estimatedTax + shippingCost;
 
@@ -64,10 +64,10 @@ export default function CheckoutPage() {
           No items to checkout
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Your cart is empty. Add some products first.
+          Your cart is empty. Add some programs or items first.
         </p>
         <Link href="/products" className="mt-4 inline-block">
-          <Button>Browse Products</Button>
+          <Button>Browse Programs</Button>
         </Link>
       </div>
     );
@@ -160,16 +160,16 @@ export default function CheckoutPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => setFulfillment("delivery")}
+                    onClick={() => setFulfillment("online")}
                     className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
-                      fulfillment === "delivery"
+                      fulfillment === "online"
                         ? "border-primary bg-primary/5"
                         : "border-input hover:border-primary/50"
                     }`}
                   >
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                        fulfillment === "delivery"
+                        fulfillment === "online"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground"
                       }`}
@@ -177,9 +177,9 @@ export default function CheckoutPage() {
                       <Truck className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold">Delivery</p>
+                      <p className="font-semibold">Ship to Me</p>
                       <p className="text-sm text-muted-foreground">
-                        Delivered to your door ($9.99)
+                        Uniforms and gear shipped to your address (Free)
                       </p>
                     </div>
                   </button>
@@ -203,25 +203,25 @@ export default function CheckoutPage() {
                       <Store className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold">Pickup</p>
+                      <p className="font-semibold">Pick Up at Practice</p>
                       <p className="text-sm text-muted-foreground">
-                        Pick up in store (Free)
+                        Collect gear at your first practice (Free)
                       </p>
                     </div>
                   </button>
                 </div>
 
-                {/* Delivery Address */}
-                {fulfillment === "delivery" && (
+                {/* Shipping Address */}
+                {fulfillment === "online" && (
                   <div className="mt-6 space-y-4">
                     <h3 className="text-sm font-semibold text-muted-foreground">
-                      Delivery Address
+                      Shipping Address
                     </h3>
                     <div className="space-y-2">
                       <Label htmlFor="street">Street Address</Label>
                       <Input
                         id="street"
-                        required={fulfillment === "delivery"}
+                        required={fulfillment === "online"}
                         value={deliveryAddress.street}
                         onChange={(e) =>
                           setDeliveryAddress({
@@ -253,7 +253,7 @@ export default function CheckoutPage() {
                         <Label htmlFor="city">City</Label>
                         <Input
                           id="city"
-                          required={fulfillment === "delivery"}
+                          required={fulfillment === "online"}
                           value={deliveryAddress.city}
                           onChange={(e) =>
                             setDeliveryAddress({
@@ -261,14 +261,14 @@ export default function CheckoutPage() {
                               city: e.target.value,
                             })
                           }
-                          placeholder="Meatville"
+                          placeholder="Kansas City"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="state">State</Label>
                         <Input
                           id="state"
-                          required={fulfillment === "delivery"}
+                          required={fulfillment === "online"}
                           value={deliveryAddress.state}
                           onChange={(e) =>
                             setDeliveryAddress({
@@ -276,14 +276,14 @@ export default function CheckoutPage() {
                               state: e.target.value,
                             })
                           }
-                          placeholder="TX"
+                          placeholder="MO"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="zipCode">ZIP Code</Label>
                         <Input
                           id="zipCode"
-                          required={fulfillment === "delivery"}
+                          required={fulfillment === "online"}
                           value={deliveryAddress.zipCode}
                           onChange={(e) =>
                             setDeliveryAddress({
@@ -291,7 +291,7 @@ export default function CheckoutPage() {
                               zipCode: e.target.value,
                             })
                           }
-                          placeholder="75001"
+                          placeholder="64101"
                         />
                       </div>
                     </div>
@@ -301,15 +301,14 @@ export default function CheckoutPage() {
                 {fulfillment === "pickup" && (
                   <div className="mt-6 rounded-lg border bg-muted/30 p-4">
                     <p className="font-semibold text-foreground">
-                      Pickup Location
+                      Practice Location
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Premium Meats
-                      <br />
-                      123 Butcher Lane, Meatville, TX 75001
+                      Your coach will provide the exact pickup location and time
+                      after registration is confirmed.
                     </p>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Hours: Mon-Sat 8am - 6pm, Sun 10am - 4pm
+                      Gear is typically distributed at the first practice session.
                     </p>
                   </div>
                 )}
@@ -386,7 +385,7 @@ export default function CheckoutPage() {
                     <span className="font-medium">${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-muted-foreground">Shipping / Fulfillment</span>
                     <span className="font-medium">
                       {shippingCost === 0
                         ? "Free"

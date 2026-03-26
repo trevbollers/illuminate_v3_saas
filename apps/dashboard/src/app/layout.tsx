@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { auth } from "@illuminate/auth/edge";
-import { connectPlatformDB, Tenant } from "@illuminate/db";
+import { auth } from "@goparticipate/auth/edge";
+import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Dashboard - Illuminate",
-  description: "Meat locker operations management dashboard",
+  title: "Dashboard - Go Participate",
+  description: "Go Participate operations management dashboard",
 };
 
 export default async function RootLayout({
@@ -27,15 +27,12 @@ export default async function RootLayout({
     try {
       await connectPlatformDB();
       const tenant = await Tenant.findOne({ slug: session.user.tenantSlug })
-        .select("name plan.planId locations")
+        .select("name plan.planId")
         .lean();
 
       if (tenant) {
         tenantName = tenant.name;
         planName = tenant.plan.planId;
-        locations = (tenant.locations ?? [])
-          .filter((l: any) => l.isActive !== false)
-          .map((l: any) => ({ id: l._id.toString(), name: l.name }));
       }
     } catch (err) {
       console.error("[dashboard:layout] Failed to fetch tenant:", err);

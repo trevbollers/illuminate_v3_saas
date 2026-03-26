@@ -35,10 +35,10 @@ export function InviteEmail({
       <Body style={body}>
         <Container style={container}>
           <Img
-            src="https://illuminate.app/logo.png"
+            src="https://goparticipate.app/logo.png"
             width="140"
             height="40"
-            alt="Illuminate"
+            alt="Go Participate"
             style={logo}
           />
 
@@ -46,13 +46,13 @@ export function InviteEmail({
 
           <Text style={paragraph}>
             <strong>{inviterName}</strong> has invited you to join{" "}
-            <strong>{teamName}</strong> on Illuminate as a{" "}
+            <strong>{teamName}</strong> on Go Participate as a{" "}
             <strong>{role}</strong>.
           </Text>
 
           <Text style={paragraph}>
-            Illuminate helps food businesses manage their recipes, inventory,
-            production, and sales — all in one place.
+            Go Participate helps youth sports teams manage rosters, schedules,
+            payments, and game-day operations — all in one place.
           </Text>
 
           <Section style={buttonSection}>

@@ -1,32 +1,32 @@
 import {
-  ShoppingCart,
+  Users,
+  Calendar,
   DollarSign,
-  AlertTriangle,
-  Package,
+  Trophy,
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@illuminate/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@goparticipate/ui";
 import { StatCard } from "@/components/stat-card";
-import { RecentOrders } from "@/components/recent-orders";
-import { LowStockAlert } from "@/components/low-stock-alert";
+import { RecentActivity } from "@/components/recent-activity";
+import { UpcomingEvents } from "@/components/upcoming-events";
 import { QuickActions } from "@/components/quick-actions";
-import { auth } from "@illuminate/auth/edge";
-import { connectPlatformDB, Tenant } from "@illuminate/db";
+import { auth } from "@goparticipate/auth/edge";
+import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
 const ONBOARDING_STEPS = [
-  { id: 1, title: "Create your first product" },
-  { id: 2, title: "Set up a recipe" },
-  { id: 3, title: "Add inventory items" },
-  { id: 4, title: "Create a sales order" },
-  { id: 5, title: "Invite a team member" },
+  { id: 1, title: "Create your first team" },
+  { id: 2, title: "Add players to your roster" },
+  { id: 3, title: "Schedule your first event" },
+  { id: 4, title: "Send a message to your team" },
+  { id: 5, title: "Set up payment collection" },
 ];
 
 export default async function DashboardPage() {
   const session = await auth();
 
   let userName = "there";
-  let businessName = "your business";
+  let orgName = "your organization";
   let onboardingStep = 0;
   let showOnboarding = true;
 
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
           .lean();
 
         if (tenant) {
-          businessName = tenant.name;
+          orgName = tenant.name;
           onboardingStep = tenant.onboardingStep ?? 0;
           showOnboarding = tenant.status === "onboarding" || onboardingStep < ONBOARDING_STEPS.length;
         }
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
           Welcome back, {userName}
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Here&apos;s what&apos;s happening at {businessName} today.
+          Here&apos;s what&apos;s happening at {orgName} today.
         </p>
       </div>
 
@@ -121,42 +121,42 @@ export default async function DashboardPage() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Today's Orders"
+          title="Active Players"
           value="0"
-          change="No orders yet"
+          change="Add players to your roster"
           changeType="neutral"
-          icon={ShoppingCart}
+          icon={Users}
         />
         <StatCard
-          title="Revenue (This Month)"
+          title="Upcoming Events"
+          value="0"
+          change="No events scheduled"
+          changeType="neutral"
+          icon={Calendar}
+        />
+        <StatCard
+          title="Outstanding Payments"
           value="$0"
-          change="Getting started"
+          change="No dues pending"
           changeType="neutral"
           icon={DollarSign}
         />
         <StatCard
-          title="Low Stock Alerts"
-          value="0"
-          change="No inventory yet"
+          title="Team Record"
+          value="0-0"
+          change="Season not started"
           changeType="neutral"
-          icon={AlertTriangle}
-        />
-        <StatCard
-          title="Active Products"
-          value="0"
-          change="Add your first product"
-          changeType="neutral"
-          icon={Package}
+          icon={Trophy}
         />
       </div>
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <RecentOrders />
+          <RecentActivity />
         </div>
         <div className="space-y-6">
-          <LowStockAlert />
+          <UpcomingEvents />
         </div>
       </div>
 

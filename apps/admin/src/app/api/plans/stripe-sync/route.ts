@@ -1,6 +1,7 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { connectPlatformDB, Plan } from "@illuminate/db";
-import { stripe } from "@illuminate/billing";
+import { connectPlatformDB, Plan } from "@goparticipate/db";
+import { stripe } from "@goparticipate/billing";
 
 /**
  * POST /api/plans/stripe-sync
@@ -9,10 +10,10 @@ import { stripe } from "@illuminate/billing";
  * Stripe is the source of truth for: name, description, pricing, price IDs.
  * MongoDB (admin UI) is the source of truth for: features, limits.
  *
- * - Skips add-on products (those with illuminate_addon_id metadata)
+ * - Skips add-on products (those with goparticipate_addon_id metadata)
  * - Handles free plans (no recurring prices → monthly/annual = 0)
  * - Preserves existing features & limits if the plan already exists in DB
- * - Sets illuminate_plan_id metadata on Stripe products that don't have it
+ * - Sets goparticipate_plan_id metadata on Stripe products that don't have it
  * - Idempotent — safe to run multiple times
  */
 
@@ -25,10 +26,11 @@ function toPlanId(name: string): string {
 }
 
 const DEFAULT_LIMITS: Record<string, object> = {
-  beginner:     { users: 1,   locations: 1, products: 25,   ordersPerMonth: 50,    storageGb: 1   },
-  starter:      { users: 5,   locations: 1, products: 50,   ordersPerMonth: 100,   storageGb: 5   },
-  professional: { users: 25,  locations: 5, products: 500,  ordersPerMonth: 1000,  storageGb: 25  },
-  enterprise:   { users: 999, locations: 999, products: 9999, ordersPerMonth: 99999, storageGb: 100 },
+  free:         { users: 3,   teams: 1,   players: 15,  eventsPerYear: 12,  storageGb: 1  },
+  team_pro:     { users: 5,   teams: 1,   players: 25,  eventsPerYear: 50,  storageGb: 5  },
+  partner:      { users: 5,   teams: 1,   players: 25,  eventsPerYear: 50,  storageGb: 5  },
+  organization: { users: 25,  teams: 10,  players: 250, eventsPerYear: 200, storageGb: 25 },
+  league:       { users: 999, teams: 999, players: 9999, eventsPerYear: 999, storageGb: 100 },
 };
 
 export async function POST() {
@@ -38,7 +40,7 @@ export async function POST() {
 
   // Skip add-on products — they have their own metadata key
   const planProducts = stripeProducts.data.filter(
-    (p) => !p.metadata.illuminate_addon_id
+    (p) => !p.metadata.goparticipate_addon_id
   );
 
   const results: { planId: string; name: string; status: string; details: string }[] = [];
@@ -46,7 +48,7 @@ export async function POST() {
   for (const product of planProducts) {
     try {
       // Derive planId from metadata or slugify the product name
-      let planId = product.metadata.illuminate_plan_id || toPlanId(product.name);
+      let planId = product.metadata.goparticipate_plan_id || toPlanId(product.name);
 
       // Fetch all active prices for this product
       const priceList = await stripe.prices.list({
@@ -92,7 +94,7 @@ export async function POST() {
           $setOnInsert: {
             planId,
             features: [],
-            limits: DEFAULT_LIMITS[planId] ?? DEFAULT_LIMITS.starter,
+            limits: DEFAULT_LIMITS[planId] ?? DEFAULT_LIMITS.free,
             addOns: [],
             createdAt: new Date(),
           },
@@ -101,9 +103,9 @@ export async function POST() {
       );
 
       // Tag the Stripe product with our planId so future syncs are deterministic
-      if (!product.metadata.illuminate_plan_id) {
+      if (!product.metadata.goparticipate_plan_id) {
         await stripe.products.update(product.id, {
-          metadata: { ...product.metadata, illuminate_plan_id: planId },
+          metadata: { ...product.metadata, goparticipate_plan_id: planId },
         });
       }
 
@@ -118,7 +120,7 @@ export async function POST() {
       });
     } catch (err: any) {
       results.push({
-        planId: product.metadata.illuminate_plan_id || toPlanId(product.name),
+        planId: product.metadata.goparticipate_plan_id || toPlanId(product.name),
         name: product.name,
         status: "error",
         details: err?.message ?? "Unknown error",

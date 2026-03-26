@@ -1,67 +1,84 @@
-import type { Role } from "./roles";
-import { DEFAULT_ROLE_PERMISSIONS } from "./permissions";
+import type { TenantRole, LeagueRole, OrgRole } from "./roles";
+import { isOwnerRole, LEAGUE_ROLES } from "./roles";
+import { DEFAULT_LEAGUE_ROLE_PERMISSIONS, DEFAULT_ORG_ROLE_PERMISSIONS } from "./permissions";
 
 /**
- * Returns the full set of permissions for a given role (default role
- * permissions only, without any user-specific overrides).
+ * Returns the default permissions for a tenant role (league or org).
  */
-export function getRolePermissions(role: Role): string[] {
-  return [...DEFAULT_ROLE_PERMISSIONS[role]];
+export function getRolePermissions(role: TenantRole): string[] {
+  if (role in DEFAULT_LEAGUE_ROLE_PERMISSIONS) {
+    return [...DEFAULT_LEAGUE_ROLE_PERMISSIONS[role as LeagueRole]];
+  }
+  if (role in DEFAULT_ORG_ROLE_PERMISSIONS) {
+    return [...DEFAULT_ORG_ROLE_PERMISSIONS[role as OrgRole]];
+  }
+  return [];
 }
 
-/**
- * Resolves the effective permission set for a user by combining the default
- * permissions of their role with any extra permissions explicitly granted.
- */
-function resolvePermissions(
-  userRole: Role,
-  userPermissions: string[],
-): Set<string> {
-  const defaults = DEFAULT_ROLE_PERMISSIONS[userRole] ?? [];
-  const merged = new Set<string>([...defaults, ...userPermissions]);
-  return merged;
+function resolvePermissions(userRole: TenantRole, userPermissions: string[]): Set<string> {
+  const defaults = getRolePermissions(userRole);
+  return new Set<string>([...defaults, ...userPermissions]);
 }
 
 /**
  * Checks whether a user has a specific permission.
- *
- * The effective permission set is the union of the role's default permissions
- * and any additional permissions passed via `userPermissions`.
- *
- * Owners always have all permissions regardless of what is stored.
+ * Owner roles (league_owner, org_owner) always return true.
  */
 export function hasPermission(
-  userRole: Role,
+  userRole: TenantRole,
   userPermissions: string[],
   permission: string,
 ): boolean {
-  if (userRole === "owner") return true;
+  if (isOwnerRole(userRole)) return true;
   const effective = resolvePermissions(userRole, userPermissions);
   return effective.has(permission);
 }
 
-/**
- * Checks whether a user has **at least one** of the given permissions.
- */
 export function hasAnyPermission(
-  userRole: Role,
+  userRole: TenantRole,
   userPermissions: string[],
   permissions: string[],
 ): boolean {
-  if (userRole === "owner") return true;
+  if (isOwnerRole(userRole)) return true;
   const effective = resolvePermissions(userRole, userPermissions);
   return permissions.some((p) => effective.has(p));
 }
 
-/**
- * Checks whether a user has **all** of the given permissions.
- */
 export function hasAllPermissions(
-  userRole: Role,
+  userRole: TenantRole,
   userPermissions: string[],
   permissions: string[],
 ): boolean {
-  if (userRole === "owner") return true;
+  if (isOwnerRole(userRole)) return true;
   const effective = resolvePermissions(userRole, userPermissions);
   return permissions.every((p) => effective.has(p));
+}
+
+// ─── Platform permission checks ──────────────────────────────────────────────
+
+export function hasPlatformPermission(
+  platformRole: string,
+  platformPermissions: string[],
+  permission: string,
+): boolean {
+  if (platformRole === "gp_admin") return true;
+  return platformPermissions.includes(permission);
+}
+
+export function hasAnyPlatformPermission(
+  platformRole: string,
+  platformPermissions: string[],
+  permissions: string[],
+): boolean {
+  if (platformRole === "gp_admin") return true;
+  return permissions.some((p) => platformPermissions.includes(p));
+}
+
+export function hasAllPlatformPermissions(
+  platformRole: string,
+  platformPermissions: string[],
+  permissions: string[],
+): boolean {
+  if (platformRole === "gp_admin") return true;
+  return permissions.every((p) => platformPermissions.includes(p));
 }

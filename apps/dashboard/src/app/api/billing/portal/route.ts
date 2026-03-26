@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@illuminate/auth/edge";
-import { createBillingPortalSession } from "@illuminate/billing";
-import { connectPlatformDB, Tenant } from "@illuminate/db";
+import { auth } from "@goparticipate/auth/edge";
+import { createBillingPortalSession } from "@goparticipate/billing";
+import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
 export const runtime = "nodejs";
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const returnUrl =
     process.env.NEXT_PUBLIC_DASHBOARD_URL
       ? `${process.env.NEXT_PUBLIC_DASHBOARD_URL}/settings/billing`
-      : `${req.headers.get("origin") ?? "http://localhost:3002"}/settings/billing`;
+      : `${req.headers.get("origin") ?? "http://localhost:4003"}/settings/billing`;
 
   try {
     const portalSession = await createBillingPortalSession({

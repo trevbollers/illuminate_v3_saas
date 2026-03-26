@@ -2,16 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ShoppingCart, Menu, X, Beef } from "lucide-react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Badge } from "@illuminate/ui/src/components/badge";
+import { ShoppingCart, Menu, X, Trophy } from "lucide-react";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Badge } from "@goparticipate/ui/src/components/badge";
 import { useCart } from "./cart-provider";
 
 const navLinks = [
-  { href: "/products", label: "Shop" },
-  { href: "/#about", label: "About" },
+  { href: "/products", label: "Programs" },
+  { href: "/products?category=uniforms", label: "Uniforms" },
+  { href: "/#upcoming-events", label: "Events" },
   { href: "/#contact", label: "Contact" },
-  { href: "/quote", label: "Request Quote" },
 ];
 
 export function StoreHeader() {
@@ -21,13 +21,13 @@ export function StoreHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo / Business Name */}
+        {/* Logo / Org Name */}
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Beef className="h-5 w-5 text-primary-foreground" />
+            <Trophy className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-bold tracking-tight text-foreground">
-            Premium Meats
+            Go Participate
           </span>
         </Link>
 
@@ -52,7 +52,7 @@ export function StoreHeader() {
                   {itemCount > 99 ? "99+" : itemCount}
                 </Badge>
               )}
-              <span className="sr-only">Shopping cart</span>
+              <span className="sr-only">Registration cart</span>
             </Button>
           </Link>
 

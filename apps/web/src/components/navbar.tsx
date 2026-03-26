@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Menu, X } from "lucide-react";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Menu, X, Trophy, Shield, Heart } from "lucide-react";
 
 const navLinks = [
   { href: "/#features", label: "Features" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/#roles", label: "Pricing" },
   { href: "/#about", label: "About" },
 ];
 
@@ -36,10 +36,10 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">I</span>
+              <span className="text-sm font-bold text-primary-foreground">GP</span>
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              Illuminate
+              Go Participate
             </span>
           </Link>
 
@@ -61,8 +61,10 @@ export function Navbar() {
             <Button variant="ghost" size="sm" asChild>
               <Link href="/auth/login">Sign In</Link>
             </Button>
-            <Button size="sm" asChild>
-              <Link href="/pricing">Get Started</Link>
+            <Button size="sm" className="gap-1.5" asChild>
+              <Link href="/signup">
+                Get Started
+              </Link>
             </Button>
           </div>
 
@@ -94,8 +96,20 @@ export function Navbar() {
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/auth/login">Sign In</Link>
                 </Button>
-                <Button size="sm" asChild>
-                  <Link href="/pricing">Get Started</Link>
+                <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" asChild>
+                  <Link href="/signup?role=league">
+                    <Trophy className="h-3.5 w-3.5" /> Start a League
+                  </Link>
+                </Button>
+                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" asChild>
+                  <Link href="/signup?role=org">
+                    <Shield className="h-3.5 w-3.5" /> Start a Team
+                  </Link>
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 border-amber-400 text-amber-700" asChild>
+                  <Link href="/signup?role=family">
+                    <Heart className="h-3.5 w-3.5" /> Join as Family
+                  </Link>
                 </Button>
               </div>
             </div>

@@ -1,69 +1,92 @@
 import { Connection } from "mongoose";
-import { ProductSchema, type IProduct } from "./product";
-import { RecipeSchema, type IRecipe } from "./recipe";
-import { IngredientSchema, type IIngredient } from "./ingredient";
-import { InventoryTransactionSchema, type IInventoryTransaction } from "./inventory-transaction";
-import { SupplierSchema, type ISupplier } from "./supplier";
-import { PurchaseOrderSchema, type IPurchaseOrder } from "./purchase-order";
-import { SalesOrderSchema, type ISalesOrder } from "./sales-order";
-import { ProductionBatchSchema, type IProductionBatch } from "./production-batch";
+
+// League models
+import { EventSchema, type IEvent } from "./league/event";
+import { DivisionSchema, type IDivision } from "./league/division";
+import { RegistrationSchema, type IRegistration } from "./league/registration";
+import { BracketSchema, type IBracket } from "./league/bracket";
+import { GameSchema, type IGame } from "./league/game";
+import { StandingSchema, type IStanding } from "./league/standing";
+import { ComplianceRuleSchema, type IComplianceRule } from "./league/compliance-rule";
+import { WaiverSchema, type IWaiver } from "./league/waiver";
+import { CheckInSchema, type ICheckIn } from "./league/checkin";
+
+// Org models
+import { TeamSchema, type ITeam } from "./org/team";
+import { RosterSchema, type IRoster } from "./org/roster";
+import { OrgEventSchema, type IOrgEvent } from "./org/org-event";
+import { AttendanceSchema, type IAttendance } from "./org/attendance";
+import { MessageSchema, type IMessage } from "./org/message";
+import { TransactionSchema, type ITransaction } from "./org/transaction";
+import { StatSchema, type IStat } from "./org/stat";
+import { UniformOrderSchema, type IUniformOrder } from "./org/uniform-order";
+import { InviteSchema, type IInvite } from "./org/invite";
+import { RegistrationCartSchema, type IRegistrationCart } from "./org/registration-cart";
 
 /**
- * Register all tenant-scoped models on a specific Mongoose connection.
- *
- * Because each tenant has its own database, these models do NOT include a
- * `tenantId` field. Data isolation is enforced at the database/connection level,
- * not the document level.
- *
- * Call this once per tenant connection — it's idempotent (skips if already
- * registered).
+ * Register all league-scoped models on a tenant connection.
+ * Idempotent — skips if already registered.
  */
-export function registerTenantModels(conn: Connection): void {
-  if (!conn.models.Product) {
-    conn.model<IProduct>("Product", ProductSchema);
-  }
-  if (!conn.models.Recipe) {
-    conn.model<IRecipe>("Recipe", RecipeSchema);
-  }
-  if (!conn.models.Ingredient) {
-    conn.model<IIngredient>("Ingredient", IngredientSchema);
-  }
-  if (!conn.models.InventoryTransaction) {
-    conn.model<IInventoryTransaction>("InventoryTransaction", InventoryTransactionSchema);
-  }
-  if (!conn.models.Supplier) {
-    conn.model<ISupplier>("Supplier", SupplierSchema);
-  }
-  if (!conn.models.PurchaseOrder) {
-    conn.model<IPurchaseOrder>("PurchaseOrder", PurchaseOrderSchema);
-  }
-  if (!conn.models.SalesOrder) {
-    conn.model<ISalesOrder>("SalesOrder", SalesOrderSchema);
-  }
-  if (!conn.models.ProductionBatch) {
-    conn.model<IProductionBatch>("ProductionBatch", ProductionBatchSchema);
-  }
+export function registerLeagueModels(conn: Connection): void {
+  if (!conn.models.Event) conn.model<IEvent>("Event", EventSchema);
+  if (!conn.models.Division) conn.model<IDivision>("Division", DivisionSchema);
+  if (!conn.models.Registration) conn.model<IRegistration>("Registration", RegistrationSchema);
+  if (!conn.models.Bracket) conn.model<IBracket>("Bracket", BracketSchema);
+  if (!conn.models.Game) conn.model<IGame>("Game", GameSchema);
+  if (!conn.models.Standing) conn.model<IStanding>("Standing", StandingSchema);
+  if (!conn.models.ComplianceRule) conn.model<IComplianceRule>("ComplianceRule", ComplianceRuleSchema);
+  if (!conn.models.Waiver) conn.model<IWaiver>("Waiver", WaiverSchema);
+  if (!conn.models.CheckIn) conn.model<ICheckIn>("CheckIn", CheckInSchema);
 }
 
 /**
- * Helper to get typed models from a tenant connection.
- *
- * Usage:
- * ```ts
- * const tenantConn = await connectTenantDB("acme-meat-co");
- * const models = getTenantModels(tenantConn);
- * const products = await models.Product.find({ isActive: true });
- * ```
+ * Register all org-scoped models on a tenant connection.
+ * Idempotent — skips if already registered.
  */
-export function getTenantModels(conn: Connection) {
+export function registerOrgModels(conn: Connection): void {
+  if (!conn.models.Team) conn.model<ITeam>("Team", TeamSchema);
+  if (!conn.models.Roster) conn.model<IRoster>("Roster", RosterSchema);
+  if (!conn.models.OrgEvent) conn.model<IOrgEvent>("OrgEvent", OrgEventSchema);
+  if (!conn.models.Attendance) conn.model<IAttendance>("Attendance", AttendanceSchema);
+  if (!conn.models.Message) conn.model<IMessage>("Message", MessageSchema);
+  if (!conn.models.Transaction) conn.model<ITransaction>("Transaction", TransactionSchema);
+  if (!conn.models.Stat) conn.model<IStat>("Stat", StatSchema);
+  if (!conn.models.UniformOrder) conn.model<IUniformOrder>("UniformOrder", UniformOrderSchema);
+  if (!conn.models.Invite) conn.model<IInvite>("Invite", InviteSchema);
+  if (!conn.models.RegistrationCart) conn.model<IRegistrationCart>("RegistrationCart", RegistrationCartSchema);
+}
+
+/**
+ * Get typed league models from a tenant connection.
+ */
+export function getLeagueModels(conn: Connection) {
   return {
-    Product: conn.model<IProduct>("Product"),
-    Recipe: conn.model<IRecipe>("Recipe"),
-    Ingredient: conn.model<IIngredient>("Ingredient"),
-    InventoryTransaction: conn.model<IInventoryTransaction>("InventoryTransaction"),
-    Supplier: conn.model<ISupplier>("Supplier"),
-    PurchaseOrder: conn.model<IPurchaseOrder>("PurchaseOrder"),
-    SalesOrder: conn.model<ISalesOrder>("SalesOrder"),
-    ProductionBatch: conn.model<IProductionBatch>("ProductionBatch"),
+    Event: conn.model<IEvent>("Event"),
+    Division: conn.model<IDivision>("Division"),
+    Registration: conn.model<IRegistration>("Registration"),
+    Bracket: conn.model<IBracket>("Bracket"),
+    Game: conn.model<IGame>("Game"),
+    Standing: conn.model<IStanding>("Standing"),
+    ComplianceRule: conn.model<IComplianceRule>("ComplianceRule"),
+    Waiver: conn.model<IWaiver>("Waiver"),
+    CheckIn: conn.model<ICheckIn>("CheckIn"),
+  };
+}
+
+/**
+ * Get typed org models from a tenant connection.
+ */
+export function getOrgModels(conn: Connection) {
+  return {
+    Team: conn.model<ITeam>("Team"),
+    Roster: conn.model<IRoster>("Roster"),
+    OrgEvent: conn.model<IOrgEvent>("OrgEvent"),
+    Attendance: conn.model<IAttendance>("Attendance"),
+    Message: conn.model<IMessage>("Message"),
+    Transaction: conn.model<ITransaction>("Transaction"),
+    Stat: conn.model<IStat>("Stat"),
+    UniformOrder: conn.model<IUniformOrder>("UniformOrder"),
+    Invite: conn.model<IInvite>("Invite"),
+    RegistrationCart: conn.model<IRegistrationCart>("RegistrationCart"),
   };
 }

@@ -4,8 +4,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { cn } from "@illuminate/ui/src/lib/utils";
+} from "@goparticipate/ui/src/components/card";
+import { cn } from "@goparticipate/ui/src/lib/utils";
 
 interface StatCardProps {
   title: string;

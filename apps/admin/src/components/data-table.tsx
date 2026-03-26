@@ -1,8 +1,8 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { cn } from "@illuminate/ui/src/lib/utils";
-import { Button } from "@illuminate/ui/src/components/button";
+import { cn } from "@goparticipate/ui/src/lib/utils";
+import { Button } from "@goparticipate/ui/src/components/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 interface Column<T> {

@@ -1,5 +1,6 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { connectPlatformDB, Tenant, User } from "@illuminate/db";
+import { connectPlatformDB, Tenant, User } from "@goparticipate/db";
 import mongoose from "mongoose";
 
 export async function GET() {

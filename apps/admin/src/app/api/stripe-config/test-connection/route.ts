@@ -1,5 +1,6 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { stripe } from "@illuminate/billing";
+import { stripe } from "@goparticipate/billing";
 
 export async function POST() {
   const secretKey = process.env.STRIPE_SECRET_KEY;

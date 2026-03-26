@@ -1,4 +1,4 @@
-export { stripe } from "./stripe";
+export { stripe, getStripe, getTenantStripe, getTenantStripeConfig } from "./stripe";
 
 export {
   getPlan,
@@ -7,6 +7,7 @@ export {
   getAddonByPriceId,
   getPriceId,
   type BillingInterval,
+  type PlanScope,
 } from "./plans";
 
 export {

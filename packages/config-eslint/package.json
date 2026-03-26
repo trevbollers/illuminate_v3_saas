@@ -1,5 +1,5 @@
 {
-  "name": "@illuminate/config-eslint",
+  "name": "@goparticipate/config-eslint",
   "version": "0.0.0",
   "private": true,
   "files": ["index.js"],

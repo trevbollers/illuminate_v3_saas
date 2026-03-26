@@ -1,9 +1,9 @@
 {
-  "name": "@illuminate/web",
+  "name": "@goparticipate/web",
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -13,11 +13,11 @@
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@illuminate/ui": "*",
-    "@illuminate/db": "*",
-    "@illuminate/auth": "*",
-    "@illuminate/billing": "*",
-    "@illuminate/email": "*",
+    "@goparticipate/ui": "*",
+    "@goparticipate/db": "*",
+    "@goparticipate/auth": "*",
+    "@goparticipate/billing": "*",
+    "@goparticipate/email": "*",
     "lucide-react": "^0.460.0",
     "zod": "^3.23.0",
     "react-hook-form": "^7.53.0",
@@ -31,7 +31,7 @@
     "tailwindcss": "^3.4.0",
     "postcss": "^8.4.0",
     "autoprefixer": "^10.4.0",
-    "@illuminate/config-typescript": "*",
-    "@illuminate/config-eslint": "*"
+    "@goparticipate/config-typescript": "*",
+    "@goparticipate/config-eslint": "*"
   }
 }

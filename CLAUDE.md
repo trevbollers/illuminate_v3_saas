@@ -1,162 +1,188 @@
-# Illuminate V3 SaaS Platform — Project Context
+# Go Participate — Youth Sports Platform — Project Context
 
 ## What This Is
 
-A multi-tenant SaaS platform for meat processing businesses ("Meat Locker"). Built as a
-Turborepo monorepo with Next.js 14 (App Router), TypeScript, MongoDB Atlas (database-per-tenant
-isolation), NextAuth.js v5, Stripe billing, and Anthropic Claude AI features.
+A mobile-first, AI-centric multi-tenant SaaS platform for youth sports team management (7v7 football
+and basketball at launch). Built as a Turborepo monorepo with Next.js 14 (App Router), TypeScript,
+MongoDB Atlas (database-per-tenant isolation), NextAuth.js v5, Stripe billing, and Anthropic Claude
+AI features.
 
-The platform domain is `meatlocker.app`. Each tenant gets a subdomain (`acme.meatlocker.app`)
-or can connect a custom domain.
+The platform domain is `goparticipate.com`. League tenants get subdomains
+(`midamerica7v7.goparticipate.com`), org tenants get subdomains (`kcthunder.goparticipate.com`),
+or can connect custom domains.
+
+**Brand Properties**:
+- **Go Participate** (goparticipate.com) — Core platform
+- **Your Prep Sports** (yourprepsports.com) — Media arm (future)
+- **MidAmerica 7v7** (midamerica7v7.org) — Launch league tenant
 
 ## Architecture Overview
 
 ```
-illuminate_v3_saas/
+go-participate/
 ├── apps/
-│   ├── web/           # Marketing site + signup (port 3000) — meatlocker.app
-│   ├── admin/         # Super admin portal (port 3001) — admin.meatlocker.app
-│   ├── dashboard/     # Tenant dashboard (port 3002) — <slug>.meatlocker.app
-│   └── storefront/    # B2C storefront (port 3003) — <slug>.meatlocker.app/store
+│   ├── web/           # Marketing site + signup (port 4000) — goparticipate.com
+│   ├── admin/         # Platform admin portal (port 4001) — admin.goparticipate.com
+│   ├── league/        # League management (port 4002) — <league>.goparticipate.com
+│   ├── dashboard/     # Org/team management (port 4003) — <org>.goparticipate.com
+│   └── storefront/    # Org public page (port 4004) — <org>.goparticipate.com/store
 │
 ├── packages/
 │   ├── auth/          # NextAuth.js config, middleware, JWT types
 │   ├── db/            # MongoDB models, connection pooling, tenant DB resolution
-│   ├── billing/       # Stripe subscriptions, webhooks, usage metering
-│   ├── permissions/   # RBAC roles, 31 granular permissions, feature flags
+│   ├── billing/       # Stripe subscriptions, event fees, dues collection
+│   ├── permissions/   # RBAC roles, sport-specific permissions, feature flags
 │   ├── ui/            # Shared shadcn/ui components
 │   ├── email/         # React Email templates (Resend)
-│   ├── ai/            # AI integrations (product configurator, MRP)
 │   ├── config-typescript/
 │   └── config-eslint/
 │
 ├── docs/
-│   ├── ARCHITECTURE.md    # Full system design
-│   ├── DATABASE_SCHEMA.md # MongoDB collections & indexes
-│   └── USER_FLOWS.md      # User journeys & auth flows
+│   ├── go-participate/   # Platform design docs (vision, architecture, features, etc.)
+│   ├── ARCHITECTURE.md   # System design (legacy Illuminate reference)
+│   ├── DATABASE_SCHEMA.md
+│   └── USER_FLOWS.md
 │
 ├── scripts/           # Utility/seed scripts
 ├── turbo.json         # Turborepo pipeline
-├── docker-compose.yml # Local MongoDB + Redis
+├── docker-compose.yml # Local MongoDB
 └── .env.example       # All environment variables
 ```
 
-## Three Access Layers
+## Three-Layer SaaS Model
 
-### Layer 1: SaaS Admin (Platform Owner)
-- **App**: `apps/admin` at `admin.meatlocker.app`
-- **Access**: Users with `platformRole === "saas_admin"` in the platform DB
-- **Can do**: Manage all tenants, plans & pricing, feature flags, revenue analytics, support
-- **Auth type**: `PlatformRole` from `packages/auth/src/types.ts`
+Go Participate is NOT a standard flat SaaS. Families are platform citizens, not tenant property.
 
-### Layer 2: Tenant Admin (Meat Business Owner)
-- **App**: `apps/dashboard` at `<slug>.meatlocker.app`
-- **Access**: Users with `role: "owner"` or `role: "admin"` in their tenant membership
-- **Can do**: Manage org, locations, team, billing, storefront config, all operations
-- **Auth type**: `TenantRole` from `packages/auth/src/types.ts`
-
-### Layer 3: Business User (Tenant Staff)
-- **App**: `apps/dashboard` (same app, scoped by permissions)
-- **Access**: Users with `role: "manager" | "staff" | "viewer"` in their tenant membership
-- **Can do**: Role-gated access to inventory, recipes, production, sales, purchasing, reports
-
-## User & Role System
-
-### Platform Roles (`packages/auth/src/types.ts`)
 ```
-PlatformRole = "saas_admin" | "platform_admin" | "user"
-```
-- `saas_admin` — Full platform control (super admin portal)
-- `platform_admin` — Reserved for future use
-- `user` — Regular user (default, no platform privileges)
-
-### Tenant Roles (`packages/permissions/src/roles.ts`)
-```
-owner   (level 100) — Complete access, all 31 permissions
-admin   (level  80) — All except settings.manage, team.manage (29 permissions)
-manager (level  60) — Operations + team.invite, no deletes/refunds (25 permissions)
-staff   (level  40) — View + create, no management actions (18 permissions)
-viewer  (level  20) — View-only across all features (10 permissions)
+LAYER 1: PLATFORM (Go Participate)        — Identity provider, document custodian
+├── LAYER 2a: LEAGUE TENANTS              → DB: league_<slug>
+│   └── Events, divisions, brackets, compliance, verification reviews
+├── LAYER 2b: ORG/TEAM TENANTS            → DB: org_<slug>
+│   └── Teams, rosters, scheduling, payments, communication
+└── LAYER 3: FAMILIES / PLAYERS           → goparticipate_platform DB
+    └── Player profiles, encrypted document vault, family groupings
+    └── NOT owned by any tenant — float between orgs and leagues freely
 ```
 
-### 31 Granular Permissions (`packages/permissions/src/permissions.ts`)
+Orgs and standalone teams are both `tenantType: "organization"`. The difference is plan tier
+and team count. Both use `apps/dashboard` — the UI adapts based on role and plan limits.
+
+Layer 2 tenants transact with each other (orgs register for league events). The platform
+brokers these cross-tenant interactions.
+
+## Where New Feature Data Goes
+
 ```
-Products:    products.view, products.create, products.edit, products.delete
-Recipes:     recipes.view, recipes.create, recipes.edit, recipes.delete
-Inventory:   inventory.view, inventory.adjust, inventory.manage
-Purchasing:  purchasing.view, purchasing.create, purchasing.approve
-Sales:       sales.view, sales.create, sales.manage, sales.refund
-Production:  production.view, production.create, production.manage
-Team:        team.view, team.invite, team.manage
-Settings:    settings.view, settings.billing, settings.manage
-Storefront:  storefront.view, storefront.manage
-Reports:     reports.view, reports.export
+About a PERSON (player/family)?          → Platform DB
+About a LEAGUE's operations?             → League DB
+About an ORG's operations?               → Org DB
+Crosses tenant boundaries?               → Platform brokers it (stores reference/grant/consent)
+Platform-wide configuration?             → Platform DB (sports, plans, feature_flags)
 ```
 
-Owners always bypass permission checks (hardcoded `true` in `hasPermission()`).
-Other roles can have custom permission overrides stored in `memberships[].permissions`.
+## Five Access Layers
 
-### User Model (`packages/db/src/models/user.ts`)
+### Layer 1: Platform Admin (Go Participate Staff)
+- **App**: `apps/admin` at `admin.goparticipate.com`
+- **Auth**: `platformRole === "gp_admin"`
+- **Can do**: Manage all tenants, plans, feature flags, revenue analytics
+
+### Layer 2: League Admin
+- **App**: `apps/league` at `<league>.goparticipate.com`
+- **Auth**: `tenantType === "league"` + `role: "league_owner" | "league_admin"`
+- **Can do**: Events, divisions, age verification, brackets, compliance
+
+### Layer 3: Organization / Team Admin
+- **App**: `apps/dashboard` at `<org>.goparticipate.com`
+- **Auth**: `tenantType === "organization"` + `role: "org_owner" | "org_admin" | "head_coach"`
+- **Can do**: Rosters, scheduling, payments, communication, stats, uniforms
+
+### Layer 4: Family / Parent Portal
+- **App**: `apps/dashboard` (different view based on role)
+- **Auth**: Authenticated user with family links
+- **Can do**: View schedules, RSVP, pay dues, upload documents, view stats
+
+### Layer 5: Public
+- **App**: `apps/web` (marketing), `apps/storefront` (org public page)
+- **Auth**: None required
+
+## Platform Roles
 ```
-User {
-  email, name, passwordHash, image, phone
-  platformRole: "saas_admin" | null
-  memberships: [{
-    tenantId, role, locationAccess[], permissions[], isActive, joinedAt
-  }]
-  activeTenantId  ← current tenant context
-}
+PlatformRole = "gp_admin" | "gp_support" | "user"
 ```
 
-Users can belong to multiple tenants. Tenant switching updates the JWT via
-`updateSession({ tenantId })`.
+## League Tenant Roles
+```
+league_owner  (100) — Full league control, billing, settings
+league_admin  (80)  — Event management, verification, compliance
+league_staff  (60)  — Score entry, check-in, day-of operations
+league_viewer (20)  — View-only access to league data
+```
+
+## Organization Tenant Roles
+```
+org_owner        (100) — Full org control, billing, all teams
+org_admin        (80)  — Manage all teams, staff, financials
+head_coach       (60)  — Full team management, roster, registration
+assistant_coach  (40)  — Attendance, communication, lineup
+team_manager     (40)  — Admin tasks — payments, communication, sizing
+viewer           (20)  — View-only
+```
 
 ## Multi-Tenant Database Architecture
 
 **Strategy**: Database-per-tenant isolation (zero cross-tenant data leak risk).
 
-- **Platform DB** (`illuminate_platform`): `tenants`, `users`, `plans`, `feature_flags`
-  - Connected via `connectPlatformDB()` (default mongoose instance)
-- **Tenant DBs** (`tenant_<slug>`): `products`, `recipes`, `ingredients`, `inventorytxns`,
-  `suppliers`, `purchaseorders`, `salesorders`, `productionbatches`
-  - Connected via `connectTenantDB(slug)` (cached per-process)
-  - No `tenantId` field in tenant collections — isolation is at the DB level
-  - Models registered via `registerTenantModels()` on the tenant Connection
+- **Platform DB** (`goparticipate_platform`): `tenants`, `users`, `plans`, `feature_flags`,
+  `players`, `families`, `document_vault` (encrypted), `document_grants`, `sports`
+- **League DBs** (`league_<slug>`): `events`, `divisions`, `registrations`, `roster_snapshots`,
+  `brackets`, `games`, `standings`, `compliance_rules`, `waivers`, `verification_reviews`
+- **Org DBs** (`org_<slug>`): `teams`, `rosters`, `org_events`, `attendance`, `messages`,
+  `transactions`, `stats`, `uniform_orders`, `invites`, `verification_services`
 
-## Authentication (`packages/auth/`)
+### Data Ownership Principles
 
-- NextAuth.js v5 with credentials + Google OAuth providers
-- JWT-based sessions (HttpOnly, Secure, SameSite cookies, 30-day expiry)
-- JWT contains: `userId, platformRole, tenantId, tenantSlug, role, permissions`
-- Middleware per app:
-  - `web`: public (no auth)
-  - `admin`: requires `platformRole === "saas_admin"`
-  - `dashboard`: requires authenticated + valid tenant context + subdomain match
-  - `storefront`: tenant resolution only (public browsing, no auth)
+- **Families own their data.** Player profiles and documents live in the platform DB, not in
+  any tenant DB. Families move between orgs and leagues freely.
+- **Tenants own their operations.** League event data stays in the league DB. Org team
+  management stays in the org DB. No tenant can access another tenant's operational data.
+- **The platform brokers cross-tenant interactions.** When an org registers for a league event,
+  the platform provides player identity; the league stores the registration; the org submitted it.
+- **Verifications are league-scoped.** Each league defines its own compliance requirements and
+  reviews documents independently. A verification approved by League A does not apply to League B.
 
-## Billing (`packages/billing/`)
+### Family Data Protection (CRITICAL)
 
-Two commerce layers:
-1. **SaaS billing** (platform → tenant): Stripe subscriptions, tiered plans
-   (Starter/Professional/Enterprise), 14-day trial, add-on AI features
-2. **B2C commerce** (tenant → customer): Storefront checkout via tenant's Stripe
+**The platform is a zero-knowledge document vault.** Family-uploaded documents (birth certificates,
+medical forms, etc.) are encrypted client-side before upload. The platform stores encrypted blobs
+and cannot read them. Access is granted per-document, per-tenant, with time-limited keys that
+families can revoke at any time.
 
-## Tech Stack
+**When writing code that touches family/player data, you MUST:**
+- NEVER store plaintext PII (names, DOB, addresses, medical info) outside of the encrypted vault
+  or the `players`/`families` collections in the platform DB
+- NEVER copy family documents or document content into tenant databases
+- NEVER log, cache, or persist decrypted document content to disk
+- NEVER expose document URLs without verifying an active, non-expired, non-revoked grant exists
+- ALWAYS use `packages/vault` (when implemented) for encryption/decryption operations
+- ALWAYS verify grant authorization before streaming decrypted content
+- ALWAYS use integrity hashes (SHA-256) for verification matching, not plaintext comparison
+- League DBs store only verification DECISIONS (approved/rejected), never the documents themselves
+- Org DBs may store verification service fees (transactions), never the documents themselves
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript 5.7 |
-| Database | MongoDB Atlas (Mongoose ODM) |
-| Auth | NextAuth.js v5 |
-| Billing | Stripe (Subscriptions + Checkout) |
-| Styling | Tailwind CSS + shadcn/ui |
-| Monorepo | Turborepo |
-| Email | React Email + Resend |
-| AI | Anthropic Claude API |
-| Cache | Redis (Upstash) |
-| Storage | S3/Cloudflare R2 |
-| Deployment | Vercel (per-app) |
+See `docs/go-participate/07-DATA-OWNERSHIP.md` for the full encryption architecture.
+
+## Pricing Tiers
+
+| Tier | Price | Target |
+|------|-------|--------|
+| Free | $0/mo | 1 team, 15 players — basic scheduling, RSVP, chat |
+| Team Pro | $9.99/mo | 1 team, 25 players — stats, dev tracking, calendar sync |
+| Partner | $4.99/mo | Team Pro features — unlocked via uniform partner commitment |
+| Organization | $29.99/mo | Up to 10 teams — multi-team dashboard, registration, financials |
+| League | $79.99/mo | Unlimited teams — events, verification, brackets, YPS integration |
+| AI Coach | $4.99/mo add-on | Practice plans, lineups, recaps |
+| AI Scout | $4.99/mo add-on | Player eval, development reports |
 
 ## Key Commands
 
@@ -165,15 +191,13 @@ Two commerce layers:
 npm run dev
 
 # Dev (specific app)
-npm run dev --filter=@illuminate/dashboard
+npm run dev:league
+npm run dev:dashboard
 
 # Build
 npm run build
 
-# Lint
-npm run lint
-
-# Local services (MongoDB + Redis)
+# Local services (MongoDB)
 docker compose up -d
 ```
 
@@ -182,7 +206,7 @@ docker compose up -d
 | Concern | Path |
 |---------|------|
 | Roles & hierarchy | `packages/permissions/src/roles.ts` |
-| All 31 permissions | `packages/permissions/src/permissions.ts` |
+| Permissions | `packages/permissions/src/permissions.ts` |
 | Permission checker | `packages/permissions/src/check.ts` |
 | Auth config & JWT | `packages/auth/src/config.ts` |
 | Auth types (Session/JWT) | `packages/auth/src/types.ts` |
@@ -191,14 +215,14 @@ docker compose up -d
 | Tenant model | `packages/db/src/models/tenant.ts` |
 | DB connections | `packages/db/src/connection.ts` |
 | Stripe billing | `packages/billing/src/` |
-| Architecture docs | `docs/ARCHITECTURE.md` |
-| DB schema docs | `docs/DATABASE_SCHEMA.md` |
-| User flow docs | `docs/USER_FLOWS.md` |
+| Design docs | `docs/go-participate/` |
 
 ## Conventions
 
-- Package imports use `@illuminate/<package>` (e.g., `@illuminate/db`, `@illuminate/auth`)
-- Tenant DB naming: `tenant_<slug>` (hyphens → underscores)
+- Package imports use `@goparticipate/<package>` (e.g., `@goparticipate/db`, `@goparticipate/auth`)
+- League DB naming: `league_<slug>` (hyphens → underscores)
+- Org DB naming: `org_<slug>` (hyphens → underscores)
 - Reserved subdomains: `www`, `api`, `admin`, `app`, `auth`, `billing`, `docs`, `help`, `mail`, `status`, `support`
-- API routes in dashboard use `withTenantAuth()` middleware for automatic tenant DB scoping
+- API routes use `withTenantAuth()` middleware for automatic tenant DB scoping
 - All monetary values stored in cents (integers)
+- Sports at launch: 7v7 Football, Basketball

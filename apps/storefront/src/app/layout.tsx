@@ -8,9 +8,9 @@ import { StoreFooter } from "@/components/store-footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Premium Meats | Farm-Fresh Quality Delivered",
+  title: "Go Participate | Youth Sports Organization",
   description:
-    "Locally sourced, expertly butchered premium meats. Shop our selection of beef, pork, poultry, and specialty cuts delivered fresh to your door.",
+    "Join teams, pay dues, register for events, and order uniforms. Your youth sports organization — all in one place.",
 };
 
 export default function RootLayout({

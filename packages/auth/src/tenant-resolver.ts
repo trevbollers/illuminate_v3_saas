@@ -2,8 +2,8 @@
  * Tenant resolution utilities.
  *
  * Resolves which tenant a request belongs to by examining:
- * 1. Subdomain (e.g. acme.meatlocker.app → slug "acme")
- * 2. Custom domain (e.g. app.acmemeat.com → lookup in tenants collection)
+ * 1. Subdomain (e.g. acme.goparticipate.com → slug "acme")
+ * 2. Custom domain (e.g. app.kcthunder.com → lookup in tenants collection)
  * 3. Explicit header (e.g. x-tenant-slug for API testing)
  *
  * This module is designed to run at the Edge (Next.js middleware) so it
@@ -14,7 +14,7 @@ import type { NextRequest } from "next/server";
 
 /** The base domain(s) where tenants are accessed via subdomain. */
 const PLATFORM_DOMAINS = (
-  process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? "meatlocker.app"
+  process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? "goparticipate.com"
 )
   .split(",")
   .map((d) => d.trim().toLowerCase());
@@ -44,7 +44,7 @@ export interface ResolvedTenant {
  *
  * Resolution order:
  * 1. `x-tenant-slug` header (dev/testing only)
- * 2. Subdomain of platform domain (e.g. `acme.meatlocker.app`)
+ * 2. Subdomain of platform domain (e.g. `acme.goparticipate.com`)
  * 3. Falls back to null if no tenant can be determined
  *
  * Custom domain resolution requires a DB lookup and is handled

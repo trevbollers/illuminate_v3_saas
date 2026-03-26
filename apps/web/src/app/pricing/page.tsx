@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@illuminate/ui/src/components/card";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@goparticipate/ui/src/components/card";
 import { Loader2, Sparkles, Brain } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";

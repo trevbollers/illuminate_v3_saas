@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Label } from "@illuminate/ui/src/components/label";
-import { Badge } from "@illuminate/ui/src/components/badge";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Label } from "@goparticipate/ui/src/components/label";
+import { Badge } from "@goparticipate/ui/src/components/badge";
 import { Minus, Plus, ShoppingCart, MessageSquare } from "lucide-react";
 import { useCart, type CartConfigOption } from "./cart-provider";
 
@@ -39,7 +39,7 @@ export function ProductConfigurator({
       const initial: Record<string, string> = {};
       configOptions.forEach((opt) => {
         if (opt.values.length > 0) {
-          initial[opt.name] = opt.values[0];
+          initial[opt.name] = opt.values[0]!;
         }
       });
       return initial;
@@ -83,11 +83,11 @@ export function ProductConfigurator({
 
   return (
     <div className="space-y-6">
-      {/* Configuration Options */}
+      {/* Registration Options */}
       {configOptions.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Configure Your Order
+            Registration Options
           </h3>
           {configOptions.map((option) => (
             <div key={option.name} className="space-y-2">
@@ -124,7 +124,7 @@ export function ProductConfigurator({
       {/* Live Price */}
       <div className="rounded-lg border bg-muted/30 p-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm text-muted-foreground">Price</span>
+          <span className="text-sm text-muted-foreground">Registration Fee</span>
           <span className="text-2xl font-bold text-foreground">
             ${totalPrice.toFixed(2)}
           </span>
@@ -132,7 +132,7 @@ export function ProductConfigurator({
         {quantity > 1 && (
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-sm text-muted-foreground">
-              Total ({quantity} items)
+              Total ({quantity} athletes)
             </span>
             <span className="text-lg font-semibold text-foreground">
               ${(totalPrice * quantity).toFixed(2)}
@@ -143,7 +143,7 @@ export function ProductConfigurator({
 
       {/* Quantity Selector */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Quantity</Label>
+        <Label className="text-sm font-medium">Number of Athletes</Label>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -178,14 +178,14 @@ export function ProductConfigurator({
         </Button>
 
         <Button variant="outline" size="lg" className="w-full gap-2" asChild>
-          <a href="/quote">
+          <a href="/#contact">
             <MessageSquare className="h-5 w-5" />
-            Request Quote for Bulk Orders
+            Questions? Contact the Org
           </a>
         </Button>
       </div>
 
-      {/* AI Configurator Placeholder */}
+      {/* AI Coach Upsell */}
       {hasAiAddon && (
         <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-4">
           <div className="flex items-start gap-3">
@@ -194,15 +194,15 @@ export function ProductConfigurator({
             </div>
             <div>
               <h4 className="font-semibold text-foreground">
-                AI Product Configurator
+                AI Coach Add-On Available
               </h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Not sure what to choose? Chat with our AI assistant to get
-                personalized recommendations based on your needs.
+                Upgrade your experience with AI-powered practice plans, lineup
+                suggestions, and personalized player development reports.
               </p>
               <Button variant="outline" size="sm" className="mt-3 gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Start Chat
+                Learn More
               </Button>
             </div>
           </div>
@@ -213,7 +213,7 @@ export function ProductConfigurator({
       {Object.keys(selectedOptions).length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Selection
+            Your Selections
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(selectedOptions).map(([name, value]) => (

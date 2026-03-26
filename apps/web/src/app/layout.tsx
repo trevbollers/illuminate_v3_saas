@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "@illuminate/ui/src/globals.css";
+import "@goparticipate/ui/src/globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -8,16 +8,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Illuminate | Modern Meat Business Management",
+  title: "Go Participate | Youth Sports Team Management Platform",
   description:
-    "The all-in-one platform to manage your meat business end to end. Inventory, recipes, orders, analytics, and more.",
+    "The all-in-one platform for youth sports team management. Rosters, scheduling, payments, communication, live scoring, and AI coaching tools — built for 7v7 football, basketball, and beyond.",
   keywords: [
-    "meat business",
-    "meat locker",
-    "inventory management",
-    "butcher shop",
-    "meat processing",
-    "SaaS",
+    "youth sports",
+    "team management",
+    "7v7 football",
+    "basketball",
+    "sports platform",
+    "roster management",
+    "league management",
+    "Go Participate",
+    "sports SaaS",
   ],
 };
 

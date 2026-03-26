@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { stripe } from "./stripe";
-import { connectDB } from "@illuminate/db";
+import { connectDB } from "@goparticipate/db";
 import mongoose from "mongoose";
 import { getPlanByPriceId } from "./plans";
 
@@ -301,7 +301,7 @@ async function handleInvoicePaymentFailed(
 /**
  * Updates a tenant document by ID using a flexible set of dot-notation fields.
  * Uses the raw Mongoose connection to avoid circular dependency on a Tenant model
- * that may or may not exist yet in @illuminate/db.
+ * that may or may not exist yet in @goparticipate/db.
  */
 async function updateTenant(
   tenantId: string,

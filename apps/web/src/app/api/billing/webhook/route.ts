@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleWebhookEvent } from "@illuminate/billing";
-import { connectPlatformDB } from "@illuminate/db";
+import { handleWebhookEvent } from "@goparticipate/billing";
+import { connectPlatformDB } from "@goparticipate/db";
 
 // Must be Node.js runtime — Stripe needs raw body for signature verification
 export const runtime = "nodejs";

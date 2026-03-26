@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@illuminate/auth/edge";
+import { auth } from "@goparticipate/auth/edge";
 
 /**
- * Admin portal middleware — restricts access to saas_admin users only.
+ * Admin portal middleware — restricts access to gp_admin users only.
  *
  * Security checks:
  * 1. User is authenticated via NextAuth JWT (not a spoofable cookie)
- * 2. User has platformRole === "saas_admin" in their verified JWT claims
+ * 2. User has platformRole === "gp_admin" in their verified JWT claims
  *
  * On failure:
  * - Unauthenticated → redirect to /login
@@ -33,8 +33,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // --- 2. Verify saas_admin role from JWT claims ---
-  if (session.user.platformRole !== "saas_admin") {
+  // --- 2. Verify gp_admin role from JWT claims ---
+  if (session.user.platformRole !== "gp_admin") {
     const isApiRequest =
       request.headers.get("accept")?.includes("application/json");
 

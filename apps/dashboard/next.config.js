@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [
-    "@illuminate/ui",
-    "@illuminate/db",
-    "@illuminate/auth",
-    "@illuminate/billing",
-    "@illuminate/permissions",
+    "@goparticipate/ui",
+    "@goparticipate/db",
+    "@goparticipate/auth",
+    "@goparticipate/billing",
+    "@goparticipate/permissions",
   ],
 };
 

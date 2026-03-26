@@ -2,16 +2,16 @@
 
 import React from "react";
 import Link from "next/link";
-import { ShoppingCart } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import {
   Card,
   CardContent,
   CardFooter,
-} from "@illuminate/ui/src/components/card";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Badge } from "@illuminate/ui/src/components/badge";
+} from "@goparticipate/ui/src/components/card";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Badge } from "@goparticipate/ui/src/components/badge";
 
-export interface ProductCardProps {
+export interface ProgramCardProps {
   name: string;
   slug: string;
   price: number;
@@ -22,7 +22,22 @@ export interface ProductCardProps {
   inStock?: boolean;
 }
 
-export function ProductCard({
+function categoryEmoji(category: string): string {
+  switch (category) {
+    case "Flag Football":
+      return "\u{1F3C8}";
+    case "Basketball":
+      return "\u{1F3C0}";
+    case "Camps":
+      return "\u26BD";
+    case "Uniforms":
+      return "\u{1F455}";
+    default:
+      return "\u{1F3C6}";
+  }
+}
+
+export function ProgramCard({
   name,
   slug,
   price,
@@ -31,10 +46,10 @@ export function ProductCard({
   imageUrl,
   isConfigurable,
   inStock = true,
-}: ProductCardProps) {
+}: ProgramCardProps) {
   return (
     <Card className="group flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
-      {/* Product Image Placeholder */}
+      {/* Program Image / Icon */}
       <Link href={`/products/${slug}`} className="block">
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {imageUrl ? (
@@ -44,26 +59,18 @@ export function ProductCard({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
-              <span className="text-4xl">
-                {category === "Beef"
-                  ? "\u{1F969}"
-                  : category === "Pork"
-                    ? "\u{1F356}"
-                    : category === "Poultry"
-                      ? "\u{1F357}"
-                      : "\u{1F32D}"}
-              </span>
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+              <span className="text-4xl">{categoryEmoji(category)}</span>
             </div>
           )}
           {!inStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/60">
-              <Badge variant="secondary">Out of Stock</Badge>
+              <Badge variant="secondary">Registration Closed</Badge>
             </div>
           )}
           {isConfigurable && inStock && (
             <Badge className="absolute left-3 top-3" variant="secondary">
-              Configurable
+              Options Available
             </Badge>
           )}
         </div>
@@ -90,8 +97,8 @@ export function ProductCard({
       <CardFooter className="p-4 pt-0">
         <Link href={`/products/${slug}`} className="w-full">
           <Button className="w-full gap-2" disabled={!inStock}>
-            <ShoppingCart className="h-4 w-4" />
-            {isConfigurable ? "View Details" : "View Details"}
+            <ArrowRight className="h-4 w-4" />
+            {inStock ? "Register Now" : "Registration Closed"}
           </Button>
         </Link>
       </CardFooter>

@@ -1,7 +1,7 @@
 // --- Platform-level models (live in the platform database) ---
 
 export { Tenant } from "./tenant";
-export type { ITenant, ILocation, ITenantPlan, ITenantPlanAddOn, ITenantSettings } from "./tenant";
+export type { ITenant, ITenantPlan, ITenantPlanAddOn, ITenantSettings } from "./tenant";
 
 export { User } from "./user";
 export type { IUser, IMembership } from "./user";
@@ -12,35 +12,58 @@ export type { IPlan, IPlanAddOn, IPlanLimits, IPlanPricing } from "./plan";
 export { FeatureFlag } from "./feature-flag";
 export type { IFeatureFlag, IRollout } from "./feature-flag";
 
-// --- Tenant-scoped models (live in per-tenant databases) ---
-// These default exports use the default mongoose connection and are available
-// for seed scripts and backwards compat. In production, use getTenantModels()
-// with a tenant-specific connection instead.
+export { Sport } from "./sport";
+export type { ISport, IPosition, IDivisionTemplate, IStatCategory } from "./sport";
 
-export { Product, ProductSchema } from "./product";
-export type { IProduct, IProductConfigOption, IConfigOption, IProductPricing } from "./product";
+export { Player } from "./player";
+export type { IPlayer, IEmergencyContact, IMedicalInfo } from "./player";
 
-export { Recipe, RecipeSchema } from "./recipe";
-export type { IRecipe, IRecipeIngredient, IRecipeInstruction, IRecipeYield } from "./recipe";
+export { Family } from "./family";
+export type { IFamily } from "./family";
 
-export { Ingredient, IngredientSchema } from "./ingredient";
-export type { IIngredient, IIngredientCost, IShelfLife } from "./ingredient";
+export { Verification } from "./verification";
+export type { IVerification } from "./verification";
 
-export { InventoryTransaction, InventoryTransactionSchema } from "./inventory-transaction";
-export type { IInventoryTransaction, ITransactionReference } from "./inventory-transaction";
+export { SystemConfig } from "./system-config";
+export type {
+  ISystemConfig,
+  IServiceStatus,
+  IStripeConfig,
+  IEmailConfig,
+  ISMSConfig,
+  IAIConfig,
+  IStorageConfig,
+} from "./system-config";
 
-export { Supplier, SupplierSchema } from "./supplier";
-export type { ISupplier, ISupplierAddress } from "./supplier";
+// --- League tenant models (live in per-league databases) ---
 
-export { PurchaseOrder, PurchaseOrderSchema } from "./purchase-order";
-export type { IPurchaseOrder, IPurchaseOrderItem } from "./purchase-order";
+export type { IEvent, IEventPricing } from "./league/event";
+export type { IDivision } from "./league/division";
+export type { IRegistration, IRosterEntry } from "./league/registration";
+export type { IBracket, IBracketMatch } from "./league/bracket";
+export type { IGame } from "./league/game";
+export type { IStanding } from "./league/standing";
+export type { IComplianceRule } from "./league/compliance-rule";
+export type { IWaiver } from "./league/waiver";
 
-export { SalesOrder, SalesOrderSchema } from "./sales-order";
-export type { ISalesOrder, ISalesOrderCustomer, ISalesOrderItem, ISalesOrderDiscount } from "./sales-order";
+// --- Org tenant models (live in per-org databases) ---
 
-export { ProductionBatch, ProductionBatchSchema } from "./production-batch";
-export type { IProductionBatch, IBatchIngredient, IBatchTemperature } from "./production-batch";
+export type { ITeam } from "./org/team";
+export type { IRoster } from "./org/roster";
+export type { IOrgEvent, IRecurrence } from "./org/org-event";
+export type { IAttendance } from "./org/attendance";
+export type { IMessage } from "./org/message";
+export type { ITransaction } from "./org/transaction";
+export type { IStat } from "./org/stat";
+export type { IUniformOrder, IUniformItem } from "./org/uniform-order";
+export type { IInvite } from "./org/invite";
+export type { IRegistrationCart, ICartItem, ICartCheckout } from "./org/registration-cart";
 
 // --- Tenant model helpers ---
 
-export { registerTenantModels, getTenantModels } from "./tenant-models";
+export {
+  registerLeagueModels,
+  registerOrgModels,
+  getLeagueModels,
+  getOrgModels,
+} from "./tenant-models";

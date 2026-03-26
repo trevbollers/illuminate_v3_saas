@@ -1,28 +1,18 @@
-# Local development services for Illuminate V3
+# Local development services for Go Participate
 # Usage: docker compose up -d
 
 services:
   mongodb:
     image: mongo:7
-    container_name: illuminate-mongodb
+    container_name: goparticipate-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27020:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: illuminate
-      MONGO_INITDB_ROOT_PASSWORD: illuminate_dev
+      MONGO_INITDB_ROOT_USERNAME: goparticipate
+      MONGO_INITDB_ROOT_PASSWORD: gp_dev
     volumes:
       - mongodb_data:/data/db
 
-  redis:
-    image: redis:7-alpine
-    container_name: illuminate-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
 volumes:
   mongodb_data:
-  redis_data:

@@ -29,6 +29,6 @@ export type { ResolvedTenant } from "./tenant-resolver";
 // Types
 export type {
   PlatformRole,
-  TenantRole,
+  TenantType,
   TenantMembership,
 } from "./types";

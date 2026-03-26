@@ -1,5 +1,5 @@
 {
-  "name": "@illuminate/billing",
+  "name": "@goparticipate/billing",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "typescript": "^5.7.0",
-    "@illuminate/config-typescript": "*",
-    "@illuminate/db": "*"
+    "@goparticipate/config-typescript": "*",
+    "@goparticipate/db": "*"
   }
 }

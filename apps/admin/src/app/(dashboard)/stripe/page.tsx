@@ -21,18 +21,18 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@illuminate/ui/src/components/card";
-import { Button } from "@illuminate/ui/src/components/button";
-import { Badge } from "@illuminate/ui/src/components/badge";
-import { Label } from "@illuminate/ui/src/components/label";
-import { Separator } from "@illuminate/ui/src/components/separator";
+} from "@goparticipate/ui/src/components/card";
+import { Button } from "@goparticipate/ui/src/components/button";
+import { Badge } from "@goparticipate/ui/src/components/badge";
+import { Label } from "@goparticipate/ui/src/components/label";
+import { Separator } from "@goparticipate/ui/src/components/separator";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@illuminate/ui/src/components/select";
+} from "@goparticipate/ui/src/components/select";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [
-    "@illuminate/ui",
-    "@illuminate/db",
-    "@illuminate/auth",
+    "@goparticipate/ui",
+    "@goparticipate/db",
+    "@goparticipate/auth",
   ],
 };
 

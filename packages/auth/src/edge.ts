@@ -1,11 +1,11 @@
 /**
  * Edge-safe auth export for Next.js middleware.
  *
- * Import from "@illuminate/auth/edge" in middleware.ts files.
+ * Import from "@goparticipate/auth/edge" in middleware.ts files.
  * This avoids pulling in MongoDB/bcrypt which crash in Edge runtime.
  *
  * Usage:
- *   import { auth } from "@illuminate/auth/edge";
+ *   import { auth } from "@goparticipate/auth/edge";
  *   const session = await auth();
  */
 

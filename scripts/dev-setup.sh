@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Illuminate V3 — Local Development Setup
+# Go Participate — Local Development Setup
 #
 # This script:
-#   1. Starts MongoDB + Redis via Docker Compose
+#   1. Starts MongoDB via Docker Compose
 #   2. Waits for MongoDB to accept connections
 #   3. Creates the .env file (if missing) with local defaults
 #   4. Verifies the MongoDB connection
@@ -42,19 +42,19 @@ if ! docker info &> /dev/null; then
 fi
 
 # ---- 2. Start Docker Compose services ----
-info "Starting MongoDB and Redis containers..."
+info "Starting MongoDB container..."
 docker compose up -d
 
 # ---- 3. Wait for MongoDB to be ready ----
 echo -n "Waiting for MongoDB to accept connections"
 MAX_RETRIES=30
 RETRY=0
-until docker exec illuminate-mongodb mongosh --quiet --eval "db.runCommand({ ping: 1 })" &> /dev/null; do
+until docker exec goparticipate-mongodb mongosh --quiet --eval "db.runCommand({ ping: 1 })" &> /dev/null; do
   RETRY=$((RETRY + 1))
   if [ $RETRY -ge $MAX_RETRIES ]; then
     echo ""
     error "MongoDB did not become ready after ${MAX_RETRIES} seconds."
-    error "Check logs: docker logs illuminate-mongodb"
+    error "Check logs: docker logs goparticipate-mongodb"
     exit 1
   fi
   echo -n "."
@@ -74,10 +74,8 @@ if [ ! -f "$PROJECT_ROOT/.env" ]; then
 
   # Replace the placeholder NextAuth secret
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS sed
     sed -i '' "s|NEXTAUTH_SECRET=your-secret-here-generate-with-openssl-rand-base64-32|NEXTAUTH_SECRET=${NEXTAUTH_SECRET}|" "$PROJECT_ROOT/.env"
   else
-    # Linux/Git Bash sed
     sed -i "s|NEXTAUTH_SECRET=your-secret-here-generate-with-openssl-rand-base64-32|NEXTAUTH_SECRET=${NEXTAUTH_SECRET}|" "$PROJECT_ROOT/.env"
   fi
 
@@ -87,13 +85,13 @@ else
 fi
 
 # ---- 5. Verify MongoDB connection ----
-MONGO_URI="mongodb://illuminate:illuminate_dev@localhost:27017/illuminate_platform?authSource=admin"
+MONGO_URI="mongodb://goparticipate:gp_dev@localhost:27017/goparticipate_platform?authSource=admin"
 
 info "Verifying MongoDB connection..."
-RESULT=$(docker exec illuminate-mongodb mongosh "$MONGO_URI" --quiet --eval "
-  db = db.getSiblingDB('illuminate_platform');
+RESULT=$(docker exec goparticipate-mongodb mongosh "$MONGO_URI" --quiet --eval "
+  db = db.getSiblingDB('goparticipate_platform');
   const collections = db.getCollectionNames();
-  print('Database: illuminate_platform');
+  print('Database: goparticipate_platform');
   print('Collections: ' + (collections.length > 0 ? collections.join(', ') : '(none yet — will be created on first write)'));
   print('Connection: OK');
 " 2>&1)
@@ -115,20 +113,19 @@ echo "=============================================="
 info "Local development environment is ready!"
 echo "=============================================="
 echo ""
-echo "  MongoDB: mongodb://illuminate:illuminate_dev@localhost:27017"
-echo "  Redis:   redis://localhost:6379"
+echo "  MongoDB: mongodb://goparticipate:gp_dev@localhost:27017"
 echo ""
 echo "  Next steps:"
 echo "    npm run db:seed    # Create admin user + sample data"
 echo "    npm run dev        # Start all apps in dev mode"
 echo ""
 echo "  Test admin login:"
-echo "    Email:    admin@illuminate.dev"
+echo "    Email:    admin@goparticipate.com"
 echo "    Password: admin123"
 echo ""
 echo "  To stop services:"
 echo "    docker compose down"
 echo ""
 echo "  To view MongoDB logs:"
-echo "    docker logs -f illuminate-mongodb"
+echo "    docker logs -f goparticipate-mongodb"
 echo ""

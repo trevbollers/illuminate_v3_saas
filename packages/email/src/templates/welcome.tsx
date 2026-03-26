@@ -24,21 +24,21 @@ export function WelcomeEmail({ name, verifyUrl }: WelcomeEmailProps) {
       <Body style={body}>
         <Container style={container}>
           <Img
-            src="https://illuminate.app/logo.png"
+            src="https://goparticipate.app/logo.png"
             width="140"
             height="40"
-            alt="Illuminate"
+            alt="Go Participate"
             style={logo}
           />
 
-          <Text style={heading}>Welcome to Illuminate!</Text>
+          <Text style={heading}>Welcome to Go Participate!</Text>
 
           <Text style={paragraph}>Hi {name},</Text>
 
           <Text style={paragraph}>
-            Thank you for signing up for Illuminate. We're excited to help you
-            streamline your food business operations — from recipes and
-            inventory to sales and production.
+            Thank you for signing up for Go Participate. We're excited to help you
+            manage your youth sports teams — from rosters and schedules
+            to payments and game-day operations.
           </Text>
 
           <Text style={paragraph}>
@@ -67,8 +67,8 @@ export function WelcomeEmail({ name, verifyUrl }: WelcomeEmailProps) {
 
           <Text style={footer}>
             This email was sent by{" "}
-            <Link href="https://illuminate.app" style={link}>
-              Illuminate
+            <Link href="https://goparticipate.app" style={link}>
+              Go Participate
             </Link>
             . If you didn't create an account, you can safely ignore this email.
           </Text>
