@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -49,7 +50,8 @@ import {
   SelectItem,
 } from "@goparticipate/ui";
 
-const navGroups = [
+// Full nav for coaches/admins/owners
+const fullNavGroups = [
   {
     label: "Main",
     items: [
@@ -85,6 +87,24 @@ const navGroups = [
   },
 ];
 
+// Restricted nav for player_view sessions (kids using player codes)
+const playerNavGroups = [
+  {
+    label: "Main",
+    items: [
+      { title: "Dashboard", href: "/", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "My Team",
+    items: [
+      { title: "Roster", href: "/roster", icon: Users },
+      { title: "Schedule", href: "/schedule", icon: Calendar },
+      { title: "Stats", href: "/stats", icon: BarChart2 },
+    ],
+  },
+];
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -109,6 +129,7 @@ interface DashboardSidebarProps {
   planName: string;
   locations: { id: string; name: string }[];
   user: SidebarUser | null;
+  scopedRole?: string | null;
 }
 
 export function DashboardSidebar({
@@ -116,9 +137,35 @@ export function DashboardSidebar({
   planName,
   locations,
   user,
+  scopedRole,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { open } = useSidebar();
+
+  const isPlayerSession = scopedRole === "player_view";
+  const navGroups = isPlayerSession ? playerNavGroups : fullNavGroups;
+
+  // Unread message count for sidebar badge
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnread = useCallback(async () => {
+    if (isPlayerSession) return;
+    try {
+      const res = await fetch("/api/messages/unread");
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.all || 0);
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [isPlayerSession]);
+
+  useEffect(() => {
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const displayName = user?.name ?? "User";
   const initials = getInitials(displayName);
@@ -174,7 +221,17 @@ export function DashboardSidebar({
                       <SidebarMenuButton asChild isActive={isActive}>
                         <Link href={item.href}>
                           <item.icon className="h-4 w-4 shrink-0" />
-                          {open && <span>{item.title}</span>}
+                          {open && (
+                            <>
+                              <span>{item.title}</span>
+                              {item.href === "/communication" &&
+                                unreadCount > 0 && (
+                                  <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-1.5 text-xs font-medium text-white">
+                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                  </span>
+                                )}
+                            </>
+                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -219,19 +276,23 @@ export function DashboardSidebar({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <CreditCard className="mr-2 h-4 w-4" />
-              Billing
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {!isPlayerSession && (
+              <>
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Billing
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
               className="text-destructive"
               onClick={() =>

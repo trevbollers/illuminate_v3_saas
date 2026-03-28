@@ -9,10 +9,16 @@ export interface IEmergencyContact {
 }
 
 export interface IMedicalInfo {
-  allergies?: string;
-  medications?: string;
-  conditions?: string;
   notes?: string;
+}
+
+export interface ISocials {
+  instagram?: string;
+  tiktok?: string;
+  twitter?: string;
+  snapchat?: string;
+  youtube?: string;
+  hudl?: string;
 }
 
 // --- Main interface ---
@@ -27,6 +33,7 @@ export interface IPlayer extends Document {
   guardianUserIds: Types.ObjectId[];
   emergencyContacts: IEmergencyContact[];
   medical: IMedicalInfo;
+  socials: ISocials;
   verificationStatus: "unverified" | "pending" | "verified" | "expired";
   verificationId?: Types.ObjectId;
   isActive: boolean;
@@ -53,10 +60,15 @@ const PlayerSchema = new Schema<IPlayer>(
       },
     ],
     medical: {
-      allergies: { type: String },
-      medications: { type: String },
-      conditions: { type: String },
       notes: { type: String },
+    },
+    socials: {
+      instagram: { type: String },
+      tiktok: { type: String },
+      twitter: { type: String },
+      snapchat: { type: String },
+      youtube: { type: String },
+      hudl: { type: String },
     },
     verificationStatus: {
       type: String,

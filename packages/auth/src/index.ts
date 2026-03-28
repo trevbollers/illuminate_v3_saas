@@ -26,6 +26,18 @@ export {
 } from "./tenant-resolver";
 export type { ResolvedTenant } from "./tenant-resolver";
 
+// Magic code utilities
+export {
+  generateCode,
+  hashCode,
+  verifyCode,
+  getCodeExpiry,
+  canSendNewCode,
+  CODE_LENGTH,
+  CODE_EXPIRY_MINUTES,
+  MAX_ATTEMPTS,
+} from "./magic-code";
+
 // Types
 export type {
   PlatformRole,

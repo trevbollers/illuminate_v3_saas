@@ -10,6 +10,7 @@ import { StandingSchema, type IStanding } from "./league/standing";
 import { ComplianceRuleSchema, type IComplianceRule } from "./league/compliance-rule";
 import { WaiverSchema, type IWaiver } from "./league/waiver";
 import { CheckInSchema, type ICheckIn } from "./league/checkin";
+import { AnnouncementSchema, type IAnnouncement } from "./league/announcement";
 
 // Org models
 import { TeamSchema, type ITeam } from "./org/team";
@@ -22,6 +23,7 @@ import { StatSchema, type IStat } from "./org/stat";
 import { UniformOrderSchema, type IUniformOrder } from "./org/uniform-order";
 import { InviteSchema, type IInvite } from "./org/invite";
 import { RegistrationCartSchema, type IRegistrationCart } from "./org/registration-cart";
+import { MessageAckSchema, type IMessageAck } from "./org/message-ack";
 
 /**
  * Register all league-scoped models on a tenant connection.
@@ -37,6 +39,7 @@ export function registerLeagueModels(conn: Connection): void {
   if (!conn.models.ComplianceRule) conn.model<IComplianceRule>("ComplianceRule", ComplianceRuleSchema);
   if (!conn.models.Waiver) conn.model<IWaiver>("Waiver", WaiverSchema);
   if (!conn.models.CheckIn) conn.model<ICheckIn>("CheckIn", CheckInSchema);
+  if (!conn.models.Announcement) conn.model<IAnnouncement>("Announcement", AnnouncementSchema);
 }
 
 /**
@@ -54,6 +57,7 @@ export function registerOrgModels(conn: Connection): void {
   if (!conn.models.UniformOrder) conn.model<IUniformOrder>("UniformOrder", UniformOrderSchema);
   if (!conn.models.Invite) conn.model<IInvite>("Invite", InviteSchema);
   if (!conn.models.RegistrationCart) conn.model<IRegistrationCart>("RegistrationCart", RegistrationCartSchema);
+  if (!conn.models.MessageAck) conn.model<IMessageAck>("MessageAck", MessageAckSchema);
 }
 
 /**
@@ -70,6 +74,7 @@ export function getLeagueModels(conn: Connection) {
     ComplianceRule: conn.model<IComplianceRule>("ComplianceRule"),
     Waiver: conn.model<IWaiver>("Waiver"),
     CheckIn: conn.model<ICheckIn>("CheckIn"),
+    Announcement: conn.model<IAnnouncement>("Announcement"),
   };
 }
 
@@ -88,5 +93,6 @@ export function getOrgModels(conn: Connection) {
     UniformOrder: conn.model<IUniformOrder>("UniformOrder"),
     Invite: conn.model<IInvite>("Invite"),
     RegistrationCart: conn.model<IRegistrationCart>("RegistrationCart"),
+    MessageAck: conn.model<IMessageAck>("MessageAck"),
   };
 }

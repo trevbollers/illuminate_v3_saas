@@ -16,6 +16,7 @@ import {
   X,
   CreditCard,
   Settings,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@goparticipate/ui/src/lib/utils";
 import { Button } from "@goparticipate/ui/src/components/button";
@@ -29,6 +30,7 @@ const navItems = [
   { label: "Registrations", href: "/registrations", icon: ClipboardList },
   { label: "Brackets", href: "/brackets", icon: GitBranch },
   { label: "Verification", href: "/verification", icon: ShieldCheck },
+  { label: "Announcements", href: "/announcements", icon: Megaphone },
   { label: "Payments", href: "/settings/payments", icon: CreditCard },
 ];
 

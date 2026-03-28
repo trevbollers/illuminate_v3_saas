@@ -8,12 +8,20 @@ export interface IRecurrence {
   endDate?: Date;
 }
 
+export type OrgEventType = "practice" | "scrimmage" | "meeting" | "tryout" | "game" | "tournament" | "other";
+
+export interface IEventResult {
+  ourScore?: number;
+  theirScore?: number;
+  outcome?: "win" | "loss" | "tie";
+}
+
 // --- Main interface ---
 
 export interface IOrgEvent extends Document {
   teamId: Types.ObjectId;
   title: string;
-  type: "practice" | "scrimmage" | "meeting" | "tryout" | "other";
+  type: OrgEventType;
   location?: {
     name: string;
     address?: string;
@@ -22,6 +30,11 @@ export interface IOrgEvent extends Document {
   endTime: Date;
   recurrence?: IRecurrence;
   notes?: string;
+  opponentName?: string;
+  homeAway?: "home" | "away" | "neutral";
+  leagueEventId?: string;
+  result?: IEventResult;
+  isCancelled?: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -35,7 +48,7 @@ export const OrgEventSchema = new Schema<IOrgEvent>(
     title: { type: String, required: true },
     type: {
       type: String,
-      enum: ["practice", "scrimmage", "meeting", "tryout", "other"],
+      enum: ["practice", "scrimmage", "meeting", "tryout", "game", "tournament", "other"],
       required: true,
     },
     location: {
@@ -50,10 +63,20 @@ export const OrgEventSchema = new Schema<IOrgEvent>(
       endDate: { type: Date },
     },
     notes: { type: String },
+    opponentName: { type: String },
+    homeAway: { type: String, enum: ["home", "away", "neutral"] },
+    leagueEventId: { type: String },
+    result: {
+      ourScore: { type: Number },
+      theirScore: { type: Number },
+      outcome: { type: String, enum: ["win", "loss", "tie"] },
+    },
+    isCancelled: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, required: true },
   },
   { timestamps: true }
 );
 
 OrgEventSchema.index({ teamId: 1, startTime: 1 });
+OrgEventSchema.index({ startTime: 1, endTime: 1 });
 OrgEventSchema.index({ type: 1 });

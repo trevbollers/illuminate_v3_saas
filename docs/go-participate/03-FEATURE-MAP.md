@@ -1,5 +1,8 @@
 # Go Participate — Feature Map
 
+> **Legend**: BUILT = fully implemented (API + UI), API = backend done / UI pending,
+> PARTIAL = some sub-features built, DEFERRED = planned but not started
+
 ## Priority Tiers
 
 ### Tier 1: Must Have at Launch
@@ -8,89 +11,101 @@ These features are table stakes — you cannot launch without them. They solve t
 
 ---
 
-#### Scheduling & Calendar
+#### Scheduling & Calendar — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Create events | Practice, game, meeting, other | Coach, Org admin |
-| Recurring events | Weekly practices, league schedules | Coach |
-| Venue/location | Address with map link | Coach |
-| RSVP / availability | Collect who's coming | Parent, Player |
-| Calendar sync | Google, Apple, Outlook export | Parent, Coach |
-| Conflict alerts | Same family, same day across teams | Parent (family dashboard) |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Create events | Practice, game, scrimmage, meeting, tournament, tryout, other | Coach, Org admin | BUILT |
+| Recurring events | Daily, weekly, biweekly, monthly with day-of-week filter | Coach | BUILT |
+| Venue/location | Address field on events | Coach | BUILT |
+| Calendar month view | Color-coded event chips with overflow | Coach, Parent | BUILT |
+| Daily list view | Chronological event cards with type badges | Coach, Parent | BUILT |
+| Game details | Opponent, home/away, score entry with auto outcome | Coach | BUILT |
+| RSVP / availability | Collect who's coming | Parent, Player | DEFERRED |
+| Calendar sync | Google, Apple, Outlook export | Parent, Coach | DEFERRED |
+| Conflict alerts | Same family, same day across teams | Parent (family dashboard) | DEFERRED |
 
-#### Roster Management
+#### Roster Management — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Player profiles | Name, photo, jersey #, position, DOB | Coach, Parent |
-| Parent/guardian linking | Connect family members to player | Parent |
-| Medical/allergy notes | Coach-visible health info | Coach (view only) |
-| Emergency contacts | Required per player | Parent (enter), Coach (view) |
-| Jersey number assignment | Per team, conflict detection | Coach |
-| Import from spreadsheet | Migrate existing rosters | Coach, Org admin |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Player profiles | Name, photo, jersey #, position, DOB | Coach, Parent | BUILT |
+| Parent/guardian linking | Connect family members to player | Parent | BUILT |
+| Medical/allergy notes | Coach-visible health info | Coach (view only) | BUILT |
+| Emergency contacts | Required per player | Parent (enter), Coach (view) | BUILT |
+| Jersey number assignment | Per team, conflict detection on PATCH | Coach | BUILT |
+| Import from spreadsheet | CSV drag-and-drop with preview | Coach, Org admin | BUILT |
 
-#### Communication
+#### Communication — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Team announcements | One-to-many broadcast | Coach |
-| Group chat | Coaches, parents, or full team channels | Everyone |
-| Push notifications | Mobile alerts for all updates | Everyone |
-| Email fallback | For users without the app | System |
-| Read receipts | Know who saw announcements | Coach |
-| Pin important messages | Keep key info visible | Coach |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Team messages | Channel-based (team/parents/coaches/org) with inbox tabs | Coach | BUILT |
+| Acknowledgements | Configurable response options, ack tracker with progress bar | Coach, Parent | BUILT |
+| League announcements | League → org admin broadcasts (create + view) | League admin, Org admin | BUILT |
+| Email templates | Team message + league announcement React Email templates | System | BUILT |
+| Read tracking | Unread dots, read-on-open, sidebar badge with polling | Coach, Parent | BUILT |
+| Pin messages | Toggle pin on message detail | Coach | BUILT |
+| Push notifications | Mobile alerts for all updates | Everyone | DEFERRED (native app) |
+| Email delivery wiring | Trigger sends from message POST route | System | PARTIAL (templates built, send TODO) |
 
-#### Attendance
+#### Attendance — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Event check-in | Mark present/absent at events | Coach |
-| RSVP tracking | Coming / not coming / no response | Coach, Parent |
-| Attendance history | Per player, per season | Coach |
-| Auto-reminders | Nudge non-responders | System |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Event check-in | Mark present/absent/late/excused per player | Coach | BUILT |
+| Roster pre-fill | Initialize attendance from active roster | Coach | BUILT |
+| Bulk status update | Mark all present, tap-to-toggle per player | Coach | BUILT |
+| Stats summary | Present/late/absent/excused counts | Coach | BUILT |
+| RSVP tracking | Coming / not coming / no response | Coach, Parent | API (model has rsvp field, no parent UI) |
+| Attendance history | Per player, per season | Coach | DEFERRED |
+| Auto-reminders | Nudge non-responders | System | DEFERRED |
 
-#### Payments (Basic)
+#### Payments (Basic) — PARTIAL
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Collect dues/fees | Stripe-powered payment collection | Org admin, Coach |
-| Payment status | Per family tracking | Org admin |
-| Payment reminders | Automated nudges for outstanding balances | System |
-| Receipts | Auto-generated for parents | Parent |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Stripe integration | Subscriptions, checkout, webhooks, portal | Org admin | BUILT |
+| Payment settings | Connect Stripe, configure defaults | Org admin | BUILT |
+| Event registration fees | Pay via Stripe at checkout | Org admin | BUILT |
+| Collect dues/fees | Per-family payment collection | Org admin, Coach | DEFERRED |
+| Payment status | Per family tracking | Org admin | DEFERRED |
+| Payment reminders | Automated nudges for outstanding balances | System | DEFERRED |
+| Receipts | Auto-generated for parents | Parent | DEFERRED |
 
-#### Age Verification & Compliance
+#### Age Verification & Compliance — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Birth certificate upload | Photo/scan of birth cert | Parent |
-| DOB cross-reference | System validates uploaded doc vs entered DOB | System |
-| Verification status | Pending → Verified → Expired states | League admin, Coach |
-| Portable verification | Verified once, accepted across all leagues | System |
-| Waiver collection | Digital signature on league waivers | Parent |
-| Medical form collection | Required health info per player | Parent |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Verification model | Status tracking (unverified/pending/verified/expired) | League admin | BUILT |
+| Verification page | League admin review UI | League admin | BUILT |
+| Compliance rules | Per-league configurable requirements | League admin | BUILT |
+| Waiver model | Digital waiver collection | Parent | BUILT |
+| Birth certificate upload | Photo/scan of birth cert | Parent | DEFERRED (vault) |
+| DOB cross-reference | System validates uploaded doc vs entered DOB | System | DEFERRED (vault) |
 
-#### Team Invites & Connections
+#### Team Invites & Connections — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Invite via link | Shareable URL to join team | Coach |
-| Invite via QR code | Scan at practice/tryout to join | Coach, Parent |
-| Direct invite (email/phone) | Send invite to specific parent | Coach |
-| Accept/decline flow | Parent reviews and accepts invite | Parent |
-| Multi-team membership | Player can be on multiple teams | System |
-| Family auto-linking | Adding a sibling auto-links to family | System |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Invite via link | Token-based URL with 7-day expiry | Coach | BUILT |
+| Accept/decline flow | Landing page with org/team/role preview, auto-roster | Parent | BUILT |
+| Role mapping | Invite role → org membership role on accept | System | BUILT |
+| Player code sessions | Scoped player_view with restricted nav + banner | Player | BUILT |
+| Invite via QR code | Scan at practice/tryout to join | Coach, Parent | DEFERRED |
+| Family auto-linking | Adding a sibling auto-links to family | System | DEFERRED |
 
-#### Event Registration (League ↔ Team)
+#### Event Registration (League ↔ Team) — BUILT
 
-| Feature | Description | Who uses it |
-|---------|-------------|-------------|
-| Event listing | League publishes events with details | League admin |
-| Team registration | Org registers team for league event | Org admin, Coach |
-| Roster submission | Select which players attend | Coach |
-| Auto-eligibility check | System validates age, verification, docs | System |
-| Registration payment | Pay event fees via Stripe | Org admin |
-| Roster lock | Deadline after which roster can't change | League admin |
+| Feature | Description | Who uses it | Status |
+|---------|-------------|-------------|--------|
+| Event listing | Browse league events by sport | League admin, Org admin | BUILT |
+| Team registration | Register team + submit roster for event | Org admin, Coach | BUILT |
+| Registration cart | Multi-item cart with Stripe checkout | Org admin | BUILT |
+| Divisions & brackets | Create divisions, seed brackets, schedule games | League admin | BUILT |
+| QR check-in | Scan players at event with validation | League admin | BUILT |
+| Auto-eligibility check | System validates age, verification, docs | System | PARTIAL |
+| Roster lock | Deadline after which roster can't change | League admin | DEFERRED |
 
 ---
 

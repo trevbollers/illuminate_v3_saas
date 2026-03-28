@@ -83,6 +83,16 @@ export interface ITenantSettings {
 
 // --- Main interface ---
 
+export interface ITenantSocials {
+  instagram?: string;
+  tiktok?: string;
+  twitter?: string;
+  snapchat?: string;
+  youtube?: string;
+  facebook?: string;
+  website?: string;
+}
+
 export interface ITenant extends Document {
   name: string;
   slug: string;
@@ -91,6 +101,7 @@ export interface ITenant extends Document {
   owner: Types.ObjectId;
   plan: ITenantPlan;
   settings: ITenantSettings;
+  socials: ITenantSocials;
   sport: string;
   status: "active" | "suspended" | "onboarding";
   onboardingStep: number;
@@ -217,6 +228,15 @@ const TenantSchema = new Schema<ITenant>(
         ],
         platformFeePercent: { type: Number },
       },
+    },
+    socials: {
+      instagram: { type: String },
+      tiktok: { type: String },
+      twitter: { type: String },
+      snapchat: { type: String },
+      youtube: { type: String },
+      facebook: { type: String },
+      website: { type: String },
     },
     sport: { type: String, required: true, default: "7v7_football" },
     status: {

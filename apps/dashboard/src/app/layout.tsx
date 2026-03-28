@@ -48,6 +48,8 @@ export default async function RootLayout({
       }
     : null;
 
+  const scopedRole = session?.user?.scopedRole ?? null;
+
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -56,6 +58,7 @@ export default async function RootLayout({
           planName={planName}
           locations={locations}
           user={sidebarUser}
+          scopedRole={scopedRole}
         >
           {children}
         </DashboardShell>

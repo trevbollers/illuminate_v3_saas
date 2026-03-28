@@ -1,11 +1,13 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import Apple from "next-auth/providers/apple";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 import type { NextAuthConfig } from "next-auth";
 import type { TenantMembership, PlatformRole, TenantType } from "./types";
+import { verifyCode, MAX_ATTEMPTS } from "./magic-code";
 
 // Re-import types for module augmentation side effects
 import "./types";
@@ -30,6 +32,100 @@ async function findUserByEmail(email: string) {
   const client = await getClientPromise();
   const db = client.db();
   return db.collection("users").findOne({ email: email.toLowerCase() });
+}
+
+async function findUserByPhone(phone: string) {
+  const client = await getClientPromise();
+  const db = client.db();
+  return db.collection("users").findOne({ phone });
+}
+
+/**
+ * Validate a magic code and return the associated user.
+ * Handles attempt tracking and code consumption.
+ */
+async function validateMagicCode(
+  identifier: string,
+  code: string,
+): Promise<{ id: string; email: string; name: string; image: string | null; platformRole: string; scopedRole?: string; scopedPlayerId?: string; scopedTenantSlug?: string } | null> {
+  const client = await getClientPromise();
+  const db = client.db();
+
+  // Check if this is a player access code (player:<playerId> prefix)
+  const isPlayerCode = identifier.startsWith("player:");
+  const purpose = isPlayerCode ? "player_access" : "login";
+
+  // Find the most recent unused, non-expired code for this identifier
+  const magicCode = await db.collection("magiccodes").findOne({
+    identifier: identifier.toLowerCase(),
+    purpose,
+    usedAt: null,
+    expiresAt: { $gt: new Date() },
+    attempts: { $lt: MAX_ATTEMPTS },
+  }, { sort: { createdAt: -1 } });
+
+  if (!magicCode) return null;
+
+  // Verify the code
+  const isValid = await verifyCode(code, magicCode.hashedCode);
+
+  if (!isValid) {
+    await db.collection("magiccodes").updateOne(
+      { _id: magicCode._id },
+      { $inc: { attempts: 1 } },
+    );
+    return null;
+  }
+
+  // Mark code as used
+  await db.collection("magiccodes").updateOne(
+    { _id: magicCode._id },
+    { $set: { usedAt: new Date() } },
+  );
+
+  if (isPlayerCode) {
+    // Player access code — find the generator's info to resolve tenant context
+    const generatorId = magicCode.generatedBy;
+    if (!generatorId) return null;
+
+    const generator = await db.collection("users").findOne({ _id: generatorId });
+    if (!generator) return null;
+
+    // Resolve the generator's org tenant for the player session
+    const activeMembership = generator.memberships?.find((m: any) => m.isActive && m.tenantType === "organization");
+    let tenantSlug: string | undefined;
+    if (activeMembership) {
+      const tenant = await db.collection("tenants").findOne({ _id: activeMembership.tenantId });
+      tenantSlug = tenant?.slug;
+    }
+
+    return {
+      id: generator._id.toString(),
+      email: generator.email ?? "",
+      name: `Player (${magicCode.playerId?.toString().slice(-4) ?? "????"})`,
+      image: null,
+      platformRole: "user",
+      scopedRole: magicCode.scopedRole ?? "player_view",
+      scopedPlayerId: magicCode.playerId?.toString(),
+      scopedTenantSlug: tenantSlug,
+    };
+  }
+
+  // Standard magic code login — find the user by email or phone
+  const isEmail = magicCode.identifierType === "email";
+  const user = isEmail
+    ? await findUserByEmail(identifier)
+    : await findUserByPhone(identifier);
+
+  if (!user) return null;
+
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    image: user.image ?? null,
+    platformRole: user.platformRole ?? "user",
+  };
 }
 
 /**
@@ -141,7 +237,19 @@ export const authConfig: NextAuthConfig = {
       allowDangerousEmailAccountLinking: true,
     }),
 
+    ...(process.env.APPLE_ID && process.env.APPLE_SECRET
+      ? [
+          Apple({
+            clientId: process.env.APPLE_ID,
+            clientSecret: process.env.APPLE_SECRET,
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+
+    // Email/password login
     Credentials({
+      id: "credentials",
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -151,23 +259,13 @@ export const authConfig: NextAuthConfig = {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
 
-        if (!email || !password) {
-          return null;
-        }
+        if (!email || !password) return null;
 
         const user = await findUserByEmail(email);
-        if (!user) {
-          return null;
-        }
-
-        if (!user.passwordHash) {
-          return null;
-        }
+        if (!user || !user.passwordHash) return null;
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) {
-          return null;
-        }
+        if (!isValid) return null;
 
         return {
           id: user._id.toString(),
@@ -176,6 +274,24 @@ export const authConfig: NextAuthConfig = {
           image: user.image ?? null,
           platformRole: user.platformRole ?? "user",
         };
+      },
+    }),
+
+    // Magic code login (SMS or email)
+    Credentials({
+      id: "magic-code",
+      name: "magic-code",
+      credentials: {
+        identifier: { label: "Email or Phone", type: "text" },
+        code: { label: "Code", type: "text" },
+      },
+      async authorize(credentials) {
+        const identifier = credentials?.identifier as string | undefined;
+        const code = credentials?.code as string | undefined;
+
+        if (!identifier || !code) return null;
+
+        return validateMagicCode(identifier.trim().toLowerCase(), code.trim());
       },
     }),
   ],
@@ -194,15 +310,42 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.userId = user.id!;
         token.platformRole = (user.platformRole as PlatformRole) ?? "user";
+        token.scopedRole = user.scopedRole ?? null;
+        token.scopedPlayerId = user.scopedPlayerId ?? null;
 
-        const memberships = await findMemberships(user.id!);
-        const activeTenant = resolveActiveTenant(memberships);
+        // Look up familyId from user document
+        const client = await getClientPromise();
+        const db = client.db();
+        const userDoc = await db.collection("users").findOne({ _id: new ObjectId(user.id!) });
+        token.familyId = userDoc?.familyId?.toString() ?? null;
 
-        token.tenantId = activeTenant?.tenantId ?? null;
-        token.tenantSlug = activeTenant?.tenantSlug ?? null;
-        token.tenantType = activeTenant?.tenantType ?? null;
-        token.role = activeTenant?.role ?? null;
-        token.permissions = activeTenant?.permissions ?? [];
+        // Player code sessions get a fixed, limited context
+        if (user.scopedRole === "player_view") {
+          token.role = "player_view";
+          token.permissions = ["view:schedule", "view:roster", "view:stats"];
+          // Resolve tenant from the code generator's context
+          if (user.scopedTenantSlug) {
+            const client = await getClientPromise();
+            const db = client.db();
+            const tenant = await db.collection("tenants").findOne({ slug: user.scopedTenantSlug });
+            token.tenantId = tenant?._id?.toString() ?? null;
+            token.tenantSlug = user.scopedTenantSlug;
+            token.tenantType = "organization";
+          } else {
+            token.tenantId = null;
+            token.tenantSlug = null;
+            token.tenantType = null;
+          }
+        } else {
+          const memberships = await findMemberships(user.id!);
+          const activeTenant = resolveActiveTenant(memberships);
+
+          token.tenantId = activeTenant?.tenantId ?? null;
+          token.tenantSlug = activeTenant?.tenantSlug ?? null;
+          token.tenantType = activeTenant?.tenantType ?? null;
+          token.role = activeTenant?.role ?? null;
+          token.permissions = activeTenant?.permissions ?? [];
+        }
       }
 
       if (trigger === "update" && session?.tenantId) {
@@ -231,6 +374,9 @@ export const authConfig: NextAuthConfig = {
       session.user.role = token.role;
       session.user.platformRole = token.platformRole;
       session.user.permissions = token.permissions;
+      session.user.scopedRole = token.scopedRole;
+      session.user.scopedPlayerId = token.scopedPlayerId;
+      session.user.familyId = token.familyId;
 
       return session;
     },

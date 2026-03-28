@@ -15,6 +15,23 @@ export interface IMembership {
 
 // --- Main interface ---
 
+export interface ISocials {
+  instagram?: string;
+  tiktok?: string;
+  twitter?: string;
+  snapchat?: string;
+  youtube?: string;
+  hudl?: string;
+}
+
+export interface INotificationPreferences {
+  emailMessages: boolean;
+  smsUrgent: boolean;
+  emailAnnouncements: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+}
+
 export interface IUser extends Document {
   email: string;
   emailVerified?: Date;
@@ -22,6 +39,8 @@ export interface IUser extends Document {
   name: string;
   image?: string;
   phone?: string;
+  socials: ISocials;
+  notificationPreferences: INotificationPreferences;
   platformRole?: "gp_admin" | "gp_support" | null;
   platformPermissions: string[];
   memberships: IMembership[];
@@ -59,6 +78,21 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true },
     image: { type: String },
     phone: { type: String },
+    socials: {
+      instagram: { type: String },
+      tiktok: { type: String },
+      twitter: { type: String },
+      snapchat: { type: String },
+      youtube: { type: String },
+      hudl: { type: String },
+    },
+    notificationPreferences: {
+      emailMessages: { type: Boolean, default: true },
+      smsUrgent: { type: Boolean, default: false },
+      emailAnnouncements: { type: Boolean, default: true },
+      quietHoursStart: { type: String },
+      quietHoursEnd: { type: String },
+    },
     platformRole: {
       type: String,
       enum: ["gp_admin", "gp_support", null],

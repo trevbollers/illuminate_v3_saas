@@ -17,6 +17,8 @@ import {
   Send,
   Clock,
   Check,
+  Edit2,
+  Save,
 } from "lucide-react";
 import {
   Button,
@@ -98,6 +100,12 @@ export default function TeamDetailPage() {
     { email: "", phone: "" },
   ]);
   const [sendingInvites, setSendingInvites] = useState(false);
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editJersey, setEditJersey] = useState("");
+  const [editPosition, setEditPosition] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchTeam = useCallback(async () => {
     try {
@@ -231,6 +239,45 @@ export default function TeamDetailPage() {
       setMessage({ type: "error", text: "Failed to send invites." });
     } finally {
       setSendingInvites(false);
+    }
+  }
+
+  function startEdit(entry: RosterEntry) {
+    setEditingId(entry._id);
+    setEditJersey(entry.jerseyNumber?.toString() || "");
+    setEditPosition(entry.position || "");
+  }
+
+  async function saveEdit(entry: RosterEntry) {
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/roster/${entry._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jerseyNumber: editJersey ? parseInt(editJersey, 10) : null,
+          position: editPosition || null,
+        }),
+      });
+      if (res.ok) {
+        setRoster((prev) =>
+          prev.map((r) =>
+            r._id === entry._id
+              ? {
+                  ...r,
+                  jerseyNumber: editJersey ? parseInt(editJersey, 10) : undefined,
+                  position: editPosition || undefined,
+                }
+              : r,
+          ),
+        );
+        setEditingId(null);
+        setMessage({ type: "success", text: "Roster entry updated." });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to update." });
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -515,36 +562,96 @@ export default function TeamDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roster.map((entry) => (
-                  <TableRow key={entry._id}>
-                    <TableCell className="font-medium">{entry.playerName}</TableCell>
-                    <TableCell className="text-center">
-                      {entry.jerseyNumber != null ? `#${entry.jerseyNumber}` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {entry.position ? (
-                        <Badge variant="outline" className="text-xs">
-                          {entry.position}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {new Date(entry.joinedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => removePlayer(entry)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {roster.map((entry) =>
+                  editingId === entry._id ? (
+                    <TableRow key={entry._id} className="bg-muted/50">
+                      <TableCell className="font-medium">{entry.playerName}</TableCell>
+                      <TableCell>
+                        <Input
+                          className="h-8 w-16 text-center"
+                          value={editJersey}
+                          onChange={(e) => setEditJersey(e.target.value)}
+                          placeholder="#"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          className="h-8 w-24"
+                          value={editPosition}
+                          onChange={(e) => setEditPosition(e.target.value)}
+                          placeholder="Pos"
+                        />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {new Date(entry.joinedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-green-600"
+                            disabled={savingEdit}
+                            onClick={() => saveEdit(entry)}
+                          >
+                            {savingEdit ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setEditingId(null)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow key={entry._id}>
+                      <TableCell className="font-medium">{entry.playerName}</TableCell>
+                      <TableCell className="text-center">
+                        {entry.jerseyNumber != null ? `#${entry.jerseyNumber}` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {entry.position ? (
+                          <Badge variant="outline" className="text-xs">
+                            {entry.position}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {new Date(entry.joinedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground"
+                            onClick={() => startEdit(entry)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removePlayer(entry)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
               </TableBody>
             </Table>
           ) : (

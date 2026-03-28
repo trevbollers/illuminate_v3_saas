@@ -79,6 +79,25 @@ export async function POST(
     );
   }
 
+  // Check jersey number conflict
+  if (jerseyNumber != null && jerseyNumber !== "") {
+    const jerseyNum = typeof jerseyNumber === "string" ? parseInt(jerseyNumber, 10) : jerseyNumber;
+    if (!isNaN(jerseyNum)) {
+      const conflict = await models.Roster.findOne({
+        teamId: new Types.ObjectId(params.teamId),
+        jerseyNumber: jerseyNum,
+        status: "active",
+      }).lean();
+
+      if (conflict) {
+        return NextResponse.json(
+          { error: `Jersey #${jerseyNum} is already assigned to ${(conflict as any).playerName}` },
+          { status: 409 },
+        );
+      }
+    }
+  }
+
   const entry = await models.Roster.create({
     teamId: new Types.ObjectId(params.teamId),
     playerId: new Types.ObjectId(playerId),

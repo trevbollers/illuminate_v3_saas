@@ -24,12 +24,18 @@ declare module "next-auth" {
       role: string | null;
       platformRole: PlatformRole;
       permissions: string[];
+      scopedRole: string | null;
+      scopedPlayerId: string | null;
+      familyId: string | null;
     } & DefaultSession["user"];
   }
 
   interface User {
     platformRole?: PlatformRole;
     memberships?: TenantMembership[];
+    scopedRole?: string;
+    scopedPlayerId?: string;
+    scopedTenantSlug?: string;
   }
 }
 
@@ -42,5 +48,8 @@ declare module "next-auth/jwt" {
     role: string | null;
     platformRole: PlatformRole;
     permissions: string[];
+    scopedRole: string | null;
+    scopedPlayerId: string | null;
+    familyId: string | null;
   }
 }

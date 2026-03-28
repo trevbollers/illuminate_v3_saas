@@ -2,6 +2,14 @@ import { Schema, Document, Types } from "mongoose";
 
 // --- Main interface ---
 
+export interface ITeamSocials {
+  instagram?: string;
+  tiktok?: string;
+  twitter?: string;
+  snapchat?: string;
+  youtube?: string;
+}
+
 export interface ITeam extends Document {
   name: string;
   divisionKey: string;
@@ -10,6 +18,7 @@ export interface ITeam extends Document {
   headCoachId?: Types.ObjectId;
   coachIds: Types.ObjectId[];
   managerIds: Types.ObjectId[];
+  socials: ITeamSocials;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +35,13 @@ export const TeamSchema = new Schema<ITeam>(
     headCoachId: { type: Schema.Types.ObjectId },
     coachIds: [{ type: Schema.Types.ObjectId }],
     managerIds: [{ type: Schema.Types.ObjectId }],
+    socials: {
+      instagram: { type: String },
+      tiktok: { type: String },
+      twitter: { type: String },
+      snapchat: { type: String },
+      youtube: { type: String },
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
