@@ -43,4 +43,3 @@ export const InviteSchema = new Schema<IInvite>(
 
 InviteSchema.index({ teamId: 1, status: 1 });
 InviteSchema.index({ email: 1 });
-InviteSchema.index({ token: 1 });

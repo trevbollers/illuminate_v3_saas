@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { Button } from "@goparticipate/ui/src/components/button";
@@ -19,7 +19,20 @@ export default function CartPage() {
   const { items, itemCount, subtotal, removeItem, updateQuantity, clearCart } =
     useCart();
 
-  const estimatedTax = subtotal * 0.0825;
+  const [taxRate, setTaxRate] = useState(0);
+  const [taxLabel, setTaxLabel] = useState("Tax");
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.taxRate != null) setTaxRate(data.taxRate);
+        if (data.taxLabel) setTaxLabel(data.taxLabel);
+      })
+      .catch(() => {});
+  }, []);
+
+  const estimatedTax = taxRate > 0 ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + estimatedTax;
 
   if (items.length === 0) {
@@ -185,16 +198,12 @@ export default function CartPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Estimated Tax</span>
-                <span className="font-medium">${estimatedTax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Processing Fee</span>
-                <span className="font-medium text-primary">
-                  Calculated at checkout
-                </span>
-              </div>
+              {estimatedTax > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Estimated {taxLabel}</span>
+                  <span className="font-medium">${estimatedTax.toFixed(2)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-base font-semibold">Estimated Total</span>

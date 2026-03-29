@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where.exe gh:*)",
+      "Bash(cp -r \"c:/Users/TrevorBollers/Documents/CPQ/go-participate-temp/.\" \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/\")",
+      "Bash(rm -rf \"c:/Users/TrevorBollers/Documents/CPQ/go-participate-temp\")",
+      "Bash(find c:/Users/TrevorBollers/Documents/CPQ/go-participate/packages/email/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(while read:*)",
+      "Bash(do if:*)",
+      "Bash(then sed:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "WebSearch",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(mkdir -p \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/apps/league/src/app/api/events/[id]/checkin\")",
+      "Bash(mkdir -p \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/apps/league/src/app/api/events/[id]/qrcodes\")"
+    ]
+  }
+}

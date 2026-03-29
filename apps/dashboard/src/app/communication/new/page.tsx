@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, X, FileText, Sparkles } from "lucide-react";
 import Link from "next/link";
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Badge,
 } from "@goparticipate/ui";
 
 interface Team {
@@ -25,13 +26,41 @@ interface Team {
   name: string;
 }
 
+interface Template {
+  _id: string;
+  name: string;
+  description: string;
+  category: string;
+  subject: string;
+  body: string;
+  isSystem: boolean;
+  suggestedPriority?: "normal" | "urgent";
+  suggestedAckOptions?: string[];
+}
+
 type Channel = "team" | "parents" | "coaches" | "org";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  general: "General",
+  scheduling: "Scheduling",
+  payment: "Payment",
+  roster: "Roster",
+  event: "Event",
+  safety: "Safety",
+  custom: "Custom",
+};
 
 export default function ComposeMessagePage() {
   const router = useRouter();
   const [teams, setTeams] = useState<Team[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+
+  // Template state
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(true);
+  const [templateFilter, setTemplateFilter] = useState<string>("all");
 
   // Form state
   const [channel, setChannel] = useState<Channel>("parents");
@@ -57,7 +86,40 @@ export default function ComposeMessagePage() {
         }
       })
       .catch(() => {});
+
+    fetch("/api/templates")
+      .then((r) => r.json())
+      .then((data) => setTemplates(data.templates || []))
+      .catch(() => {})
+      .finally(() => setLoadingTemplates(false));
   }, []);
+
+  function applyTemplate(template: Template) {
+    setSubject(template.subject);
+    setBody(template.body);
+    if (template.suggestedPriority) {
+      setPriority(template.suggestedPriority);
+    }
+    if (template.suggestedAckOptions?.length) {
+      setRequiresAck(true);
+      setAckOptions(template.suggestedAckOptions);
+    }
+    setShowTemplatePicker(false);
+  }
+
+  function startBlank() {
+    setSubject("");
+    setBody("");
+    setPriority("normal");
+    setRequiresAck(false);
+    setAckOptions(["Got it", "Can't make it"]);
+    setShowTemplatePicker(false);
+  }
+
+  const filteredTemplates =
+    templateFilter === "all"
+      ? templates
+      : templates.filter((t) => t.category === templateFilter);
 
   const addAckOption = useCallback(() => {
     setAckOptions((prev) => [...prev, ""]);
@@ -140,7 +202,124 @@ export default function ComposeMessagePage() {
           </Button>
         </Link>
         <h1 className="text-2xl font-bold">New Message</h1>
+        {!showTemplatePicker && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setShowTemplatePicker(true)}
+          >
+            <FileText className="mr-1.5 h-3.5 w-3.5" />
+            Templates
+          </Button>
+        )}
       </div>
+
+      {/* Template Picker */}
+      {showTemplatePicker && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Start with a template
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Choose a template to pre-fill your message, or start from scratch.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Category filter */}
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { key: "all", label: "All" },
+                { key: "scheduling", label: "Scheduling" },
+                { key: "payment", label: "Payment" },
+                { key: "roster", label: "Roster" },
+                { key: "event", label: "Event" },
+                { key: "safety", label: "Safety" },
+                { key: "general", label: "General" },
+                { key: "custom", label: "Custom" },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setTemplateFilter(f.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    templateFilter === f.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Blank option */}
+            <button
+              type="button"
+              onClick={startBlank}
+              className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Blank Message</p>
+                <p className="text-xs text-muted-foreground">
+                  Start from scratch
+                </p>
+              </div>
+            </button>
+
+            {/* Template list */}
+            {loadingTemplates ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="grid gap-2 max-h-72 overflow-y-auto">
+                {filteredTemplates.map((t) => (
+                  <button
+                    key={t._id}
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">
+                          {t.name}
+                        </p>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          {CATEGORY_LABELS[t.category] || t.category}
+                        </Badge>
+                        {t.suggestedPriority === "urgent" && (
+                          <Badge variant="destructive" className="text-[10px] shrink-0">
+                            Urgent
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                        {t.description || t.body.slice(0, 80)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+                {filteredTemplates.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-4">
+                    No templates in this category
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Channel + Team */}

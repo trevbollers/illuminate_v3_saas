@@ -235,4 +235,3 @@ export const EventSchema = new Schema<IEvent>(
 
 EventSchema.index({ status: 1, startDate: 1 });
 EventSchema.index({ type: 1 });
-EventSchema.index({ slug: 1 });

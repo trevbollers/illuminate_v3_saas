@@ -2,8 +2,12 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createCheckoutSession } from "@goparticipate/billing";
 import { connectPlatformDB, Plan } from "@goparticipate/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { planId, billingInterval = "monthly" } = await req.json();
 
   if (!planId) {

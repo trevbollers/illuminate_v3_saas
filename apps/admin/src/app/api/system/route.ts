@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB, SystemConfig } from "@goparticipate/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
 // Merges in live env-var detection so the client always sees current state.
 // ---------------------------------------------------------------------------
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     await connectPlatformDB();
 
@@ -164,6 +168,9 @@ interface SystemPutBody {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     await connectPlatformDB();
 

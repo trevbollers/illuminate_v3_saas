@@ -9,6 +9,14 @@ import {
   getOrgModels,
   resolveRecipients,
 } from "@goparticipate/db";
+import type { ResolvedRecipient } from "@goparticipate/db";
+import {
+  sendEmail,
+  TeamMessageEmail,
+  sendSMS,
+  detectSMSProvider,
+  normalizePhone,
+} from "@goparticipate/email";
 
 // GET /api/messages — list messages (inbox)
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -164,9 +172,150 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     deliveryLog: [],
   });
 
-  // TODO: Phase 5 — trigger email/SMS delivery based on deliveryChannels
-  // For now, just create the message. Email sending will be added when
-  // email templates are built.
+  // --- Email / SMS delivery (fire-and-forget, don't block response) ---
+  const messageId = (message._id as Types.ObjectId).toString();
+  const baseUrl = process.env.NEXTAUTH_URL || `https://${session.user.tenantSlug}.goparticipate.com`;
+  const messageUrl = `${baseUrl}/communication/${messageId}`;
+
+  // Get team name for email template
+  let teamName = "Your Team";
+  if (teamId) {
+    const { Team } = getOrgModels(conn);
+    const team = await Team.findById(teamId).select("name").lean() as { name: string } | null;
+    if (team) teamName = team.name;
+  }
+
+  const authorName = author?.name || session.user.name || "Coach";
+
+  // Deliver emails and SMS in the background
+  deliverMessages({
+    recipients,
+    deliveryChannels,
+    priority,
+    messageId,
+    messageUrl,
+    authorName,
+    teamName,
+    subject,
+    messageBody,
+    requiresAck,
+    ackOptions,
+    Message,
+  }).catch(() => {});
 
   return NextResponse.json({ message }, { status: 201 });
+}
+
+/**
+ * Send email/SMS to resolved recipients. Updates deliveryLog on the message.
+ * Runs after the response is sent to avoid blocking the user.
+ */
+async function deliverMessages({
+  recipients,
+  deliveryChannels,
+  priority,
+  messageId,
+  messageUrl,
+  authorName,
+  teamName,
+  subject,
+  messageBody,
+  requiresAck,
+  ackOptions,
+  Message,
+}: {
+  recipients: ResolvedRecipient[];
+  deliveryChannels: string[];
+  priority: string;
+  messageId: string;
+  messageUrl: string;
+  authorName: string;
+  teamName: string;
+  subject?: string;
+  messageBody: string;
+  requiresAck: boolean;
+  ackOptions: string[];
+  Message: any;
+}) {
+  const deliveryLog: Array<{
+    channel: "email" | "sms";
+    recipientUserId: Types.ObjectId;
+    sentAt: Date;
+    status: "sent" | "failed";
+    externalId?: string;
+  }> = [];
+
+  const shouldEmail = deliveryChannels.includes("email");
+  const shouldSMS = deliveryChannels.includes("sms") && priority === "urgent";
+  const smsProvider = shouldSMS ? detectSMSProvider() : null;
+
+  for (const recipient of recipients) {
+    // --- Email ---
+    if (shouldEmail && recipient.notificationPreferences.emailMessages && recipient.email) {
+      try {
+        const result = await sendEmail({
+          to: recipient.email,
+          subject: subject || `New message from ${authorName}`,
+          react: TeamMessageEmail({
+            authorName,
+            teamName,
+            subject,
+            body: messageBody,
+            priority: priority as "normal" | "urgent",
+            requiresAck,
+            ackOptions: requiresAck ? ackOptions : undefined,
+            messageUrl,
+          }),
+        });
+        deliveryLog.push({
+          channel: "email",
+          recipientUserId: new Types.ObjectId(recipient.userId),
+          sentAt: new Date(),
+          status: "sent",
+          externalId: result.id,
+        });
+      } catch {
+        deliveryLog.push({
+          channel: "email",
+          recipientUserId: new Types.ObjectId(recipient.userId),
+          sentAt: new Date(),
+          status: "failed",
+        });
+      }
+    }
+
+    // --- SMS (urgent only, opt-in only) ---
+    if (shouldSMS && smsProvider && recipient.notificationPreferences.smsUrgent && recipient.phone) {
+      try {
+        const normalized = normalizePhone(recipient.phone);
+        if (normalized) {
+          const smsBody = subject
+            ? `URGENT from ${teamName}: ${subject} — ${messageBody.slice(0, 120)}`
+            : `URGENT from ${teamName}: ${messageBody.slice(0, 140)}`;
+          const result = await sendSMS({ to: normalized, body: smsBody });
+          deliveryLog.push({
+            channel: "sms",
+            recipientUserId: new Types.ObjectId(recipient.userId),
+            sentAt: new Date(),
+            status: result.success ? "sent" : "failed",
+            externalId: result.messageId,
+          });
+        }
+      } catch {
+        deliveryLog.push({
+          channel: "sms",
+          recipientUserId: new Types.ObjectId(recipient.userId),
+          sentAt: new Date(),
+          status: "failed",
+        });
+      }
+    }
+  }
+
+  // Persist delivery log
+  if (deliveryLog.length > 0) {
+    await Message.findByIdAndUpdate(messageId, {
+      $push: { deliveryLog: { $each: deliveryLog } },
+    });
+  }
 }

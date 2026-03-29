@@ -63,6 +63,12 @@ export type { IStat } from "./org/stat";
 export type { IUniformOrder, IUniformItem } from "./org/uniform-order";
 export type { IInvite } from "./org/invite";
 export type { IRegistrationCart, ICartItem, ICartCheckout } from "./org/registration-cart";
+export type { IProduct, IProductOption, IProductPricing } from "./org/product";
+export type { IStorefrontOrder, IOrderItem, IOrderCustomer, IOrderFulfillment } from "./org/storefront-order";
+
+// --- Shared tenant models (used in both league and org databases) ---
+
+export type { IMessageTemplate } from "./shared/message-template";
 
 // --- Tenant model helpers ---
 

@@ -2,8 +2,12 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { connectPlatformDB, Tenant, User } from "@goparticipate/db";
 import mongoose from "mongoose";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   await connectPlatformDB();
 
   const tenants = await Tenant.find()

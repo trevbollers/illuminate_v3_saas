@@ -21,6 +21,11 @@ import {
   User,
   Shield,
   ShoppingCart,
+  FileText,
+  Heart,
+  Home,
+  Package,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -76,6 +81,9 @@ const fullNavGroups = [
       { title: "Payment Settings", href: "/settings/payments", icon: CreditCard },
       { title: "Stats", href: "/stats", icon: BarChart2 },
       { title: "Communication", href: "/communication", icon: MessageSquare },
+      { title: "Templates", href: "/templates", icon: FileText },
+      { title: "Products", href: "/products", icon: Package },
+      { title: "Orders", href: "/orders", icon: ClipboardCheck },
     ],
   },
   {
@@ -83,6 +91,31 @@ const fullNavGroups = [
     items: [
       { title: "Settings", href: "/settings", icon: Settings },
       { title: "Help", href: "/help", icon: HelpCircle },
+    ],
+  },
+];
+
+// Parent/viewer nav — family-centric view
+const parentNavGroups = [
+  {
+    label: "Home",
+    items: [
+      { title: "Family Dashboard", href: "/", icon: Home },
+    ],
+  },
+  {
+    label: "My Family",
+    items: [
+      { title: "My Children", href: "/family/children", icon: Heart },
+      { title: "Schedule", href: "/family/schedule", icon: Calendar },
+      { title: "Messages", href: "/communication", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      { title: "Roster", href: "/roster", icon: Users },
+      { title: "Teams", href: "/teams", icon: Shield },
     ],
   },
 ];
@@ -143,13 +176,18 @@ export function DashboardSidebar({
   const { open } = useSidebar();
 
   const isPlayerSession = scopedRole === "player_view";
-  const navGroups = isPlayerSession ? playerNavGroups : fullNavGroups;
+  const isParent = !isPlayerSession && user?.role === "viewer";
+  const navGroups = isPlayerSession
+    ? playerNavGroups
+    : isParent
+      ? parentNavGroups
+      : fullNavGroups;
 
   // Unread message count for sidebar badge
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnread = useCallback(async () => {
-    if (isPlayerSession) return;
+    if (isPlayerSession) return; // Players don't get messages
     try {
       const res = await fetch("/api/messages/unread");
       if (res.ok) {

@@ -3,9 +3,13 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { detectSMSProvider, sendSMS } from "@goparticipate/email";
+import { requireAdmin } from "@/lib/require-admin";
 
 // POST /api/system/sms/test — send a test SMS
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const { phone } = body;

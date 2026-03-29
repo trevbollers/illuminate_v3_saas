@@ -19,8 +19,20 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/public") ||
+    pathname.startsWith("/public") ||
     pathname === "/login"
   ) {
+    // For public routes, resolve tenant from subdomain and set header
+    if (pathname.startsWith("/api/public") || pathname.startsWith("/public")) {
+      const resolvedTenant = resolveTenantFromRequest(request);
+      const slug = resolvedTenant?.slug || process.env.NEXT_PUBLIC_LEAGUE_SLUG;
+      if (slug) {
+        const response = NextResponse.next();
+        response.headers.set("x-tenant-slug", slug);
+        return response;
+      }
+    }
     return NextResponse.next();
   }
 

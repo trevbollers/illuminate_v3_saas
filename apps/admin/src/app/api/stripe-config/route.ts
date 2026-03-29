@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { stripe } from "@goparticipate/billing";
 import { connectPlatformDB, Plan } from "@goparticipate/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 function maskKey(key: string | undefined): string {
   if (!key) return "Not configured";
@@ -10,6 +11,9 @@ function maskKey(key: string | undefined): string {
 }
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;

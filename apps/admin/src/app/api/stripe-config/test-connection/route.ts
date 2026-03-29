@@ -1,8 +1,12 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { stripe } from "@goparticipate/billing";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function POST() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const secretKey = process.env.STRIPE_SECRET_KEY;
 
   if (!secretKey) {

@@ -5,6 +5,10 @@ import { Schema, Document, Types } from "mongoose";
 export interface IBracketMatch {
   matchNumber: number;
   round: number;
+  roundLabel?: string; // "Round of 16", "Quarterfinals", "Semifinals", "Championship"
+  position: number; // position within the round (0-indexed, top to bottom)
+  nextMatchNumber?: number; // winner advances to this match
+  nextSlot?: "home" | "away"; // which slot the winner fills in the next match
   homeTeamId?: Types.ObjectId;
   awayTeamId?: Types.ObjectId;
   homeTeamName?: string;
@@ -12,6 +16,8 @@ export interface IBracketMatch {
   homeScore?: number;
   awayScore?: number;
   winnerId?: Types.ObjectId;
+  winnerName?: string;
+  isBye?: boolean; // true if one team gets a bye (auto-advance)
   gameId?: Types.ObjectId;
   scheduledAt?: Date;
   field?: string;
@@ -49,6 +55,10 @@ export const BracketSchema = new Schema<IBracket>(
       {
         matchNumber: { type: Number, required: true },
         round: { type: Number, required: true },
+        roundLabel: { type: String },
+        position: { type: Number, default: 0 },
+        nextMatchNumber: { type: Number },
+        nextSlot: { type: String, enum: ["home", "away"] },
         homeTeamId: { type: Schema.Types.ObjectId },
         awayTeamId: { type: Schema.Types.ObjectId },
         homeTeamName: { type: String },
@@ -56,6 +66,8 @@ export const BracketSchema = new Schema<IBracket>(
         homeScore: { type: Number },
         awayScore: { type: Number },
         winnerId: { type: Schema.Types.ObjectId },
+        winnerName: { type: String },
+        isBye: { type: Boolean, default: false },
         gameId: { type: Schema.Types.ObjectId, ref: "Game" },
         scheduledAt: { type: Date },
         field: { type: String },

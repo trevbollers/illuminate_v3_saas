@@ -15,11 +15,15 @@
     "dev:league": "turbo dev --filter=@goparticipate/league",
     "dev:dashboard": "turbo dev --filter=@goparticipate/dashboard",
     "dev:storefront": "turbo dev --filter=@goparticipate/storefront",
-    "db:seed": "bash scripts/seed.sh"
+    "db:seed": "bash scripts/seed.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.2",
     "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.2"
   },
   "engines": {
     "node": ">=20"
@@ -27,6 +31,7 @@
   "packageManager": "npm@10.9.4",
   "dependencies": {
     "@aws-sdk/client-sns": "^3.1017.0",
+    "sharp": "^0.34.5",
     "twilio": "^5.13.1"
   }
 }

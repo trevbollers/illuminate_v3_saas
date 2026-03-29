@@ -79,6 +79,10 @@ export interface ITenantSettings {
     pushNotifications: boolean;
   };
   payments?: ITenantPaymentSettings;
+  storefront?: {
+    taxRate?: number; // percentage (e.g. 8.25 for 8.25%), 0 = no tax
+    taxLabel?: string; // e.g. "Sales Tax", "GST"
+  };
 }
 
 // --- Main interface ---
@@ -103,6 +107,8 @@ export interface ITenant extends Document {
   settings: ITenantSettings;
   socials: ITenantSocials;
   sport: string;
+  logoUrl?: string;
+  bannerUrl?: string;
   status: "active" | "suspended" | "onboarding";
   onboardingStep: number;
   // League-specific
@@ -228,6 +234,10 @@ const TenantSchema = new Schema<ITenant>(
         ],
         platformFeePercent: { type: Number },
       },
+      storefront: {
+        taxRate: { type: Number, default: 0 },
+        taxLabel: { type: String, default: "Tax" },
+      },
     },
     socials: {
       instagram: { type: String },
@@ -239,6 +249,8 @@ const TenantSchema = new Schema<ITenant>(
       website: { type: String },
     },
     sport: { type: String, required: true, default: "7v7_football" },
+    logoUrl: { type: String },
+    bannerUrl: { type: String },
     status: {
       type: String,
       enum: ["active", "suspended", "onboarding"],

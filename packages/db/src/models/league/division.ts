@@ -7,6 +7,12 @@ export interface IPool {
   teamIds: Types.ObjectId[];
 }
 
+export interface IBracketTier {
+  name: string; // e.g. "Gold", "Silver", "Bronze"
+  teamCount: number; // how many teams in this tier bracket
+  bracketType: BracketType; // elimination format for this tier
+}
+
 // --- Main interface ---
 
 export type EventFormat = "round_robin" | "pool_play_to_bracket" | "bracket_only";
@@ -45,6 +51,10 @@ export interface IDivision extends Document {
 
   // Pools within this division
   pools: IPool[];
+
+  // Bracket tiers — admin-defined split of teams into bracket levels
+  // e.g. 18U with 10 teams → Gold (6 teams), Silver (4 teams)
+  bracketTiers: IBracketTier[];
 
   // Bracket config (applies when eventFormat includes bracket play)
   bracketType?: BracketType;
@@ -99,6 +109,19 @@ export const DivisionSchema = new Schema<IDivision>(
     teamsAdvancingPerPool: { type: Number, default: 2 },
 
     pools: [PoolSchema],
+
+    bracketTiers: [
+      {
+        name: { type: String, required: true },
+        teamCount: { type: Number, required: true },
+        bracketType: {
+          type: String,
+          enum: ["single_elimination", "double_elimination", "consolation", "round_robin", "pool_play"],
+          default: "single_elimination",
+        },
+        _id: false,
+      },
+    ],
 
     bracketType: {
       type: String,

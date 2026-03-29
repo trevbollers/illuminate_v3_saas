@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { connectPlatformDB, Plan } from "@goparticipate/db";
 import { stripe } from "@goparticipate/billing";
+import { requireAdmin } from "@/lib/require-admin";
 
 /**
  * POST /api/plans/stripe-sync
@@ -34,6 +35,9 @@ const DEFAULT_LIMITS: Record<string, object> = {
 };
 
 export async function POST() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   await connectPlatformDB();
 
   const stripeProducts = await stripe.products.list({ active: true, limit: 100 });

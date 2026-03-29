@@ -11,6 +11,7 @@ import { StatCard } from "@/components/stat-card";
 import { RecentActivity } from "@/components/recent-activity";
 import { UpcomingEvents } from "@/components/upcoming-events";
 import { QuickActions } from "@/components/quick-actions";
+import { ParentDashboard } from "@/components/parent-dashboard";
 import { auth } from "@goparticipate/auth/edge";
 import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
@@ -49,6 +50,12 @@ export default async function DashboardPage() {
         console.error("[dashboard:page] Failed to fetch tenant:", err);
       }
     }
+  }
+
+  // Parent/viewer role → show family-centric dashboard
+  const userRole = session?.user?.role;
+  if (userRole === "viewer") {
+    return <ParentDashboard userName={userName} />;
   }
 
   const onboardingSteps = ONBOARDING_STEPS.map((step, idx) => ({

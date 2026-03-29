@@ -41,6 +41,9 @@ import {
   XCircle,
   ScanLine,
   QrCode,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
 } from "lucide-react";
 
 // ─── Types ───
@@ -98,6 +101,7 @@ interface DivisionInfo {
   maxAge: number;
   skillLevel?: string;
   pools: any[];
+  bracketTiers: { name: string; teamCount: number; bracketType: string }[];
   maxTeams?: number;
   bracketType?: string;
   eventFormat?: string;
@@ -186,6 +190,21 @@ const clockLabels: Record<string, string> = {
   mixed: "Mixed (Running > Stop final 2 min)",
 };
 
+// ─── Common Tiebreaker Functions ───
+
+const COMMON_TIEBREAKERS: { rule: string; description: string }[] = [
+  { rule: "Head-to-head record", description: "Record between tied teams in games they played against each other" },
+  { rule: "Win percentage", description: "Total wins divided by games played" },
+  { rule: "Point differential", description: "Total points scored minus total points allowed" },
+  { rule: "Points allowed", description: "Fewer total points allowed ranks higher" },
+  { rule: "Points scored", description: "More total points scored ranks higher" },
+  { rule: "Head-to-head point differential", description: "Point differential only in games between tied teams" },
+  { rule: "Strength of schedule", description: "Combined win percentage of opponents played" },
+  { rule: "Fewest forfeits", description: "Team with fewer forfeits ranks higher" },
+  { rule: "Fewest penalties / unsportsmanlike", description: "Team with fewer penalty flags or conduct issues ranks higher" },
+  { rule: "Coin flip / random draw", description: "Random selection if all other tiebreakers are equal" },
+];
+
 // ─── Component ───
 
 export default function EventDetailPage() {
@@ -241,6 +260,9 @@ export default function EventDetailPage() {
         refundPolicy: event.pricing.refundPolicy || "",
       },
       settings: { ...event.settings },
+      tiebreakerRules: event.tiebreakerRules.length > 0
+        ? event.tiebreakerRules.sort((a, b) => a.priority - b.priority).map((r) => ({ ...r }))
+        : COMMON_TIEBREAKERS.slice(0, 4).map((t, i) => ({ priority: i + 1, rule: t.rule, description: t.description })),
     });
     setEditing(true);
   }
@@ -321,6 +343,9 @@ export default function EventDetailPage() {
       teamsAdvancingPerPool: d.teamsAdvancingPerPool ?? 2,
       estimatedTeamCount: d.estimatedTeamCount || 8,
       maxTeams: d.maxTeams || "",
+      bracketTiers: d.bracketTiers?.length
+        ? d.bracketTiers.map((t) => ({ ...t }))
+        : [],
     });
   }
 
@@ -1007,34 +1032,38 @@ export default function EventDetailPage() {
               </Card>
             )}
 
-            {/* Tiebreaker Rules (view only) */}
-            {!editing && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Tiebreaker Rules</CardTitle>
-                    {event.tiebreakerLocked && <Badge variant="outline" className="text-xs">Locked by League</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {event.tiebreakerRules.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No tiebreaker rules configured.</p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {event.tiebreakerRules.sort((a, b) => a.priority - b.priority).map((r, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{r.priority}</span>
-                          <div>
-                            <span className="font-medium">{r.rule}</span>
-                            {r.description && <p className="text-xs text-muted-foreground">{r.description}</p>}
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Tiebreaker Rules */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Tiebreaker Rules</CardTitle>
+                  {event.tiebreakerLocked && <Badge variant="outline" className="text-xs">Locked by League</Badge>}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {editing ? (
+                  <TiebreakerEditor
+                    rules={editForm.tiebreakerRules || []}
+                    onChange={(rules) => setEditForm({ ...editForm, tiebreakerRules: rules })}
+                    locked={event.tiebreakerLocked}
+                  />
+                ) : event.tiebreakerRules.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No tiebreaker rules configured. Click <strong>Edit Event</strong> to set up the tiebreaker formula.</p>
+                ) : (
+                  <ol className="space-y-2">
+                    {event.tiebreakerRules.sort((a, b) => a.priority - b.priority).map((r, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{r.priority}</span>
+                        <div>
+                          <span className="font-medium">{r.rule}</span>
+                          {r.description && <p className="text-xs text-muted-foreground">{r.description}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right column */}
@@ -1654,6 +1683,103 @@ export default function EventDetailPage() {
                             <Input type="number" value={divEditForm.maxTeams || ""} onChange={(e) => setDivEditForm({ ...divEditForm, maxTeams: e.target.value })} placeholder="No limit" />
                           </div>
                         </div>
+                        {/* Bracket Tiers — Gold/Silver/Bronze bracket split */}
+                        {divEditForm.eventFormat !== "round_robin" && (
+                          <div className="space-y-2 border-t pt-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-semibold">Bracket Tiers</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 text-xs"
+                                onClick={() => {
+                                  const tiers = [...(divEditForm.bracketTiers || [])];
+                                  const names = ["Gold", "Silver", "Bronze", "Copper", "Iron"];
+                                  const nextName = names[tiers.length] || `Tier ${tiers.length + 1}`;
+                                  tiers.push({ name: nextName, teamCount: 4, bracketType: "single_elimination" });
+                                  setDivEditForm({ ...divEditForm, bracketTiers: tiers });
+                                }}
+                              >
+                                <Plus className="h-3 w-3" /> Add Tier
+                              </Button>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Split this division into bracket tiers (e.g. Gold = top 6, Silver = next 4). Brackets will be pre-generated based on team counts.
+                            </p>
+                            {(divEditForm.bracketTiers || []).length === 0 ? (
+                              <p className="text-xs text-muted-foreground italic py-1">No tiers defined — all teams will share one bracket.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {(divEditForm.bracketTiers || []).map((tier: any, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 rounded-md border bg-white px-3 py-2">
+                                    <Input
+                                      className="h-8 w-24 text-sm font-medium"
+                                      value={tier.name}
+                                      onChange={(e) => {
+                                        const tiers = [...divEditForm.bracketTiers];
+                                        tiers[idx] = { ...tiers[idx], name: e.target.value };
+                                        setDivEditForm({ ...divEditForm, bracketTiers: tiers });
+                                      }}
+                                      placeholder="Tier name"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        className="h-8 w-16 text-sm text-center"
+                                        type="number"
+                                        min="2"
+                                        value={tier.teamCount}
+                                        onChange={(e) => {
+                                          const tiers = [...divEditForm.bracketTiers];
+                                          tiers[idx] = { ...tiers[idx], teamCount: parseInt(e.target.value) || 2 };
+                                          setDivEditForm({ ...divEditForm, bracketTiers: tiers });
+                                        }}
+                                      />
+                                      <span className="text-xs text-muted-foreground whitespace-nowrap">teams</span>
+                                    </div>
+                                    <select
+                                      className="h-8 rounded-md border bg-background px-2 text-xs"
+                                      value={tier.bracketType}
+                                      onChange={(e) => {
+                                        const tiers = [...divEditForm.bracketTiers];
+                                        tiers[idx] = { ...tiers[idx], bracketType: e.target.value };
+                                        setDivEditForm({ ...divEditForm, bracketTiers: tiers });
+                                      }}
+                                    >
+                                      <option value="single_elimination">Single Elim</option>
+                                      <option value="double_elimination">Double Elim</option>
+                                      <option value="consolation">Consolation</option>
+                                    </select>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 shrink-0 text-red-500 hover:text-red-700"
+                                      onClick={() => {
+                                        const tiers = divEditForm.bracketTiers.filter((_: any, i: number) => i !== idx);
+                                        setDivEditForm({ ...divEditForm, bracketTiers: tiers });
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                {(() => {
+                                  const total = (divEditForm.bracketTiers || []).reduce((s: number, t: any) => s + (t.teamCount || 0), 0);
+                                  const est = parseInt(divEditForm.estimatedTeamCount) || 0;
+                                  return total > 0 && (
+                                    <p className={`text-xs ${total === est ? "text-green-600" : total > est ? "text-red-500" : "text-amber-600"}`}>
+                                      {total} teams across tiers {est > 0 ? `(${est} estimated)` : ""}
+                                      {total === est && " ✓"}
+                                      {total > est && est > 0 && " — exceeds estimated count"}
+                                    </p>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="flex gap-2 border-t pt-3">
                           <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={saveDivEdit} disabled={divSaving}>
                             {divSaving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
@@ -2277,6 +2403,209 @@ function GameDetailModal({
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
             Save Score & Complete
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tiebreaker Editor Component ───
+
+function TiebreakerEditor({
+  rules,
+  onChange,
+  locked,
+}: {
+  rules: { priority: number; rule: string; description?: string }[];
+  onChange: (rules: { priority: number; rule: string; description?: string }[]) => void;
+  locked: boolean;
+}) {
+  // Available rules = common ones not already in the list
+  const usedRules = new Set(rules.map((r) => r.rule));
+  const available = COMMON_TIEBREAKERS.filter((t) => !usedRules.has(t.rule));
+
+  function moveUp(idx: number) {
+    if (idx === 0) return;
+    const next = [...rules];
+    [next[idx - 1], next[idx]] = [next[idx]!, next[idx - 1]!];
+    onChange(next.map((r, i) => ({ ...r, priority: i + 1 })));
+  }
+
+  function moveDown(idx: number) {
+    if (idx >= rules.length - 1) return;
+    const next = [...rules];
+    [next[idx], next[idx + 1]] = [next[idx + 1]!, next[idx]!];
+    onChange(next.map((r, i) => ({ ...r, priority: i + 1 })));
+  }
+
+  function removeRule(idx: number) {
+    const next = rules.filter((_, i) => i !== idx);
+    onChange(next.map((r, i) => ({ ...r, priority: i + 1 })));
+  }
+
+  function addRule(rule: string, description: string) {
+    onChange([...rules, { priority: rules.length + 1, rule, description }]);
+  }
+
+  function addCustomRule() {
+    onChange([
+      ...rules,
+      { priority: rules.length + 1, rule: "Custom rule", description: "" },
+    ]);
+  }
+
+  function updateRule(idx: number, field: "rule" | "description", value: string) {
+    const next = [...rules];
+    next[idx] = { ...next[idx]!, [field]: value };
+    onChange(next);
+  }
+
+  if (locked) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-amber-700 bg-amber-50 rounded-md px-3 py-2 border border-amber-200">
+          Tiebreaker rules are locked by the league and cannot be edited for this event.
+        </p>
+        <ol className="space-y-2">
+          {rules.map((r, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">
+                {r.priority}
+              </span>
+              <div>
+                <span className="font-medium">{r.rule}</span>
+                {r.description && (
+                  <p className="text-xs text-muted-foreground">{r.description}</p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Drag to reorder. Tiebreakers are applied top-to-bottom — the first rule that breaks the tie wins.
+      </p>
+
+      {/* Active rules list */}
+      {rules.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-2">
+          No tiebreaker rules yet. Add rules below to define how ties are resolved.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {rules.map((r, idx) => {
+            const isCustom = !COMMON_TIEBREAKERS.some((t) => t.rule === r.rule);
+            return (
+              <div
+                key={idx}
+                className="group flex items-center gap-1.5 rounded-lg border bg-white px-2 py-2 hover:border-blue-200 transition-colors"
+              >
+                {/* Grip + priority number */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <GripVertical className="h-4 w-4 text-slate-300" />
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-blue-700">
+                    {idx + 1}
+                  </span>
+                </div>
+
+                {/* Rule content */}
+                <div className="flex-1 min-w-0">
+                  {isCustom ? (
+                    <div className="space-y-1">
+                      <Input
+                        value={r.rule}
+                        onChange={(e) => updateRule(idx, "rule", e.target.value)}
+                        className="h-7 text-sm font-medium"
+                        placeholder="Rule name"
+                      />
+                      <Input
+                        value={r.description || ""}
+                        onChange={(e) => updateRule(idx, "description", e.target.value)}
+                        className="h-6 text-xs"
+                        placeholder="Description (optional)"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-sm font-medium">{r.rule}</span>
+                      {r.description && (
+                        <p className="text-[11px] text-muted-foreground leading-tight">
+                          {r.description}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Move & remove buttons */}
+                <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={idx === 0}
+                    onClick={() => moveUp(idx)}
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={idx === rules.length - 1}
+                    onClick={() => moveDown(idx)}
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => removeRule(idx)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add rule section */}
+      <div className="border-t pt-3 space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Add tiebreaker
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {available.map((t) => (
+            <button
+              key={t.rule}
+              type="button"
+              onClick={() => addRule(t.rule, t.description)}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+              title={t.description}
+            >
+              <Plus className="h-3 w-3" />
+              {t.rule}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={addCustomRule}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Custom rule...
+          </button>
         </div>
       </div>
     </div>

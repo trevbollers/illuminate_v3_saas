@@ -2,14 +2,21 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB } from "@goparticipate/db";
 import { Plan } from "@goparticipate/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   await connectPlatformDB();
   const plans = await Plan.find().sort({ sortOrder: 1 }).lean();
   return NextResponse.json(plans);
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   await connectPlatformDB();
 
   const body = await req.json();

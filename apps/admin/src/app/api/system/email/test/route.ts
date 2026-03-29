@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import React from "react";
 import { sendEmail } from "@goparticipate/email";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export const runtime = "nodejs";
 // Sends a simple test email to verify that the email pipeline is functional.
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const to: string = body?.to ?? "";

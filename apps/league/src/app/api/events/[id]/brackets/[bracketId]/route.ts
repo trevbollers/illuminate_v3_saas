@@ -38,7 +38,7 @@ export async function PATCH(
 
   const body = await req.json();
 
-  // Handle match result reporting with automatic advancement
+  // Handle match result reporting with pointer-based advancement
   if (body.matchResult) {
     const { matchNumber, homeScore, awayScore } = body.matchResult;
 
@@ -47,23 +47,35 @@ export async function PATCH(
       return NextResponse.json({ error: "Bracket not found" }, { status: 404 });
     }
 
-    const matchIdx = bracket.matches.findIndex((m: any) => m.matchNumber === matchNumber);
-    if (matchIdx === -1) {
+    const match = bracket.matches.find((m: any) => m.matchNumber === matchNumber);
+    if (!match) {
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    const match = bracket.matches[matchIdx]!;
     match.homeScore = homeScore;
     match.awayScore = awayScore;
     match.status = "completed";
 
-    // Determine winner
     const winnerName = homeScore > awayScore ? match.homeTeamName : match.awayTeamName;
     const loserName = homeScore > awayScore ? match.awayTeamName : match.homeTeamName;
 
-    // Advance winner to next round
     if (winnerName) {
-      advanceWinner(bracket.matches, match, winnerName, bracket.type);
+      match.winnerId = undefined;
+      match.winnerName = winnerName;
+    }
+
+    // Advance winner via pre-computed pointer — zero computation
+    if (winnerName && match.nextMatchNumber) {
+      const nextMatch = bracket.matches.find(
+        (m: any) => m.matchNumber === match.nextMatchNumber,
+      );
+      if (nextMatch) {
+        if (match.nextSlot === "home") {
+          nextMatch.homeTeamName = winnerName;
+        } else {
+          nextMatch.awayTeamName = winnerName;
+        }
+      }
     }
 
     // For double elimination, send loser to losers bracket
@@ -119,55 +131,8 @@ export async function DELETE(
   return NextResponse.json({ ok: true });
 }
 
-function advanceWinner(matches: any[], completedMatch: any, winnerName: string, bracketType: string) {
-  const round = completedMatch.round;
-  const matchNumber = completedMatch.matchNumber;
-
-  // Find total winners bracket rounds
-  const winnersMatches = matches.filter((m: any) => {
-    if (bracketType === "double_elimination") {
-      // Winners bracket matches are in the first N rounds
-      const winnersRounds = getWinnersRoundCount(matches);
-      return m.round <= winnersRounds;
-    }
-    return true;
-  });
-
-  // Find which game in the current round this is (0-indexed)
-  const roundMatches = winnersMatches.filter((m: any) => m.round === round);
-  const gameIndex = roundMatches.findIndex((m: any) => m.matchNumber === matchNumber);
-
-  // The next round's game index is floor(gameIndex / 2)
-  const nextRound = round + 1;
-  const nextGameInRound = Math.floor(gameIndex / 2);
-  const nextRoundMatches = winnersMatches.filter((m: any) => m.round === nextRound);
-
-  if (nextRoundMatches.length > nextGameInRound) {
-    const nextMatch = nextRoundMatches[nextGameInRound]!;
-    // Even game index → home, odd → away
-    if (gameIndex % 2 === 0) {
-      nextMatch.homeTeamName = winnerName;
-    } else {
-      nextMatch.awayTeamName = winnerName;
-    }
-  }
-
-  // Auto-complete BYE matches
-  for (const m of matches) {
-    if (m.status !== "scheduled") continue;
-    if (m.homeTeamName === "BYE" && m.awayTeamName && m.awayTeamName !== "BYE") {
-      m.homeScore = 0;
-      m.awayScore = 0;
-      m.status = "completed";
-      advanceWinner(matches, m, m.awayTeamName, bracketType);
-    } else if (m.awayTeamName === "BYE" && m.homeTeamName && m.homeTeamName !== "BYE") {
-      m.homeScore = 0;
-      m.awayScore = 0;
-      m.status = "completed";
-      advanceWinner(matches, m, m.homeTeamName, bracketType);
-    }
-  }
-}
+// Winner advancement is now handled by pre-computed nextMatchNumber/nextSlot pointers
+// in the PATCH handler above — no computation needed.
 
 function advanceLoser(matches: any[], completedMatch: any, loserName: string) {
   const round = completedMatch.round;

@@ -38,3 +38,18 @@ export {
   SubscriptionConfirmedEmail,
   type SubscriptionConfirmedEmailProps,
 } from "./templates/subscription-confirmed";
+
+export {
+  TeamMessageEmail,
+  type TeamMessageEmailProps,
+} from "./templates/team-message";
+
+export {
+  LeagueAnnouncementEmail,
+  type LeagueAnnouncementEmailProps,
+} from "./templates/league-announcement";
+
+export {
+  OrderConfirmationEmail,
+  type OrderConfirmationEmailProps,
+} from "./templates/order-confirmation";

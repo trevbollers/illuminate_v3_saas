@@ -2,11 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { getLeagueTenant } from "@/lib/tenant-db";
+import { processUploadedImage } from "@goparticipate/db/src/utils/image-processor";
 
-// POST /api/events/[id]/upload — upload event poster
+// POST /api/events/[id]/upload — upload event poster (auto-converts to webp)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -26,39 +25,18 @@ export async function POST(
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  // Validate file type
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json(
-      { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF" },
-      { status: 400 },
-    );
+  try {
+    const result = await processUploadedImage(file, `event-${params.id}`, {
+      maxDimension: 1600,
+      quality: 85,
+    });
+
+    await tenant.models.Event.findByIdAndUpdate(params.id, {
+      $set: { posterUrl: result.url },
+    });
+
+    return NextResponse.json(result);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 400 });
   }
-
-  // Max 5MB
-  if (file.size > 5 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "File too large. Maximum 5MB." },
-      { status: 400 },
-    );
-  }
-
-  const ext = file.name.split(".").pop() || "jpg";
-  const filename = `event-${params.id}-${Date.now()}.${ext}`;
-
-  // Save to public/uploads (dev). In production, upload to S3/Cloudinary.
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDir, { recursive: true });
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(uploadDir, filename), buffer);
-
-  const posterUrl = `/uploads/${filename}`;
-
-  // Update the event
-  await tenant.models.Event.findByIdAndUpdate(params.id, {
-    $set: { posterUrl },
-  });
-
-  return NextResponse.json({ posterUrl });
 }

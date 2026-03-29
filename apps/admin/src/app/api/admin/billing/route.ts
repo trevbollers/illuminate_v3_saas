@@ -1,8 +1,12 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { connectPlatformDB, Tenant, Plan } from "@goparticipate/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   await connectPlatformDB();
 
   const [tenants, plans] = await Promise.all([

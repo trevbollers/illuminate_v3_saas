@@ -24,6 +24,9 @@ import { UniformOrderSchema, type IUniformOrder } from "./org/uniform-order";
 import { InviteSchema, type IInvite } from "./org/invite";
 import { RegistrationCartSchema, type IRegistrationCart } from "./org/registration-cart";
 import { MessageAckSchema, type IMessageAck } from "./org/message-ack";
+import { ProductSchema, type IProduct } from "./org/product";
+import { StorefrontOrderSchema, type IStorefrontOrder } from "./org/storefront-order";
+import { MessageTemplateSchema, type IMessageTemplate } from "./shared/message-template";
 
 /**
  * Register all league-scoped models on a tenant connection.
@@ -40,6 +43,7 @@ export function registerLeagueModels(conn: Connection): void {
   if (!conn.models.Waiver) conn.model<IWaiver>("Waiver", WaiverSchema);
   if (!conn.models.CheckIn) conn.model<ICheckIn>("CheckIn", CheckInSchema);
   if (!conn.models.Announcement) conn.model<IAnnouncement>("Announcement", AnnouncementSchema);
+  if (!conn.models.MessageTemplate) conn.model<IMessageTemplate>("MessageTemplate", MessageTemplateSchema);
 }
 
 /**
@@ -58,6 +62,9 @@ export function registerOrgModels(conn: Connection): void {
   if (!conn.models.Invite) conn.model<IInvite>("Invite", InviteSchema);
   if (!conn.models.RegistrationCart) conn.model<IRegistrationCart>("RegistrationCart", RegistrationCartSchema);
   if (!conn.models.MessageAck) conn.model<IMessageAck>("MessageAck", MessageAckSchema);
+  if (!conn.models.Product) conn.model<IProduct>("Product", ProductSchema);
+  if (!conn.models.StorefrontOrder) conn.model<IStorefrontOrder>("StorefrontOrder", StorefrontOrderSchema);
+  if (!conn.models.MessageTemplate) conn.model<IMessageTemplate>("MessageTemplate", MessageTemplateSchema);
 }
 
 /**
@@ -75,6 +82,7 @@ export function getLeagueModels(conn: Connection) {
     Waiver: conn.model<IWaiver>("Waiver"),
     CheckIn: conn.model<ICheckIn>("CheckIn"),
     Announcement: conn.model<IAnnouncement>("Announcement"),
+    MessageTemplate: conn.model<IMessageTemplate>("MessageTemplate"),
   };
 }
 
@@ -94,5 +102,8 @@ export function getOrgModels(conn: Connection) {
     Invite: conn.model<IInvite>("Invite"),
     RegistrationCart: conn.model<IRegistrationCart>("RegistrationCart"),
     MessageAck: conn.model<IMessageAck>("MessageAck"),
+    Product: conn.model<IProduct>("Product"),
+    StorefrontOrder: conn.model<IStorefrontOrder>("StorefrontOrder"),
+    MessageTemplate: conn.model<IMessageTemplate>("MessageTemplate"),
   };
 }

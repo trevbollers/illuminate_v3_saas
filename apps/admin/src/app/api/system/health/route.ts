@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB, SystemConfig } from "@goparticipate/db";
 import { stripe } from "@goparticipate/billing";
 import { Resend } from "resend";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const runtime = "nodejs";
 
@@ -239,6 +240,9 @@ async function checkStorage(): Promise<HealthResult> {
 // Runs a lightweight connectivity check and persists the result to SystemConfig.
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const service = body?.service as ServiceName | undefined;

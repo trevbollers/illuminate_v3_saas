@@ -2,11 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { connectPlatformDB, Tenant, User, Plan } from "@goparticipate/db";
 import mongoose from "mongoose";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { id } = params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {

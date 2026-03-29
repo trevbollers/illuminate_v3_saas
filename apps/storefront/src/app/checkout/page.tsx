@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, CreditCard, Truck, Store, Lock } from "lucide-react";
+import { ArrowLeft, Lock, Truck, Store } from "lucide-react";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Input } from "@goparticipate/ui/src/components/input";
 import { Label } from "@goparticipate/ui/src/components/label";
@@ -18,13 +17,25 @@ import {
 } from "@goparticipate/ui/src/components/card";
 import { useCart } from "@/components/cart-provider";
 
-type FulfillmentMethod = "online" | "pickup";
+type FulfillmentMethod = "ship" | "pickup";
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
-  const [fulfillment, setFulfillment] = useState<FulfillmentMethod>("online");
+  const [fulfillment, setFulfillment] = useState<FulfillmentMethod>("pickup");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [taxRate, setTaxRate] = useState(0);
+  const [taxLabel, setTaxLabel] = useState("Tax");
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.taxRate != null) setTaxRate(data.taxRate);
+        if (data.taxLabel) setTaxLabel(data.taxLabel);
+      })
+      .catch(() => {});
+  }, []);
 
   const [contactInfo, setContactInfo] = useState({
     firstName: "",
@@ -41,20 +52,68 @@ export default function CheckoutPage() {
     zipCode: "",
   });
 
-  const shippingCost: number = fulfillment === "online" ? 0 : 0;
-  const estimatedTax = subtotal * 0.0825;
-  const total = subtotal + estimatedTax + shippingCost;
+  const estimatedTax = taxRate > 0 ? subtotal * (taxRate / 100) : 0;
+  const total = subtotal + estimatedTax;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError("");
 
-    // Simulate order submission
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const payload = {
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          configOptions: item.configOptions.map((opt) => ({
+            label: opt.name,
+            value: opt.value,
+          })),
+        })),
+        customer: {
+          firstName: contactInfo.firstName.trim(),
+          lastName: contactInfo.lastName.trim(),
+          email: contactInfo.email.trim(),
+          phone: contactInfo.phone.trim() || undefined,
+        },
+        fulfillment: {
+          method: fulfillment,
+          address:
+            fulfillment === "ship"
+              ? {
+                  street: deliveryAddress.street.trim(),
+                  apartment: deliveryAddress.apartment.trim() || undefined,
+                  city: deliveryAddress.city.trim(),
+                  state: deliveryAddress.state.trim(),
+                  zipCode: deliveryAddress.zipCode.trim(),
+                }
+              : undefined,
+        },
+      };
 
-    const orderId = `ORD-${Date.now().toString(36).toUpperCase()}`;
-    clearCart();
-    router.push(`/orders/${orderId}`);
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.sessionUrl) {
+        clearCart();
+        window.location.href = data.sessionUrl;
+      } else {
+        throw new Error("No payment session URL returned");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed");
+      setIsSubmitting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -64,10 +123,10 @@ export default function CheckoutPage() {
           No items to checkout
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Your cart is empty. Add some programs or items first.
+          Your cart is empty. Add some products first.
         </p>
         <Link href="/products" className="mt-4 inline-block">
-          <Button>Browse Programs</Button>
+          <Button>Browse Products</Button>
         </Link>
       </div>
     );
@@ -88,7 +147,6 @@ export default function CheckoutPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Checkout Form */}
           <div className="space-y-8 lg:col-span-2">
             {/* Contact Information */}
             <Card>
@@ -140,7 +198,6 @@ export default function CheckoutPage() {
                   <Input
                     id="phone"
                     type="tel"
-                    required
                     value={contactInfo.phone}
                     onChange={(e) =>
                       setContactInfo({ ...contactInfo, phone: e.target.value })
@@ -160,16 +217,16 @@ export default function CheckoutPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => setFulfillment("online")}
+                    onClick={() => setFulfillment("ship")}
                     className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
-                      fulfillment === "online"
+                      fulfillment === "ship"
                         ? "border-primary bg-primary/5"
                         : "border-input hover:border-primary/50"
                     }`}
                   >
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                        fulfillment === "online"
+                        fulfillment === "ship"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground"
                       }`}
@@ -179,7 +236,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-semibold">Ship to Me</p>
                       <p className="text-sm text-muted-foreground">
-                        Uniforms and gear shipped to your address (Free)
+                        Gear shipped to your address
                       </p>
                     </div>
                   </button>
@@ -205,14 +262,13 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-semibold">Pick Up at Practice</p>
                       <p className="text-sm text-muted-foreground">
-                        Collect gear at your first practice (Free)
+                        Collect at your next practice
                       </p>
                     </div>
                   </button>
                 </div>
 
-                {/* Shipping Address */}
-                {fulfillment === "online" && (
+                {fulfillment === "ship" && (
                   <div className="mt-6 space-y-4">
                     <h3 className="text-sm font-semibold text-muted-foreground">
                       Shipping Address
@@ -221,29 +277,21 @@ export default function CheckoutPage() {
                       <Label htmlFor="street">Street Address</Label>
                       <Input
                         id="street"
-                        required={fulfillment === "online"}
+                        required={fulfillment === "ship"}
                         value={deliveryAddress.street}
                         onChange={(e) =>
-                          setDeliveryAddress({
-                            ...deliveryAddress,
-                            street: e.target.value,
-                          })
+                          setDeliveryAddress({ ...deliveryAddress, street: e.target.value })
                         }
                         placeholder="123 Main St"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="apartment">
-                        Apartment / Suite (optional)
-                      </Label>
+                      <Label htmlFor="apartment">Apartment / Suite (optional)</Label>
                       <Input
                         id="apartment"
                         value={deliveryAddress.apartment}
                         onChange={(e) =>
-                          setDeliveryAddress({
-                            ...deliveryAddress,
-                            apartment: e.target.value,
-                          })
+                          setDeliveryAddress({ ...deliveryAddress, apartment: e.target.value })
                         }
                         placeholder="Apt 4B"
                       />
@@ -253,13 +301,10 @@ export default function CheckoutPage() {
                         <Label htmlFor="city">City</Label>
                         <Input
                           id="city"
-                          required={fulfillment === "online"}
+                          required={fulfillment === "ship"}
                           value={deliveryAddress.city}
                           onChange={(e) =>
-                            setDeliveryAddress({
-                              ...deliveryAddress,
-                              city: e.target.value,
-                            })
+                            setDeliveryAddress({ ...deliveryAddress, city: e.target.value })
                           }
                           placeholder="Kansas City"
                         />
@@ -268,13 +313,10 @@ export default function CheckoutPage() {
                         <Label htmlFor="state">State</Label>
                         <Input
                           id="state"
-                          required={fulfillment === "online"}
+                          required={fulfillment === "ship"}
                           value={deliveryAddress.state}
                           onChange={(e) =>
-                            setDeliveryAddress({
-                              ...deliveryAddress,
-                              state: e.target.value,
-                            })
+                            setDeliveryAddress({ ...deliveryAddress, state: e.target.value })
                           }
                           placeholder="MO"
                         />
@@ -283,13 +325,10 @@ export default function CheckoutPage() {
                         <Label htmlFor="zipCode">ZIP Code</Label>
                         <Input
                           id="zipCode"
-                          required={fulfillment === "online"}
+                          required={fulfillment === "ship"}
                           value={deliveryAddress.zipCode}
                           onChange={(e) =>
-                            setDeliveryAddress({
-                              ...deliveryAddress,
-                              zipCode: e.target.value,
-                            })
+                            setDeliveryAddress({ ...deliveryAddress, zipCode: e.target.value })
                           }
                           placeholder="64101"
                         />
@@ -300,40 +339,13 @@ export default function CheckoutPage() {
 
                 {fulfillment === "pickup" && (
                   <div className="mt-6 rounded-lg border bg-muted/30 p-4">
-                    <p className="font-semibold text-foreground">
-                      Practice Location
-                    </p>
+                    <p className="font-semibold text-foreground">Practice Location</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Your coach will provide the exact pickup location and time
-                      after registration is confirmed.
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Gear is typically distributed at the first practice session.
+                      after your order is confirmed.
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Payment Placeholder */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <CreditCard className="h-5 w-5" />
-                  Payment
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-lg border-2 border-dashed border-muted-foreground/30 p-8 text-center">
-                  <Lock className="mx-auto h-8 w-8 text-muted-foreground" />
-                  <p className="mt-3 font-semibold text-foreground">
-                    Stripe Payment Integration
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Secure payment processing will be integrated here. Supports
-                    credit cards, Apple Pay, and Google Pay.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -345,25 +357,16 @@ export default function CheckoutPage() {
                 <CardTitle className="text-lg">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Items */}
                 <div className="max-h-64 space-y-3 overflow-y-auto">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Qty: {item.quantity}
-                        </p>
+                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                         {item.configOptions.length > 0 && (
                           <div className="mt-0.5 flex flex-wrap gap-1">
                             {item.configOptions.map((opt) => (
-                              <Badge
-                                key={opt.name}
-                                variant="secondary"
-                                className="text-[10px]"
-                              >
+                              <Badge key={opt.name} variant="secondary" className="text-[10px]">
                                 {opt.value}
                               </Badge>
                             ))}
@@ -384,26 +387,22 @@ export default function CheckoutPage() {
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">${subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping / Fulfillment</span>
-                    <span className="font-medium">
-                      {shippingCost === 0
-                        ? "Free"
-                        : `$${shippingCost.toFixed(2)}`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Estimated Tax</span>
-                    <span className="font-medium">
-                      ${estimatedTax.toFixed(2)}
-                    </span>
-                  </div>
+                  {estimatedTax > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Estimated {taxLabel}</span>
+                      <span className="font-medium">${estimatedTax.toFixed(2)}</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between">
-                    <span className="text-base font-semibold">Total</span>
+                    <span className="text-base font-semibold">Estimated Total</span>
                     <span className="text-lg font-bold">${total.toFixed(2)}</span>
                   </div>
                 </div>
+
+                {error && (
+                  <p className="text-sm text-red-500">{error}</p>
+                )}
               </CardContent>
               <CardFooter className="flex-col gap-3">
                 <Button
@@ -415,17 +414,18 @@ export default function CheckoutPage() {
                   {isSubmitting ? (
                     <>
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Processing...
+                      Redirecting to Payment...
                     </>
                   ) : (
                     <>
                       <Lock className="h-4 w-4" />
-                      Place Order
+                      Continue to Payment
                     </>
                   )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  By placing your order, you agree to our terms and conditions.
+                  Secure checkout powered by Stripe. You will be redirected to
+                  complete payment.
                 </p>
               </CardFooter>
             </Card>

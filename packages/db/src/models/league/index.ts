@@ -2,7 +2,7 @@ export { EventSchema } from "./event";
 export type { IEvent, IEventPricing, IMultiTeamDiscount, IEventLocation, IEventDay, ITiebreakerRule, IEventSettings } from "./event";
 
 export { DivisionSchema } from "./division";
-export type { IDivision, IPool, EventFormat, BracketType } from "./division";
+export type { IDivision, IPool, IBracketTier, EventFormat, BracketType } from "./division";
 
 export { RegistrationSchema } from "./registration";
 export type { IRegistration, IRosterEntry } from "./registration";

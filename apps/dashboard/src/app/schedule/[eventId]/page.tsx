@@ -494,6 +494,9 @@ export default function ScheduleEventDetailPage() {
         </CardContent>
       </Card>
 
+      {/* RSVP Section */}
+      <RsvpCard eventId={eventId} />
+
       {/* Cancel Event Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -519,5 +522,78 @@ export default function ScheduleEventDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─── RSVP Card (visible to parents) ───
+
+function RsvpCard({ eventId }: { eventId: string }) {
+  const [players, setPlayers] = useState<{ playerId: string; name: string; rsvp: string }[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/rsvp?eventId=${eventId}`)
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data) => setPlayers(data.players || []))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [eventId]);
+
+  if (!loaded || players.length === 0) return null;
+
+  const handleRsvp = async (playerId: string, rsvp: string) => {
+    setUpdating(playerId);
+    const res = await fetch("/api/rsvp", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId, playerId, rsvp }),
+    });
+    if (res.ok) {
+      setPlayers((prev) =>
+        prev.map((p) => (p.playerId === playerId ? { ...p, rsvp } : p)),
+      );
+    }
+    setUpdating(null);
+  };
+
+  const rsvpOptions = [
+    { value: "yes", label: "Going", color: "bg-green-100 text-green-800 border-green-300" },
+    { value: "no", label: "Not Going", color: "bg-red-100 text-red-800 border-red-300" },
+    { value: "maybe", label: "Maybe", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">RSVP</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {players.map((player) => (
+          <div key={player.playerId} className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium">{player.name}</span>
+            <div className="flex gap-1.5">
+              {rsvpOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  disabled={updating === player.playerId}
+                  onClick={() => handleRsvp(player.playerId, opt.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                    player.rsvp === opt.value
+                      ? opt.color
+                      : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

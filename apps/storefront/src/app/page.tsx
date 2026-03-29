@@ -1,91 +1,93 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowRight, Users, Calendar, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowRight, Users, Calendar, ShieldCheck, Trophy, Loader2 } from "lucide-react";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Separator } from "@goparticipate/ui/src/components/separator";
 import { ProgramCard } from "@/components/product-card";
 import { CategoryCard } from "@/components/category-card";
 
-const featuredPrograms = [
-  {
-    name: "7v7 Flag Football — Ages 8-10",
-    slug: "7v7-flag-8-10",
-    price: 149,
-    unit: "season",
-    category: "Flag Football",
-    isConfigurable: true,
-  },
-  {
-    name: "7v7 Flag Football — Ages 11-13",
-    slug: "7v7-flag-11-13",
-    price: 149,
-    unit: "season",
-    category: "Flag Football",
-  },
-  {
-    name: "Travel Basketball — U12",
-    slug: "travel-basketball-u12",
-    price: 199,
-    unit: "season",
-    category: "Basketball",
-    isConfigurable: true,
-  },
-  {
-    name: "Rec Basketball — Ages 6-8",
-    slug: "rec-basketball-6-8",
-    price: 89,
-    unit: "season",
-    category: "Basketball",
-  },
-  {
-    name: "Summer Skills Camp — Football",
-    slug: "summer-skills-camp-football",
-    price: 75,
-    unit: "camp",
-    category: "Camps",
-    isConfigurable: true,
-  },
-  {
-    name: "Elite 7v7 — Ages 14-17",
-    slug: "elite-7v7-14-17",
-    price: 179,
-    unit: "season",
-    category: "Flag Football",
-  },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  fan_gear: "Fan Gear",
+  uniforms: "Uniforms",
+  season_dues: "Season Dues",
+  monthly_dues: "Monthly Dues",
+  training: "Training Sessions",
+  donations: "Donations",
+  other: "Other",
+};
 
-const categories = [
-  {
-    name: "Flag Football",
-    slug: "flag-football",
-    description: "7v7 leagues and travel teams for all ages",
-    emoji: "\u{1F3C8}",
-    productCount: 6,
-  },
-  {
-    name: "Basketball",
-    slug: "basketball",
-    description: "Rec leagues, travel teams, and skill sessions",
-    emoji: "\u{1F3C0}",
-    productCount: 5,
-  },
-  {
-    name: "Camps",
-    slug: "camps",
-    description: "Summer and holiday skill development camps",
-    emoji: "\u{26BD}",
-    productCount: 4,
-  },
-  {
-    name: "Uniforms",
-    slug: "uniforms",
-    description: "Custom jerseys, shorts, and team gear",
-    emoji: "\u{1F455}",
-    productCount: 8,
-  },
-];
+const CATEGORY_EMOJIS: Record<string, string> = {
+  fan_gear: "\u{1F3C6}",
+  uniforms: "\u{1F455}",
+  season_dues: "\u{1F4B0}",
+  monthly_dues: "\u{1F4B3}",
+  training: "\u{1F3C8}",
+  donations: "\u{2764}\u{FE0F}",
+  other: "\u{1F3C0}",
+};
+
+const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  fan_gear: "Team merchandise and fan apparel",
+  uniforms: "Custom jerseys, shorts, and team gear",
+  season_dues: "Seasonal registration and dues",
+  monthly_dues: "Recurring monthly team dues",
+  training: "Skill development sessions and clinics",
+  donations: "Support the team with contributions",
+  other: "Additional products and services",
+};
+
+interface ApiProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  pricing: {
+    amount: number;
+    type: "one_time" | "recurring";
+    interval?: string;
+  };
+  options: { label: string; values: string[] }[];
+}
+
+function pricingUnit(product: ApiProduct): string {
+  if (product.pricing.type === "recurring" && product.pricing.interval) {
+    return product.pricing.interval;
+  }
+  return "each";
+}
 
 export default function StorefrontHomePage() {
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(data.products || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const featured = products.slice(0, 6);
+
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach((p) => {
+      counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return Object.entries(counts).map(([cat, count]) => ({
+      name: CATEGORY_LABELS[cat] || cat,
+      slug: cat,
+      description: CATEGORY_DESCRIPTIONS[cat] || "",
+      emoji: CATEGORY_EMOJIS[cat] || "\u{1F3C6}",
+      productCount: count,
+    }));
+  }, [products]);
+
   return (
     <div>
       {/* Hero Banner */}
@@ -111,17 +113,8 @@ export default function StorefrontHomePage() {
                   size="lg"
                   className="gap-2 bg-white text-blue-900 hover:bg-blue-50"
                 >
-                  Browse Programs
+                  Browse Products
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/#upcoming-events">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="gap-2 border-blue-300/50 text-white hover:bg-blue-800/50"
-                >
-                  Upcoming Events
                 </Button>
               </Link>
             </div>
@@ -133,38 +126,17 @@ export default function StorefrontHomePage() {
       <section className="border-b bg-card">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-8 sm:px-6 md:grid-cols-4 lg:px-8">
           {[
-            {
-              icon: Users,
-              title: "Join a Team",
-              desc: "Open rosters for all skill levels",
-            },
-            {
-              icon: Calendar,
-              title: "Upcoming Events",
-              desc: "Leagues, tournaments & camps",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Safe & Verified",
-              desc: "Background-checked coaches",
-            },
-            {
-              icon: Trophy,
-              title: "Compete & Grow",
-              desc: "Development-first programs",
-            },
+            { icon: Users, title: "Join a Team", desc: "Open rosters for all skill levels" },
+            { icon: Calendar, title: "Pay Online", desc: "Dues, gear, and registrations" },
+            { icon: ShieldCheck, title: "Safe & Verified", desc: "Background-checked coaches" },
+            { icon: Trophy, title: "Compete & Grow", desc: "Development-first programs" },
           ].map((item) => (
-            <div
-              key={item.title}
-              className="flex items-center gap-3 text-center sm:text-left"
-            >
+            <div key={item.title} className="flex items-center gap-3 text-center sm:text-left">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <item.icon className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {item.title}
-                </p>
+                <p className="text-sm font-semibold text-foreground">{item.title}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
             </div>
@@ -172,15 +144,15 @@ export default function StorefrontHomePage() {
         </div>
       </section>
 
-      {/* Featured Programs */}
+      {/* Featured Products */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              Open Programs
+              Available Now
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Teams and programs currently accepting registrations
+              Products and programs currently available
             </p>
           </div>
           <Link href="/products" className="hidden sm:block">
@@ -190,43 +162,73 @@ export default function StorefrontHomePage() {
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featuredPrograms.map((program) => (
-            <ProgramCard key={program.slug} {...program} />
-          ))}
+        <div className="mt-8">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : featured.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((product) => (
+                <ProgramCard
+                  key={product._id}
+                  name={product.name}
+                  slug={product.slug}
+                  price={product.pricing.amount / 100}
+                  unit={pricingUnit(product)}
+                  category={CATEGORY_LABELS[product.category] || product.category}
+                  imageUrl={product.imageUrl}
+                  isConfigurable={product.options.length > 0}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed py-16 text-center">
+              <p className="text-lg font-medium text-muted-foreground">
+                No products available yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Check back soon for new products and programs
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 text-center sm:hidden">
           <Link href="/products">
             <Button variant="outline" className="gap-2">
-              View All Programs <ArrowRight className="h-4 w-4" />
+              View All Products <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
       </section>
 
-      <Separator className="mx-auto max-w-7xl" />
+      {categories.length > 0 && (
+        <>
+          <Separator className="mx-auto max-w-7xl" />
 
-      {/* Categories */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            Browse by Sport
-          </h2>
-          <p className="mt-2 text-muted-foreground">
-            Find the right program for your athlete
-          </p>
-        </div>
+          {/* Categories */}
+          <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground">
+                Browse by Category
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                Find what you need
+              </p>
+            </div>
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {categories.map((category) => (
-            <CategoryCard key={category.slug} {...category} />
-          ))}
-        </div>
-      </section>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {categories.map((category) => (
+                <CategoryCard key={category.slug} {...category} />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
-      {/* Upcoming Events */}
-      <section id="upcoming-events" className="bg-muted/40">
+      {/* About Section */}
+      <section className="bg-muted/40">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
             <div>
@@ -245,16 +247,11 @@ export default function StorefrontHomePage() {
                   families, collect payments, and run events from a single
                   dashboard. Everything a youth sports org needs, in one place.
                 </p>
-                <p>
-                  Whether you&apos;re signing up for your first recreational
-                  season or joining a competitive travel program, we make the
-                  process simple so you can focus on the game.
-                </p>
               </div>
               <div className="mt-8">
                 <Link href="/products">
                   <Button size="lg" className="gap-2">
-                    Browse All Programs
+                    Browse All Products
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -264,20 +261,20 @@ export default function StorefrontHomePage() {
             <div className="flex items-center justify-center">
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-blue-900">200+</p>
-                  <p className="mt-1 text-sm text-blue-700">Athletes Registered</p>
+                  <p className="text-4xl font-bold text-blue-900">{products.length}</p>
+                  <p className="mt-1 text-sm text-blue-700">Products Available</p>
                 </div>
                 <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-blue-900">15+</p>
-                  <p className="mt-1 text-sm text-blue-700">Active Teams</p>
-                </div>
-                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
-                  <p className="text-4xl font-bold text-blue-900">2</p>
-                  <p className="mt-1 text-sm text-blue-700">Sports Offered</p>
+                  <p className="text-4xl font-bold text-blue-900">{categories.length}</p>
+                  <p className="mt-1 text-sm text-blue-700">Categories</p>
                 </div>
                 <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
                   <p className="text-4xl font-bold text-blue-900">100%</p>
-                  <p className="mt-1 text-sm text-blue-700">Online Registration</p>
+                  <p className="mt-1 text-sm text-blue-700">Online Payments</p>
+                </div>
+                <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-8 text-center">
+                  <p className="text-4xl font-bold text-blue-900">Stripe</p>
+                  <p className="mt-1 text-sm text-blue-700">Secure Checkout</p>
                 </div>
               </div>
             </div>
@@ -289,29 +286,19 @@ export default function StorefrontHomePage() {
       <section className="bg-primary">
         <div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-primary-foreground sm:text-3xl">
-            Ready to get your athlete on the field?
+            Ready to get started?
           </h2>
           <p className="mt-3 text-primary-foreground/80">
-            Registration is open now. Join a team, pay dues online, and order
-            your uniforms in minutes.
+            Browse products, pay dues online, and order gear in minutes.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-4">
+          <div className="mt-6">
             <Link href="/products">
               <Button
                 size="lg"
                 className="gap-2 bg-white text-primary hover:bg-white/90"
               >
-                Browse All Programs
+                Browse All Products
                 <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/programs?category=uniforms">
-              <Button
-                size="lg"
-                variant="outline"
-                className="gap-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                Order Uniforms
               </Button>
             </Link>
           </div>

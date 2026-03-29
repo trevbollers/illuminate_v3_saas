@@ -19,6 +19,7 @@ export interface ITeam extends Document {
   coachIds: Types.ObjectId[];
   managerIds: Types.ObjectId[];
   socials: ITeamSocials;
+  logoUrl?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +43,7 @@ export const TeamSchema = new Schema<ITeam>(
       snapchat: { type: String },
       youtube: { type: String },
     },
+    logoUrl: { type: String },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

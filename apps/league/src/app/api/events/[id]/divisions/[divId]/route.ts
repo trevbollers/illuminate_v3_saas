@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { getLeagueTenant } from "@/lib/tenant-db";
+import { generateBracketMatches } from "@goparticipate/db/src/utils/bracket-generator";
 
 // PATCH /api/events/[id]/divisions/[divId] — update an event division
 export async function PATCH(
@@ -27,6 +28,36 @@ export async function PATCH(
 
   if (!updated) {
     return NextResponse.json({ error: "Division not found" }, { status: 404 });
+  }
+
+  // Auto-generate bracket shells when bracketTiers are defined/updated
+  if (body.bracketTiers && Array.isArray(body.bracketTiers) && body.bracketTiers.length > 0) {
+    const eventId = params.id;
+    const divisionId = params.divId;
+
+    // Remove existing draft brackets for this division (don't touch in_progress/completed)
+    await tenant.models.Bracket.deleteMany({
+      eventId: new Types.ObjectId(eventId),
+      divisionId: new Types.ObjectId(divisionId),
+      status: "draft",
+    });
+
+    // Generate one bracket shell per tier
+    for (const tier of body.bracketTiers) {
+      const tierTeamCount = tier.teamCount || 4;
+      const tierBracketType = tier.bracketType || "single_elimination";
+      const matches = generateBracketMatches([], tierBracketType, tierTeamCount);
+
+      await tenant.models.Bracket.create({
+        eventId: new Types.ObjectId(eventId),
+        divisionId: new Types.ObjectId(divisionId),
+        name: `${(updated as any).label} — ${tier.name} Bracket`,
+        type: tierBracketType,
+        matches,
+        status: "draft",
+        createdBy: new Types.ObjectId(tenant.userId),
+      });
+    }
   }
 
   return NextResponse.json(updated);

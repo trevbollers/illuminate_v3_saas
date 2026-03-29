@@ -1,95 +1,112 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Search, SlidersHorizontal, X, Loader2 } from "lucide-react";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Input } from "@goparticipate/ui/src/components/input";
 import { Badge } from "@goparticipate/ui/src/components/badge";
 import { Separator } from "@goparticipate/ui/src/components/separator";
 import { ProgramCard } from "@/components/product-card";
 
-const allPrograms = [
-  { name: "7v7 Flag Football — Ages 8-10", slug: "7v7-flag-8-10", price: 149, unit: "season", category: "Flag Football", isConfigurable: true },
-  { name: "7v7 Flag Football — Ages 11-13", slug: "7v7-flag-11-13", price: 149, unit: "season", category: "Flag Football" },
-  { name: "Elite 7v7 — Ages 14-17", slug: "elite-7v7-14-17", price: 179, unit: "season", category: "Flag Football", isConfigurable: true },
-  { name: "7v7 Combine Prep", slug: "7v7-combine-prep", price: 99, unit: "program", category: "Flag Football" },
-  { name: "Flag Football — Ages 6-7 (Intro)", slug: "flag-football-intro-6-7", price: 79, unit: "season", category: "Flag Football" },
-  { name: "7v7 Spring Tournament Team", slug: "7v7-spring-tournament", price: 199, unit: "season", category: "Flag Football", isConfigurable: true },
-  { name: "Rec Basketball — Ages 6-8", slug: "rec-basketball-6-8", price: 89, unit: "season", category: "Basketball" },
-  { name: "Rec Basketball — Ages 9-11", slug: "rec-basketball-9-11", price: 99, unit: "season", category: "Basketball" },
-  { name: "Travel Basketball — U12", slug: "travel-basketball-u12", price: 199, unit: "season", category: "Basketball", isConfigurable: true },
-  { name: "Travel Basketball — U14", slug: "travel-basketball-u14", price: 199, unit: "season", category: "Basketball", isConfigurable: true },
-  { name: "Basketball Skills Academy", slug: "basketball-skills-academy", price: 129, unit: "program", category: "Basketball" },
-  { name: "Summer Skills Camp — Football", slug: "summer-skills-camp-football", price: 75, unit: "camp", category: "Camps", isConfigurable: true },
-  { name: "Summer Skills Camp — Basketball", slug: "summer-skills-camp-basketball", price: 75, unit: "camp", category: "Camps" },
-  { name: "Holiday Basketball Clinic", slug: "holiday-basketball-clinic", price: 45, unit: "clinic", category: "Camps" },
-  { name: "Spring Football Combine", slug: "spring-football-combine", price: 55, unit: "event", category: "Camps" },
-  { name: "Custom Team Jersey", slug: "custom-team-jersey", price: 38, unit: "each", category: "Uniforms", isConfigurable: true },
-  { name: "Practice Shorts", slug: "practice-shorts", price: 22, unit: "each", category: "Uniforms", isConfigurable: true },
-  { name: "Team Hoodie", slug: "team-hoodie", price: 45, unit: "each", category: "Uniforms", isConfigurable: true },
-  { name: "Athletic Socks (3-Pack)", slug: "athletic-socks-3pack", price: 14, unit: "pack", category: "Uniforms" },
-  { name: "Team Bag", slug: "team-bag", price: 35, unit: "each", category: "Uniforms" },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  fan_gear: "Fan Gear",
+  uniforms: "Uniforms",
+  season_dues: "Season Dues",
+  monthly_dues: "Monthly Dues",
+  training: "Training Sessions",
+  donations: "Donations",
+  other: "Other",
+};
 
-const categories = ["All", "Flag Football", "Basketball", "Camps", "Uniforms"];
+function pricingUnit(product: ApiProduct): string {
+  if (product.pricing.type === "recurring" && product.pricing.interval) {
+    return product.pricing.interval;
+  }
+  return "each";
+}
 
-type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc" | "newest";
+interface ApiProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  pricing: {
+    amount: number;
+    type: "one_time" | "recurring";
+    interval?: string;
+  };
+  options: { label: string; values: string[]; priceAdjustments?: { value: string; amount: number }[] }[];
+  isActive: boolean;
+}
+
+type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
 const sortOptions: { value: SortOption; label: string }[] = [
   { value: "name-asc", label: "Name (A-Z)" },
   { value: "name-desc", label: "Name (Z-A)" },
   { value: "price-asc", label: "Price (Low to High)" },
   { value: "price-desc", label: "Price (High to Low)" },
-  { value: "newest", label: "Newest First" },
 ];
 
-export default function ProgramCatalogPage() {
+export default function ProductCatalogPage() {
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  const filteredPrograms = useMemo(() => {
-    let programs = [...allPrograms];
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(data.products || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
-    // Filter by category
+  const categories = useMemo(() => {
+    const cats = new Set(products.map((p) => p.category));
+    return ["All", ...Array.from(cats)];
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    let list = [...products];
+
     if (selectedCategory !== "All") {
-      programs = programs.filter((p) => p.category === selectedCategory);
+      list = list.filter((p) => p.category === selectedCategory);
     }
 
-    // Filter by search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      programs = programs.filter(
+      list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query)
+          p.description?.toLowerCase().includes(query) ||
+          (CATEGORY_LABELS[p.category] || p.category).toLowerCase().includes(query)
       );
     }
 
-    // Sort
     switch (sortBy) {
       case "name-asc":
-        programs.sort((a, b) => a.name.localeCompare(b.name));
+        list.sort((a, b) => a.name.localeCompare(b.name));
         break;
       case "name-desc":
-        programs.sort((a, b) => b.name.localeCompare(a.name));
+        list.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case "price-asc":
-        programs.sort((a, b) => a.price - b.price);
+        list.sort((a, b) => a.pricing.amount - b.pricing.amount);
         break;
       case "price-desc":
-        programs.sort((a, b) => b.price - a.price);
-        break;
-      case "newest":
-        programs.reverse();
+        list.sort((a, b) => b.pricing.amount - a.pricing.amount);
         break;
     }
 
-    return programs;
-  }, [searchQuery, selectedCategory, sortBy]);
+    return list;
+  }, [products, searchQuery, selectedCategory, sortBy]);
 
-  const Sidebar = () => (
+  const FilterSidebar = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -99,8 +116,8 @@ export default function ProgramCatalogPage() {
           {categories.map((category) => {
             const count =
               category === "All"
-                ? allPrograms.length
-                : allPrograms.filter((p) => p.category === category).length;
+                ? products.length
+                : products.filter((p) => p.category === category).length;
             return (
               <button
                 key={category}
@@ -114,7 +131,7 @@ export default function ProgramCatalogPage() {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
-                <span>{category}</span>
+                <span>{CATEGORY_LABELS[category] || category}</span>
                 <span className="text-xs">{count}</span>
               </button>
             );
@@ -152,23 +169,21 @@ export default function ProgramCatalogPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Programs &amp; Teams
+          Products &amp; Programs
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Browse open registrations, camps, and uniform orders
+          Browse open registrations, gear, and dues
         </p>
       </div>
 
-      {/* Search Bar */}
       <div className="mb-6 flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search programs..."
+            placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -192,13 +207,12 @@ export default function ProgramCatalogPage() {
         </Button>
       </div>
 
-      {/* Active Filters */}
       {(selectedCategory !== "All" || searchQuery) && (
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Active filters:</span>
           {selectedCategory !== "All" && (
             <Badge variant="secondary" className="gap-1">
-              {selectedCategory}
+              {CATEGORY_LABELS[selectedCategory] || selectedCategory}
               <button onClick={() => setSelectedCategory("All")}>
                 <X className="h-3 w-3" />
               </button>
@@ -225,12 +239,10 @@ export default function ProgramCatalogPage() {
       )}
 
       <div className="flex gap-8">
-        {/* Desktop Sidebar */}
         <aside className="hidden w-56 shrink-0 lg:block">
-          <Sidebar />
+          <FilterSidebar />
         </aside>
 
-        {/* Mobile Sidebar Overlay */}
         {showMobileFilters && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div
@@ -248,17 +260,15 @@ export default function ProgramCatalogPage() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <Sidebar />
+              <FilterSidebar />
             </div>
           </div>
         )}
 
-        {/* Program Grid */}
         <div className="flex-1">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {filteredPrograms.length} program
-              {filteredPrograms.length !== 1 ? "s" : ""}
+              {loading ? "Loading..." : `${filteredProducts.length} product${filteredProducts.length !== 1 ? "s" : ""}`}
             </p>
             <select
               value={sortBy}
@@ -273,16 +283,29 @@ export default function ProgramCatalogPage() {
             </select>
           </div>
 
-          {filteredPrograms.length > 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredProducts.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredPrograms.map((program) => (
-                <ProgramCard key={program.slug} {...program} />
+              {filteredProducts.map((product) => (
+                <ProgramCard
+                  key={product._id}
+                  name={product.name}
+                  slug={product.slug}
+                  price={product.pricing.amount / 100}
+                  unit={pricingUnit(product)}
+                  category={CATEGORY_LABELS[product.category] || product.category}
+                  imageUrl={product.imageUrl}
+                  isConfigurable={product.options.length > 0}
+                />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
               <p className="text-lg font-medium text-muted-foreground">
-                No programs found
+                No products found
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Try adjusting your search or filter criteria
