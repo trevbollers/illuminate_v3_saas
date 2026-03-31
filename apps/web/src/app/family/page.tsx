@@ -81,7 +81,7 @@ interface FamilyData {
   user?: { name: string; email: string };
 }
 
-type Tab = "kids" | "schedule" | "messages";
+type Tab = "kids" | "schedule" | "messages" | "documents";
 
 // ─── Page ───
 
@@ -94,6 +94,9 @@ export default function FamilyDashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [scheduleLoaded, setScheduleLoaded] = useState(false);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [grants, setGrants] = useState<any[]>([]);
+  const [docsLoaded, setDocsLoaded] = useState(false);
 
   // Load family data
   useEffect(() => {
@@ -124,6 +127,18 @@ export default function FamilyDashboardPage() {
       .finally(() => setMessagesLoaded(true));
   }, [tab, messagesLoaded]);
 
+  // Lazy-load documents + grants
+  useEffect(() => {
+    if (tab !== "documents" || docsLoaded) return;
+    Promise.all([
+      fetch("/api/family/documents").then((r) => r.json()),
+      fetch("/api/family/grants").then((r) => r.json()),
+    ]).then(([docData, grantData]) => {
+      setDocuments(docData.documents || []);
+      setGrants(grantData.grants || []);
+    }).finally(() => setDocsLoaded(true));
+  }, [tab, docsLoaded]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -142,6 +157,7 @@ export default function FamilyDashboardPage() {
     { key: "kids", label: "My Kids", icon: Heart, count: players.length },
     { key: "schedule", label: "Schedule", icon: CalendarDays },
     { key: "messages", label: "Messages", icon: MessageSquare },
+    { key: "documents", label: "Documents", icon: Shield },
   ];
 
   return (
@@ -197,6 +213,17 @@ export default function FamilyDashboardPage() {
         {tab === "kids" && <KidsTab players={players} familyId={data.familyId!} />}
         {tab === "schedule" && <ScheduleTab events={schedule} loading={!scheduleLoaded} />}
         {tab === "messages" && <MessagesTab messages={messages} loading={!messagesLoaded} />}
+        {tab === "documents" && (
+          <DocumentsTab
+            documents={documents}
+            grants={grants}
+            players={players}
+            loading={!docsLoaded}
+            onGrantRevoked={(grantId) =>
+              setGrants((prev) => prev.map((g) => g._id === grantId ? { ...g, status: "revoked" } : g))
+            }
+          />
+        )}
       </main>
     </div>
   );
@@ -556,6 +583,191 @@ function MessagesTab({ messages, loading }: { messages: Message[]; loading: bool
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Documents Tab ───
+
+function DocumentsTab({
+  documents,
+  grants,
+  players,
+  loading,
+  onGrantRevoked,
+}: {
+  documents: any[];
+  grants: any[];
+  players: Player[];
+  loading: boolean;
+  onGrantRevoked: (grantId: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadPlayerId, setUploadPlayerId] = useState("");
+  const [uploadDocType, setUploadDocType] = useState("birth_certificate");
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  const handleUpload = async (file: File) => {
+    if (!uploadPlayerId) { alert("Select a player first"); return; }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("playerId", uploadPlayerId);
+    fd.append("documentType", uploadDocType);
+    const res = await fetch("/api/family/documents", { method: "POST", body: fd });
+    if (res.ok) window.location.reload();
+    setUploading(false);
+  };
+
+  const revokeGrant = async (grantId: string) => {
+    const res = await fetch("/api/family/grants", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ grantId }),
+    });
+    if (res.ok) onGrantRevoked(grantId);
+  };
+
+  const docTypeLabels: Record<string, string> = {
+    birth_certificate: "Birth Certificate",
+    passport: "Passport",
+    school_id: "School ID",
+    state_id: "State ID",
+    medical_form: "Medical Form",
+    insurance_card: "Insurance Card",
+    photo_id: "Photo ID",
+    other: "Other",
+  };
+
+  const activeGrants = grants.filter((g) => g.status === "active" && new Date(g.expiresAt) > new Date());
+
+  return (
+    <div className="space-y-6">
+      {/* Upload section */}
+      <div className="rounded-lg border bg-white p-5 space-y-3">
+        <h3 className="font-semibold">Upload Document</h3>
+        <p className="text-sm text-gray-500">
+          Documents are encrypted and stored securely. Only you control who can access them.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={uploadPlayerId}
+            onChange={(e) => setUploadPlayerId(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Select player</option>
+            {players.map((p) => (
+              <option key={p._id} value={p._id}>{p.firstName} {p.lastName}</option>
+            ))}
+          </select>
+          <select
+            value={uploadDocType}
+            onChange={(e) => setUploadDocType(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm"
+          >
+            {Object.entries(docTypeLabels).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <label className={`rounded-md px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${
+            uploading || !uploadPlayerId
+              ? "bg-gray-100 text-gray-400"
+              : "bg-amber-600 text-white hover:bg-amber-700"
+          }`}>
+            {uploading ? "Uploading..." : "Choose File"}
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*,.pdf"
+              disabled={uploading || !uploadPlayerId}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Documents list */}
+      <div>
+        <h3 className="font-semibold mb-3">Stored Documents ({documents.length})</h3>
+        {documents.length === 0 ? (
+          <div className="rounded-lg border bg-white p-6 text-center text-sm text-gray-500">
+            No documents uploaded yet. Upload a birth certificate to get started with verification.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {documents.map((doc) => (
+              <div key={doc._id} className="rounded-lg border bg-white p-4 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 uppercase">
+                      {docTypeLabels[doc.documentType] || doc.documentType}
+                    </span>
+                    <span className="font-medium text-sm">{doc.playerName}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {doc.fileName} · {Math.round(doc.sizeBytes / 1024)}KB · {format(new Date(doc.uploadedAt), "MMM d, yyyy")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-green-500" />
+                  <span className="text-xs text-green-600 font-medium">Encrypted</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Active grants */}
+      {activeGrants.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3">Active Access Grants ({activeGrants.length})</h3>
+          <div className="space-y-2">
+            {activeGrants.map((grant) => (
+              <div key={grant._id} className="rounded-lg border bg-white p-4 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{grant.grantedToName}</span>
+                    <span className="text-xs text-gray-400">· {grant.playerName}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {grant.purpose.replace(/_/g, " ")} · Expires {format(new Date(grant.expiresAt), "MMM d, yyyy h:mm a")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => revokeGrant(grant._id)}
+                  className="rounded-md border border-red-200 bg-red-50 text-red-600 px-3 py-1 text-xs font-medium hover:bg-red-100"
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Past grants */}
+      {grants.filter((g) => g.status !== "active").length > 0 && (
+        <details className="text-sm text-gray-400">
+          <summary className="cursor-pointer hover:text-gray-600">
+            Past grants ({grants.filter((g) => g.status !== "active").length})
+          </summary>
+          <div className="mt-2 space-y-1">
+            {grants.filter((g) => g.status !== "active").map((g) => (
+              <div key={g._id} className="text-xs">
+                {g.grantedToName} — {g.playerName} — {g.status} — {format(new Date(g.grantedAt), "MMM d, yyyy")}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
