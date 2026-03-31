@@ -7,6 +7,7 @@ import { Menu, X, Trophy, Shield, Heart, Medal } from "lucide-react";
 
 const navLinks = [
   { href: "/programs", label: "Programs" },
+  { href: "/family", label: "My Family" },
   { href: "/#features", label: "Features" },
   { href: "/#roles", label: "Pricing" },
   { href: "/#about", label: "About" },
