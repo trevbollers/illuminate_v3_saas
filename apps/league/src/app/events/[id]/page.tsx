@@ -394,7 +394,16 @@ export default function EventDetailPage() {
   const fetchEvent = useCallback(async () => {
     const res = await fetch(`/api/events/${id}`);
     const data = await res.json();
-    setEvent(data);
+    // Ensure arrays exist to prevent "cannot read length of undefined" errors
+    setEvent({
+      ...data,
+      divisions: data.divisions || [],
+      tiebreakerRules: data.tiebreakerRules || [],
+      locations: data.locations || [],
+      days: data.days || [],
+      pricing: data.pricing || { amount: 0 },
+      settings: data.settings || { gameDurationMinutes: 25, timeBetweenGamesMinutes: 5, clockType: "running", requireAgeVerification: false, requireWaiver: false },
+    });
   }, [id]);
 
   const fetchGames = useCallback(async () => {
