@@ -63,7 +63,10 @@ export default function TeamsPage() {
     try {
       const res = await fetch("/api/teams");
       if (res.ok) {
-        setTeams(await res.json());
+        const data = await res.json();
+        setTeams(Array.isArray(data) ? data : []);
+      } else {
+        console.error("Teams API returned:", res.status, res.statusText);
       }
     } catch (err) {
       console.error("Failed to fetch teams:", err);

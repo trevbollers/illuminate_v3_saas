@@ -76,6 +76,5 @@ export const ProgramRegistrationSchema = new Schema<IProgramRegistration>(
 );
 
 ProgramRegistrationSchema.index({ programId: 1 });
-ProgramRegistrationSchema.index({ checkInCode: 1 }, { unique: true });
 ProgramRegistrationSchema.index({ parentEmail: 1 });
 ProgramRegistrationSchema.index({ paymentStatus: 1 });
