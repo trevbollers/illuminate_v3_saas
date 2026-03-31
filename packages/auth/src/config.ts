@@ -143,7 +143,13 @@ async function findMemberships(userId: string): Promise<TenantMembership[]> {
     (m: any) => m.isActive === true || m.status === "active",
   );
 
-  const tenantIds = activeMemberships.map((m: any) => m.tenantId);
+  // tenantId may be stored as string or ObjectId — normalize to ObjectId for query
+  const tenantIds = activeMemberships.map((m: any) => {
+    const id = m.tenantId;
+    if (id instanceof ObjectId) return id;
+    if (typeof id === "string" && ObjectId.isValid(id)) return new ObjectId(id);
+    return id;
+  });
   const tenants = await db
     .collection("tenants")
     .find({ _id: { $in: tenantIds } })
@@ -161,7 +167,8 @@ async function findMemberships(userId: string): Promise<TenantMembership[]> {
     const tenant = tenantMap.get(m.tenantId.toString());
     return {
       tenantId: m.tenantId.toString(),
-      tenantSlug: tenant?.slug ?? "",
+      // Use tenant lookup slug, fall back to membership's stored slug
+      tenantSlug: tenant?.slug ?? m.tenantSlug ?? "",
       tenantType: m.tenantType ?? tenant?.tenantType ?? "organization",
       role: m.role as string,
       permissions: m.permissions ?? [],
