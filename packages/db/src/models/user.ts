@@ -46,6 +46,8 @@ export interface IUser extends Document {
   memberships: IMembership[];
   activeTenantId?: Types.ObjectId;
   familyId?: Types.ObjectId;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -102,6 +104,8 @@ const UserSchema = new Schema<IUser>(
     memberships: [MembershipSchema],
     activeTenantId: { type: Schema.Types.ObjectId, ref: "Tenant" },
     familyId: { type: Schema.Types.ObjectId, ref: "Family" },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     lastLoginAt: { type: Date },
   },
   { timestamps: true }
