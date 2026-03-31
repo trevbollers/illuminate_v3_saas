@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 20 * 1024 * 1024; // 20MB — server compresses to webp
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
 
 interface ProcessedImage {

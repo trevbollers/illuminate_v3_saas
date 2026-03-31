@@ -451,9 +451,10 @@ export default function EventDetailPage() {
   }
 
   async function uploadPoster(file: File) {
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Allow up to 20MB — server compresses + converts to webp automatically
+    const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 5MB. Please resize or compress the image and try again.`);
+      alert(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 20MB.`);
       return;
     }
     setUploading(true);
@@ -462,13 +463,17 @@ export default function EventDetailPage() {
     try {
       const res = await fetch(`/api/events/${id}/upload`, { method: "POST", body: formData });
       if (res.ok) {
+        const data = await res.json();
+        // Show compression result
+        const savedPct = file.size > 0 ? Math.round((1 - data.sizeBytes / file.size) * 100) : 0;
+        console.log(`[poster] ${(file.size / 1024).toFixed(0)}KB → ${(data.sizeBytes / 1024).toFixed(0)}KB webp (${savedPct}% smaller)`);
         await fetchEvent();
       } else {
         const data = await res.json().catch(() => null);
-        alert(data?.error || "Failed to upload image. Please try a smaller file.");
+        alert(data?.error || "Failed to upload image.");
       }
     } catch {
-      alert("Upload failed. The image may be too large. Maximum size is 5MB.");
+      alert("Upload failed. Please try again.");
     }
     setUploading(false);
   }
@@ -788,7 +793,7 @@ export default function EventDetailPage() {
             <>
               <Image className="h-10 w-10 text-muted-foreground/40" />
               <span className="mt-2 text-sm font-medium text-muted-foreground">Upload Event Poster</span>
-              <span className="text-xs text-muted-foreground/70">JPEG, PNG, WebP up to 5MB</span>
+              <span className="text-xs text-muted-foreground/70">Any image — auto-compressed to WebP</span>
             </>
           )}
           <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPoster(f); }} />
