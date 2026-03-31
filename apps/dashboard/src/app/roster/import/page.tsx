@@ -47,11 +47,17 @@ export default function RosterImportPage() {
   const [importResult, setImportResult] = useState<any>(null);
 
   useEffect(() => {
-    fetch("/api/teams").then((r) => r.json()).then((data) => {
-      const t = Array.isArray(data) ? data : data.teams || [];
-      setTeams(t);
-      if (!selectedTeamId && t.length > 0) setSelectedTeamId(t[0]._id);
-    });
+    fetch("/api/teams")
+      .then((r) => {
+        if (!r.ok) return [];
+        return r.json();
+      })
+      .then((data) => {
+        const t = Array.isArray(data) ? data : data?.teams || [];
+        setTeams(t);
+        if (!selectedTeamId && t.length > 0) setSelectedTeamId(t[0]._id);
+      })
+      .catch(() => {});
   }, []);
 
   // Client-side parse

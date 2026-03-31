@@ -32,7 +32,10 @@ const teamSchema = z.object({
 
 type TeamFormValues = z.infer<typeof teamSchema>;
 
-const sports = ["7v7 Football", "Basketball"];
+const sports = [
+  { value: "7v7_football", label: "7v7 Football" },
+  { value: "basketball", label: "Basketball" },
+];
 const divisionKeys = [
   "Under 8",
   "Under 10",
@@ -151,8 +154,8 @@ export default function NewTeamPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {sports.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
