@@ -19,7 +19,9 @@ export interface IEventResult {
 // --- Main interface ---
 
 export interface IOrgEvent extends Document {
-  teamId: Types.ObjectId;
+  teamId?: Types.ObjectId;       // Legacy single-team (backwards compat)
+  teamIds: Types.ObjectId[];     // Multi-team: specific teams. Empty = all teams (org-wide)
+  isOrgWide: boolean;            // True = applies to entire org
   title: string;
   type: OrgEventType;
   location?: {
@@ -44,7 +46,9 @@ export interface IOrgEvent extends Document {
 
 export const OrgEventSchema = new Schema<IOrgEvent>(
   {
-    teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+    teamId: { type: Schema.Types.ObjectId, ref: "Team" },  // Legacy
+    teamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
+    isOrgWide: { type: Boolean, default: false },
     title: { type: String, required: true },
     type: {
       type: String,
@@ -78,5 +82,7 @@ export const OrgEventSchema = new Schema<IOrgEvent>(
 );
 
 OrgEventSchema.index({ teamId: 1, startTime: 1 });
+OrgEventSchema.index({ teamIds: 1, startTime: 1 });
+OrgEventSchema.index({ isOrgWide: 1, startTime: 1 });
 OrgEventSchema.index({ startTime: 1, endTime: 1 });
 OrgEventSchema.index({ type: 1 });

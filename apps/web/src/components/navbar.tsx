@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@goparticipate/ui/src/components/button";
-import { Menu, X, Trophy, Shield, Heart } from "lucide-react";
+import { Menu, X, Trophy, Shield, Heart, Medal } from "lucide-react";
 
 const navLinks = [
+  { href: "/programs", label: "Programs" },
   { href: "/#features", label: "Features" },
   { href: "/#roles", label: "Pricing" },
   { href: "/#about", label: "About" },
@@ -36,7 +37,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">GP</span>
+              <Medal className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
               Go Participate
@@ -58,9 +59,36 @@ export function Navbar() {
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex md:items-center md:gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/auth/login">Sign In</Link>
-            </Button>
+            <div className="relative group">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                Sign In
+              </Button>
+              <div className="absolute right-0 top-full pt-2 hidden group-hover:block z-50">
+                <div className="rounded-lg border bg-white shadow-lg p-2 min-w-[180px] space-y-1">
+                  <a
+                    href={process.env.NEXT_PUBLIC_LEAGUE_URL || "http://localhost:4002"}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    <Trophy className="h-4 w-4 text-blue-600" />
+                    League Admin
+                  </a>
+                  <a
+                    href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003"}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                  >
+                    <Shield className="h-4 w-4 text-emerald-600" />
+                    Team / Org
+                  </a>
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003"}/login`}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                  >
+                    <Heart className="h-4 w-4 text-amber-600" />
+                    Parent / Family
+                  </a>
+                </div>
+              </div>
+            </div>
             <Button size="sm" className="gap-1.5" asChild>
               <Link href="/signup">
                 Get Started
@@ -92,25 +120,39 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="mt-2 flex flex-col gap-2 px-3">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/auth/login">Sign In</Link>
-                </Button>
-                <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" asChild>
-                  <Link href="/signup?role=league">
-                    <Trophy className="h-3.5 w-3.5" /> Start a League
-                  </Link>
-                </Button>
-                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" asChild>
-                  <Link href="/signup?role=org">
-                    <Shield className="h-3.5 w-3.5" /> Start a Team
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 border-amber-400 text-amber-700" asChild>
-                  <Link href="/signup?role=family">
-                    <Heart className="h-3.5 w-3.5" /> Join as Family
-                  </Link>
-                </Button>
+              <div className="mt-2 space-y-1 px-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-2">Sign In As</p>
+                <a
+                  href={process.env.NEXT_PUBLIC_LEAGUE_URL || "http://localhost:4002"}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-blue-50 text-gray-700"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  <Trophy className="h-4 w-4 text-blue-600" />
+                  League Admin
+                </a>
+                <a
+                  href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003"}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-emerald-50 text-gray-700"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  <Shield className="h-4 w-4 text-emerald-600" />
+                  Team / Org
+                </a>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003"}/login`}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-amber-50 text-gray-700"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  <Heart className="h-4 w-4 text-amber-600" />
+                  Parent / Family
+                </a>
+                <div className="pt-2">
+                  <Button size="sm" className="w-full" asChild>
+                    <Link href="/signup" onClick={() => setIsMobileOpen(false)}>
+                      Get Started
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

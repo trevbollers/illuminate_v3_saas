@@ -12,6 +12,13 @@ export interface IMedicalInfo {
   notes?: string;
 }
 
+export interface ISizing {
+  top?: string;       // "YS", "YM", "YL", "AS", "AM", "AL", "AXL", "A2XL"
+  bottom?: string;    // "YS", "YM", "YL", "AS", "AM", "AL", "AXL", "A2XL"
+  shoe?: string;      // "4", "4.5", "5", ..., "13", "14"
+  headgear?: string;  // "YS", "YM", "YL", "AS", "AM", "AL"
+}
+
 export interface ISocials {
   instagram?: string;
   tiktok?: string;
@@ -33,6 +40,7 @@ export interface IPlayer extends Document {
   guardianUserIds: Types.ObjectId[];
   emergencyContacts: IEmergencyContact[];
   medical: IMedicalInfo;
+  sizing: ISizing;
   socials: ISocials;
   verificationStatus: "unverified" | "pending" | "verified" | "expired";
   verificationId?: Types.ObjectId;
@@ -61,6 +69,12 @@ const PlayerSchema = new Schema<IPlayer>(
     ],
     medical: {
       notes: { type: String },
+    },
+    sizing: {
+      top: { type: String },
+      bottom: { type: String },
+      shoe: { type: String },
+      headgear: { type: String },
     },
     socials: {
       instagram: { type: String },

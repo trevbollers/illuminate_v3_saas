@@ -27,3 +27,18 @@ export type { IInvite } from "./invite";
 
 export { RegistrationCartSchema } from "./registration-cart";
 export type { IRegistrationCart, ICartItem, ICartCheckout } from "./registration-cart";
+
+export { ProgramSchema } from "./program";
+export type { IProgram, IProgramSession, IProgramAgeGroup, ProgramType } from "./program";
+
+export { TryoutSessionSchema } from "./tryout-session";
+export type { ITryoutSession, IScoringCategory } from "./tryout-session";
+
+export { TryoutRegistrationSchema } from "./tryout-registration";
+export type { ITryoutRegistration, IHistoricalSummary } from "./tryout-registration";
+
+export { TryoutEvaluationSchema } from "./tryout-evaluation";
+export type { ITryoutEvaluation, IEvalScore } from "./tryout-evaluation";
+
+export { TryoutDecisionSchema } from "./tryout-decision";
+export type { ITryoutDecision } from "./tryout-decision";

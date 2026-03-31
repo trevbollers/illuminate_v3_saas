@@ -53,3 +53,8 @@ export {
   OrderConfirmationEmail,
   type OrderConfirmationEmailProps,
 } from "./templates/order-confirmation";
+
+export {
+  TryoutInviteEmail,
+  type TryoutInviteEmailProps,
+} from "./templates/tryout-invite";

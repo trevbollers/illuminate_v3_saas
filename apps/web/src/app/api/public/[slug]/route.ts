@@ -57,30 +57,33 @@ export async function GET(
     const conn = await connectTenantDB(slug, "organization");
     const models = getOrgModels(conn);
 
-    const [teams, upcomingEvents, products] = await Promise.all([
+    const [teams, programs, products] = await Promise.all([
       models.Team.find({ isActive: { $ne: false } })
         .select("name sport ageGroup logoUrl")
         .sort({ name: 1 })
         .lean(),
-      models.OrgEvent?.find({
-        startDate: { $gte: new Date() },
+      models.Program.find({
         isPublic: true,
+        isActive: true,
+        status: { $in: ["registration_open", "registration_closed", "in_progress", "completed"] },
       })
         .sort({ startDate: 1 })
-        .limit(10)
-        .select("title type startDate endDate location")
-        .lean() ?? [],
-      models.Product?.find({ isActive: true })
+        .select("name slug programType sport startDate endDate fee status location city state imageUrl ageGroups capacity leagueSlug leagueEventId tags")
+        .lean(),
+      models.Product?.find({
+        isActive: true,
+        category: { $in: ["fan_gear", "uniforms", "donations", "other"] },
+      })
         .sort({ sortOrder: 1 })
         .limit(6)
-        .select("name slug price images category")
+        .select("name slug imageUrl pricing category")
         .lean() ?? [],
     ]);
 
     return NextResponse.json({
       ...base,
       teams,
-      upcomingEvents,
+      programs,
       products,
       hasStore: products.length > 0,
     });

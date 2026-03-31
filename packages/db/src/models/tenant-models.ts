@@ -27,6 +27,19 @@ import { MessageAckSchema, type IMessageAck } from "./org/message-ack";
 import { ProductSchema, type IProduct } from "./org/product";
 import { StorefrontOrderSchema, type IStorefrontOrder } from "./org/storefront-order";
 import { MessageTemplateSchema, type IMessageTemplate } from "./shared/message-template";
+import { ProgramSchema, type IProgram } from "./org/program";
+import { TryoutSessionSchema, type ITryoutSession } from "./org/tryout-session";
+import { TryoutRegistrationSchema, type ITryoutRegistration } from "./org/tryout-registration";
+import { TryoutEvaluationSchema, type ITryoutEvaluation } from "./org/tryout-evaluation";
+import { TryoutDecisionSchema, type ITryoutDecision } from "./org/tryout-decision";
+
+// Family models
+import { FamilyProfileSchema, type IFamilyProfile } from "./family/family-profile";
+import { FamilyGuardianSchema, type IFamilyGuardian } from "./family/family-guardian";
+import { FamilyPlayerSchema, type IFamilyPlayer } from "./family/family-player";
+import { VerificationRecordSchema, type IVerificationRecord } from "./family/verification-record";
+import { FamilyDocumentSchema, type IFamilyDocument } from "./family/family-document";
+import { DocumentGrantSchema, type IDocumentGrant } from "./family/document-grant";
 
 /**
  * Register all league-scoped models on a tenant connection.
@@ -65,6 +78,11 @@ export function registerOrgModels(conn: Connection): void {
   if (!conn.models.Product) conn.model<IProduct>("Product", ProductSchema);
   if (!conn.models.StorefrontOrder) conn.model<IStorefrontOrder>("StorefrontOrder", StorefrontOrderSchema);
   if (!conn.models.MessageTemplate) conn.model<IMessageTemplate>("MessageTemplate", MessageTemplateSchema);
+  if (!conn.models.Program) conn.model<IProgram>("Program", ProgramSchema);
+  if (!conn.models.TryoutSession) conn.model<ITryoutSession>("TryoutSession", TryoutSessionSchema);
+  if (!conn.models.TryoutRegistration) conn.model<ITryoutRegistration>("TryoutRegistration", TryoutRegistrationSchema);
+  if (!conn.models.TryoutEvaluation) conn.model<ITryoutEvaluation>("TryoutEvaluation", TryoutEvaluationSchema);
+  if (!conn.models.TryoutDecision) conn.model<ITryoutDecision>("TryoutDecision", TryoutDecisionSchema);
 }
 
 /**
@@ -105,5 +123,37 @@ export function getOrgModels(conn: Connection) {
     Product: conn.model<IProduct>("Product"),
     StorefrontOrder: conn.model<IStorefrontOrder>("StorefrontOrder"),
     MessageTemplate: conn.model<IMessageTemplate>("MessageTemplate"),
+    Program: conn.model<IProgram>("Program"),
+    TryoutSession: conn.model<ITryoutSession>("TryoutSession"),
+    TryoutRegistration: conn.model<ITryoutRegistration>("TryoutRegistration"),
+    TryoutEvaluation: conn.model<ITryoutEvaluation>("TryoutEvaluation"),
+    TryoutDecision: conn.model<ITryoutDecision>("TryoutDecision"),
+  };
+}
+
+/**
+ * Register all family-scoped models on a family connection.
+ * Idempotent — skips if already registered.
+ */
+export function registerFamilyModels(conn: Connection): void {
+  if (!conn.models.FamilyProfile) conn.model<IFamilyProfile>("FamilyProfile", FamilyProfileSchema);
+  if (!conn.models.FamilyGuardian) conn.model<IFamilyGuardian>("FamilyGuardian", FamilyGuardianSchema);
+  if (!conn.models.FamilyPlayer) conn.model<IFamilyPlayer>("FamilyPlayer", FamilyPlayerSchema);
+  if (!conn.models.VerificationRecord) conn.model<IVerificationRecord>("VerificationRecord", VerificationRecordSchema);
+  if (!conn.models.FamilyDocument) conn.model<IFamilyDocument>("FamilyDocument", FamilyDocumentSchema);
+  if (!conn.models.DocumentGrant) conn.model<IDocumentGrant>("DocumentGrant", DocumentGrantSchema);
+}
+
+/**
+ * Get typed family models from a family connection.
+ */
+export function getFamilyModels(conn: Connection) {
+  return {
+    FamilyProfile: conn.model<IFamilyProfile>("FamilyProfile"),
+    FamilyGuardian: conn.model<IFamilyGuardian>("FamilyGuardian"),
+    FamilyPlayer: conn.model<IFamilyPlayer>("FamilyPlayer"),
+    VerificationRecord: conn.model<IVerificationRecord>("VerificationRecord"),
+    FamilyDocument: conn.model<IFamilyDocument>("FamilyDocument"),
+    DocumentGrant: conn.model<IDocumentGrant>("DocumentGrant"),
   };
 }

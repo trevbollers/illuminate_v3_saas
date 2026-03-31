@@ -70,11 +70,22 @@ export type { IStorefrontOrder, IOrderItem, IOrderCustomer, IOrderFulfillment } 
 
 export type { IMessageTemplate } from "./shared/message-template";
 
+// --- Family models (live in per-family databases) ---
+
+export type { IFamilyProfile, IFamilyAddress } from "./family/family-profile";
+export type { IFamilyGuardian } from "./family/family-guardian";
+export type { IFamilyPlayer, IPlayerSizing, IPlayerPhoto, IPlayerSportProfile } from "./family/family-player";
+export type { IVerificationRecord, IVerificationUsage } from "./family/verification-record";
+export type { IFamilyDocument } from "./family/family-document";
+export type { IDocumentGrant, IGrantAccessLog } from "./family/document-grant";
+
 // --- Tenant model helpers ---
 
 export {
   registerLeagueModels,
   registerOrgModels,
+  registerFamilyModels,
   getLeagueModels,
   getOrgModels,
+  getFamilyModels,
 } from "./tenant-models";

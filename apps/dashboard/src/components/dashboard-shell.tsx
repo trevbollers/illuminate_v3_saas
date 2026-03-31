@@ -26,7 +26,7 @@ export function DashboardShell({
   scopedRole,
 }: DashboardShellProps) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <DashboardSidebar
         businessName={businessName}
         planName={planName}

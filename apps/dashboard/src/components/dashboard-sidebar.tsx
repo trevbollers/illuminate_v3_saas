@@ -26,6 +26,8 @@ import {
   Home,
   Package,
   ClipboardCheck,
+  Mic,
+  Medal,
 } from "lucide-react";
 import {
   Sidebar,
@@ -82,7 +84,9 @@ const fullNavGroups = [
       { title: "Stats", href: "/stats", icon: BarChart2 },
       { title: "Communication", href: "/communication", icon: MessageSquare },
       { title: "Templates", href: "/templates", icon: FileText },
-      { title: "Products", href: "/products", icon: Package },
+      { title: "Programs", href: "/programs", icon: Medal },
+      { title: "Tryouts", href: "/tryouts", icon: Mic },
+      { title: "Shop", href: "/products", icon: Package },
       { title: "Orders", href: "/orders", icon: ClipboardCheck },
     ],
   },

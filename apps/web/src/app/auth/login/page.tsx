@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@goparticipate/ui/src/components/card";
-import { Loader2, ArrowLeft, Smartphone, Mail, KeyRound } from "lucide-react";
+import { Loader2, ArrowLeft, Smartphone, Mail, KeyRound, Medal } from "lucide-react";
 
 type LoginMode = "choose" | "email-password" | "magic-code" | "magic-code-verify" | "player-code";
 
@@ -46,15 +46,28 @@ export default function LoginPage() {
       const tenantType = session?.user?.tenantType;
       const platformRole = session?.user?.platformRole;
 
+      // In production (shared domain), redirect to the right app.
+      // In dev (separate ports), sessions don't cross ports — show the
+      // account page with links to log in on the correct app.
+      const isDev = window.location.hostname === "localhost";
+
+      if (isDev) {
+        // Stay on web app, show where to go
+        window.location.href = "/account";
+        return;
+      }
+
       if (platformRole === "gp_admin") {
-        window.location.href = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:4001";
+        window.location.href = process.env.NEXT_PUBLIC_ADMIN_URL ?? "https://admin.goparticipate.com";
       } else if (tenantType === "league") {
-        window.location.href = process.env.NEXT_PUBLIC_LEAGUE_URL ?? "http://localhost:4002";
+        window.location.href = process.env.NEXT_PUBLIC_LEAGUE_URL ?? `https://${session?.user?.tenantSlug}.goparticipate.com`;
+      } else if (tenantType === "organization") {
+        window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? `https://${session?.user?.tenantSlug}.goparticipate.com`;
       } else {
-        window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003";
+        window.location.href = "/account";
       }
     } catch {
-      window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003";
+      window.location.href = "/account";
     }
   }
 
@@ -182,7 +195,7 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">GP</span>
+              <Medal className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
               Go Participate

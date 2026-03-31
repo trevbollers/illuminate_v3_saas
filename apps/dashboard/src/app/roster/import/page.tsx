@@ -1,467 +1,344 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Upload,
-  FileSpreadsheet,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Download,
-} from "lucide-react";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  Badge,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@goparticipate/ui";
+import * as XLSX from "xlsx";
+import { ArrowLeft, Loader2, Sparkles, CheckCircle2, FileSpreadsheet } from "lucide-react";
 
-interface TeamOption {
-  _id: string;
-  name: string;
-  sport: string;
+interface Team { _id: string; name: string; sport: string }
+interface MappedPlayer {
+  firstName: string; lastName: string; jerseyNumber?: string; position?: string;
+  dateOfBirth?: string; parentEmail?: string; parentPhone?: string; parentName?: string;
+  gender?: string; topSize?: string; bottomSize?: string; shoeSize?: string;
 }
 
-interface ParsedRow {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  gender?: string;
-  jerseyNumber?: string;
-  position?: string;
-  guardianName?: string;
-  guardianEmail?: string;
-  guardianPhone?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  emergencyContactRelationship?: string;
-  medicalNotes?: string;
-}
-
-interface ImportResult {
-  row: number;
-  playerName: string;
-  status: "created" | "added" | "duplicate" | "error";
-  message: string;
-}
-
-const EXPECTED_HEADERS = [
-  "firstName",
-  "lastName",
-  "dateOfBirth",
-  "gender",
-  "jerseyNumber",
-  "position",
-  "guardianName",
-  "guardianEmail",
-  "guardianPhone",
-  "emergencyContactName",
-  "emergencyContactPhone",
-  "emergencyContactRelationship",
-  "medicalNotes",
+const TARGET_FIELDS = [
+  { key: "firstName", label: "First Name" },
+  { key: "lastName", label: "Last Name" },
+  { key: "playerName", label: "Full Name (auto-splits)" },
+  { key: "jerseyNumber", label: "Jersey #" },
+  { key: "position", label: "Position" },
+  { key: "dateOfBirth", label: "Date of Birth" },
+  { key: "parentName", label: "Parent Name" },
+  { key: "parentEmail", label: "Parent Email" },
+  { key: "parentPhone", label: "Parent Phone" },
+  { key: "gender", label: "Gender" },
+  { key: "topSize", label: "Top Size" },
+  { key: "bottomSize", label: "Bottom Size" },
+  { key: "shoeSize", label: "Shoe Size" },
 ];
 
-const TEMPLATE_CSV =
-  "firstName,lastName,dateOfBirth,gender,jerseyNumber,position,guardianName,guardianEmail,guardianPhone,emergencyContactName,emergencyContactPhone,emergencyContactRelationship,medicalNotes\n" +
-  "Marcus,Johnson,2013-05-15,male,7,QB,Sandra Johnson,sandra@email.com,(555) 123-4567,Mary Johnson,(555) 987-6543,Grandmother,\n" +
-  "Jaylen,Williams,2014-02-20,male,12,WR,Michael Williams,mike@email.com,(555) 234-5678,,,,Carries EpiPen - peanut allergy\n";
+type Step = "upload" | "mapping" | "preview" | "importing" | "done";
 
-function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
-
-  const headers = lines[0].split(",").map((h) => h.trim());
-  const rows = lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim());
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      row[h] = values[i] || "";
-    });
-    return row;
-  });
-
-  return { headers, rows };
-}
-
-export default function ImportRosterPage() {
-  const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [teamId, setTeamId] = useState("");
-  const [loadingTeams, setLoadingTeams] = useState(true);
-
-  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [parseError, setParseError] = useState("");
+export default function RosterImportPage() {
+  const searchParams = useSearchParams();
+  const teamIdParam = searchParams.get("teamId");
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState(teamIdParam || "");
+  const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
-
-  const [dragging, setDragging] = useState(false);
-
-  const [importing, setImporting] = useState(false);
-  const [results, setResults] = useState<ImportResult[] | null>(null);
-  const [summary, setSummary] = useState<{ total: number; created: number; duplicates: number; errors: number } | null>(null);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [sampleRows, setSampleRows] = useState<Record<string, string>[]>([]);
+  const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [aiMapping, setAiMapping] = useState(false);
+  const [mappedPlayers, setMappedPlayers] = useState<MappedPlayer[]>([]);
+  const [importResult, setImportResult] = useState<any>(null);
 
   useEffect(() => {
-    fetch("/api/teams")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) =>
-        setTeams(
-          (data || []).map((t: any) => ({ _id: t._id, name: t.name, sport: t.sport })),
-        ),
-      )
-      .catch(() => {})
-      .finally(() => setLoadingTeams(false));
+    fetch("/api/teams").then((r) => r.json()).then((data) => {
+      const t = Array.isArray(data) ? data : data.teams || [];
+      setTeams(t);
+      if (!selectedTeamId && t.length > 0) setSelectedTeamId(t[0]._id);
+    });
   }, []);
 
-  function processFile(file: File) {
-    if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
-      setParseError("Please upload a CSV file.");
-      return;
-    }
-
-    setParseError("");
-    setParsedRows([]);
-    setResults(null);
-    setSummary(null);
-    setFileName(file.name);
-
+  // Client-side parse
+  const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const { headers, rows } = parseCSV(text);
-
-      const missing = ["firstName", "lastName", "dateOfBirth"].filter(
-        (h) => !headers.includes(h),
-      );
-      if (missing.length > 0) {
-        setParseError(
-          `Missing required columns: ${missing.join(", ")}. Download the template for the correct format.`,
-        );
-        return;
-      }
-
-      if (rows.length === 0) {
-        setParseError("No data rows found in the file.");
-        return;
-      }
-
-      if (rows.length > 100) {
-        setParseError("Maximum 100 players per import. Please split your file.");
-        return;
-      }
-
-      setParsedRows(rows as ParsedRow[]);
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]!]!;
+        const rows: Record<string, string>[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+        if (rows.length === 0) { alert("File is empty"); return; }
+        setFileName(file.name);
+        setFileHeaders(Object.keys(rows[0]!));
+        setSampleRows(rows.slice(0, 5));
+        setAllRows(rows);
+        setStep("mapping");
+        heuristicMap(Object.keys(rows[0]!));
+      } catch { alert("Failed to parse file."); }
     };
-    reader.readAsText(file);
-  }
+    reader.readAsArrayBuffer(file);
+  }, []);
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    processFile(file);
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    processFile(file);
-  }
-
-  function downloadTemplate() {
-    const blob = new Blob([TEMPLATE_CSV], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "roster-import-template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleImport() {
-    if (!teamId) {
-      setParseError("Please select a team.");
-      return;
+  function heuristicMap(headers: string[]) {
+    const m: Record<string, string> = {};
+    const lower = headers.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    const patterns: [string, RegExp[]][] = [
+      ["firstName", [/^first/, /^fname/]], ["lastName", [/^last/, /^lname/]],
+      ["playerName", [/^name$/, /^playername/, /^player$/, /^fullname/]],
+      ["jerseyNumber", [/jersey/, /number/, /^no$/, /^num$/]],
+      ["position", [/^pos/, /position/]],
+      ["dateOfBirth", [/^dob/, /birth/, /^bday/, /^date/]],
+      ["parentName", [/parent.*name/, /guardian/]], ["parentEmail", [/email/]],
+      ["parentPhone", [/phone/, /cell/, /mobile/]], ["gender", [/^gender/, /^sex$/]],
+      ["topSize", [/^top/, /jersey.*size/, /shirt/]], ["bottomSize", [/^bottom/, /short/, /pant/]],
+      ["shoeSize", [/^shoe/]],
+    ];
+    for (const [field, regexes] of patterns) {
+      for (let i = 0; i < lower.length; i++) {
+        if (regexes.some((r) => r.test(lower[i]!)) && !Object.values(m).includes(headers[i]!)) {
+          m[field] = headers[i]!; break;
+        }
+      }
     }
-    if (parsedRows.length === 0) return;
+    setMapping(m);
+  }
 
-    setImporting(true);
-    setParseError("");
-
+  async function runAiMapping() {
+    setAiMapping(true);
     try {
-      const res = await fetch("/api/roster/import", {
+      const res = await fetch("/api/roster/import/map", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId, rows: parsedRows }),
+        body: JSON.stringify({ headers: fileHeaders, sampleRows }),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setResults(data.results);
-        setSummary(data.summary);
-      } else {
-        const data = await res.json();
-        setParseError(data.error || "Import failed.");
-      }
-    } catch {
-      setParseError("Import failed. Please try again.");
-    } finally {
-      setImporting(false);
-    }
+      if (res.ok) { const data = await res.json(); setMapping(data.mapping); }
+    } catch {}
+    setAiMapping(false);
   }
 
+  function buildPreview() {
+    const players: MappedPlayer[] = [];
+    for (const row of allRows) {
+      let firstName = mapping.firstName ? row[mapping.firstName] || "" : "";
+      let lastName = mapping.lastName ? row[mapping.lastName] || "" : "";
+      if (!firstName && !lastName && mapping.playerName) {
+        const parts = (row[mapping.playerName] || "").trim().split(/\s+/);
+        firstName = parts[0] || ""; lastName = parts.slice(1).join(" ") || "";
+      }
+      if (!firstName && !lastName) continue;
+      players.push({ firstName, lastName,
+        jerseyNumber: mapping.jerseyNumber ? row[mapping.jerseyNumber] : undefined,
+        position: mapping.position ? row[mapping.position] : undefined,
+        dateOfBirth: mapping.dateOfBirth ? row[mapping.dateOfBirth] : undefined,
+        parentEmail: mapping.parentEmail ? row[mapping.parentEmail] : undefined,
+        parentPhone: mapping.parentPhone ? row[mapping.parentPhone] : undefined,
+        parentName: mapping.parentName ? row[mapping.parentName] : undefined,
+        gender: mapping.gender ? row[mapping.gender] : undefined,
+        topSize: mapping.topSize ? row[mapping.topSize] : undefined,
+        bottomSize: mapping.bottomSize ? row[mapping.bottomSize] : undefined,
+        shoeSize: mapping.shoeSize ? row[mapping.shoeSize] : undefined,
+      });
+    }
+    setMappedPlayers(players);
+    setStep("preview");
+  }
+
+  async function doImport() {
+    if (!selectedTeamId || mappedPlayers.length === 0) return;
+    setStep("importing");
+    const res = await fetch("/api/roster/import-players", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: selectedTeamId, players: mappedPlayers }),
+    });
+    setImportResult(await res.json());
+    setStep("done");
+  }
+
+  const selectedTeam = teams.find((t) => t._id === selectedTeamId);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/roster">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex items-center gap-3">
+        <Link href="/roster" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Import Roster</h1>
-          <p className="text-muted-foreground">
-            Upload a CSV file to bulk-add players to a team.
-          </p>
+          <h1 className="text-2xl font-bold">Import Roster</h1>
+          <p className="text-sm text-muted-foreground">Upload CSV or Excel — any column layout works.</p>
         </div>
       </div>
 
-      {/* Step 1: Select team */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">1. Select Team</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingTeams ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading teams...
-            </div>
-          ) : (
-            <Select value={teamId} onValueChange={setTeamId}>
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder="Choose a team" />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map((t) => (
-                  <SelectItem key={t._id} value={t._id}>
-                    {t.name} ({t.sport})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Import to team</label>
+        <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)}
+          className="flex h-10 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm">
+          {teams.map((t) => (<option key={t._id} value={t._id}>{t.name}</option>))}
+        </select>
+      </div>
 
-      {/* Step 2: Upload CSV */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">2. Upload CSV</CardTitle>
-            <Button variant="outline" size="sm" className="gap-1" onClick={downloadTemplate}>
-              <Download className="h-3 w-3" /> Download Template
-            </Button>
-          </div>
-          <CardDescription>
-            Required columns: firstName, lastName, dateOfBirth. All other columns are optional.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-
-          {parsedRows.length === 0 && !results ? (
-            <button
-              type="button"
-              className={`flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
-                dragging
-                  ? "border-primary bg-primary/5"
-                  : "hover:border-primary/50 hover:bg-muted/50"
-              }`}
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-            >
-              <FileSpreadsheet className={`h-10 w-10 ${dragging ? "text-primary" : "text-muted-foreground/50"}`} />
-              <p className="mt-3 text-sm font-medium">
-                {dragging ? "Drop CSV file here" : "Click to upload CSV file"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                or drag and drop
-              </p>
-            </button>
-          ) : (
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm font-medium">{fileName}</span>
-              <Badge variant="secondary">{parsedRows.length} players</Badge>
-              {!results && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setParsedRows([]);
-                    setFileName("");
-                    setResults(null);
-                    setSummary(null);
-                    if (fileRef.current) fileRef.current.value = "";
-                  }}
-                >
-                  Change file
-                </Button>
-              )}
-            </div>
-          )}
-
-          {parseError && (
-            <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {parseError}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Preview */}
-      {parsedRows.length > 0 && !results && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">3. Preview & Import</CardTitle>
-              <Button
-                className="gap-1"
-                onClick={handleImport}
-                disabled={importing || !teamId}
-              >
-                {importing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Import {parsedRows.length} Players
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-[400px] overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>DOB</TableHead>
-                    <TableHead>Jersey</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead>Guardian</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parsedRows.map((row, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell className="font-medium">
-                        {row.firstName} {row.lastName}
-                      </TableCell>
-                      <TableCell className="text-sm">{row.dateOfBirth}</TableCell>
-                      <TableCell>{row.jerseyNumber || "—"}</TableCell>
-                      <TableCell>
-                        {row.position ? (
-                          <Badge variant="outline" className="text-xs">
-                            {row.position}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {row.guardianName || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Upload */}
+      {step === "upload" && (
+        <div onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          onClick={() => document.getElementById("fi")?.click()}
+          className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-12 text-center hover:border-primary/50 transition-colors cursor-pointer">
+          <FileSpreadsheet className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-4 text-sm font-medium">Drop your spreadsheet here or click to browse</p>
+          <p className="text-xs text-muted-foreground mt-1">CSV, XLS, or XLSX</p>
+          <input id="fi" type="file" accept=".csv,.xls,.xlsx" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        </div>
       )}
 
-      {/* Results */}
-      {results && summary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Import Results</CardTitle>
-            <CardDescription>
-              {summary.created} created, {summary.duplicates} duplicates, {summary.errors} errors
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-[400px] overflow-auto">
-              {results.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-md border p-2.5"
-                >
-                  {r.status === "created" || r.status === "added" ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
-                  ) : r.status === "duplicate" ? (
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-                  ) : (
-                    <XCircle className="h-4 w-4 shrink-0 text-red-500" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium">{r.playerName}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{r.message}</span>
-                  </div>
-                  <Badge
-                    variant={
-                      r.status === "created" || r.status === "added"
-                        ? "default"
-                        : r.status === "duplicate"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                    className="text-[10px]"
-                  >
-                    {r.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+      {/* Mapping */}
+      {step === "mapping" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{fileName} — {allRows.length} rows</p>
+            <button onClick={runAiMapping} disabled={aiMapping}
+              className="flex items-center gap-2 rounded-md bg-purple-100 text-purple-700 px-3 py-1.5 text-sm font-medium hover:bg-purple-200">
+              {aiMapping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiMapping ? "Mapping..." : "AI Map Columns"}
+            </button>
+          </div>
+          <div className="rounded-lg border bg-card divide-y">
+            {TARGET_FIELDS.map((f) => (
+              <div key={f.key} className="flex items-center gap-4 px-4 py-2.5">
+                <span className="text-sm font-medium w-36 shrink-0">{f.label}</span>
+                <span className="text-muted-foreground">→</span>
+                <select value={mapping[f.key] || ""}
+                  onChange={(e) => setMapping((m) => { const n = { ...m }; if (e.target.value) n[f.key] = e.target.value; else delete n[f.key]; return n; })}
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm">
+                  <option value="">— skip —</option>
+                  {fileHeaders.map((h) => (<option key={h} value={h}>{h}</option>))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50"><tr>{fileHeaders.map((h) => (<th key={h} className="px-3 py-2 text-left font-medium text-xs whitespace-nowrap">{h}</th>))}</tr></thead>
+              <tbody className="divide-y">
+                {sampleRows.slice(0, 3).map((row, i) => (
+                  <tr key={i}>{fileHeaders.map((h) => (<td key={h} className="px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground">{row[h]}</td>))}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={buildPreview} disabled={!mapping.firstName && !mapping.lastName && !mapping.playerName}
+              className="rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+              Preview ({allRows.length} rows)
+            </button>
+            <button onClick={() => { setStep("upload"); setAllRows([]); }} className="rounded-md border px-4 py-2.5 text-sm">Start Over</button>
+          </div>
+        </div>
+      )}
 
-            <div className="mt-4 flex gap-2">
-              <Button asChild>
-                <Link href={`/teams/${teamId}`}>View Team Roster</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/roster">View All Players</Link>
-              </Button>
+      {/* Preview */}
+      {step === "preview" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">{mappedPlayers.length} players → {selectedTeam?.name}</h2>
+          <div className="rounded-lg border overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 sticky top-0"><tr>
+                <th className="px-3 py-2 text-left text-xs">#</th>
+                <th className="px-3 py-2 text-left text-xs">Name</th>
+                <th className="px-3 py-2 text-left text-xs">Jersey</th>
+                <th className="px-3 py-2 text-left text-xs">Pos</th>
+                <th className="px-3 py-2 text-left text-xs">DOB</th>
+                <th className="px-3 py-2 text-left text-xs">Parent Email</th>
+              </tr></thead>
+              <tbody className="divide-y">
+                {mappedPlayers.map((p, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">{i + 1}</td>
+                    <td className="px-3 py-1.5 text-xs font-medium">{p.firstName} {p.lastName}</td>
+                    <td className="px-3 py-1.5 text-xs">{p.jerseyNumber || "—"}</td>
+                    <td className="px-3 py-1.5 text-xs">{p.position || "—"}</td>
+                    <td className="px-3 py-1.5 text-xs">{p.dateOfBirth || "—"}</td>
+                    <td className="px-3 py-1.5 text-xs">{p.parentEmail || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={doImport} className="rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90">
+              Import {mappedPlayers.length} Players
+            </button>
+            <button onClick={() => setStep("mapping")} className="rounded-md border px-4 py-2.5 text-sm">Back</button>
+          </div>
+        </div>
+      )}
+
+      {step === "importing" && (
+        <div className="flex flex-col items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Importing {mappedPlayers.length} players...</p>
+        </div>
+      )}
+
+      {step === "done" && importResult && (
+        <div className="space-y-4">
+          <div className="rounded-lg border bg-card p-6 text-center">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
+            <h2 className="mt-4 text-xl font-bold">Import Complete</h2>
+            <div className="flex flex-wrap justify-center gap-6 mt-4 text-sm">
+              {importResult.created > 0 && (
+                <div><p className="text-2xl font-bold text-green-600">{importResult.created}</p><p className="text-muted-foreground">New Players</p></div>
+              )}
+              {importResult.linked > 0 && (
+                <div><p className="text-2xl font-bold text-blue-600">{importResult.linked}</p><p className="text-muted-foreground">Existing Linked</p></div>
+              )}
+              {importResult.invited > 0 && (
+                <div><p className="text-2xl font-bold text-purple-600">{importResult.invited}</p><p className="text-muted-foreground">Invites Sent</p></div>
+              )}
+              {importResult.alreadyOnRoster > 0 && (
+                <div><p className="text-2xl font-bold text-yellow-600">{importResult.alreadyOnRoster}</p><p className="text-muted-foreground">Already on Roster</p></div>
+              )}
+              {importResult.errors > 0 && (
+                <div><p className="text-2xl font-bold text-red-600">{importResult.errors}</p><p className="text-muted-foreground">Errors</p></div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Full results list */}
+          {importResult.results && importResult.results.length > 0 && (
+            <div className="rounded-lg border overflow-x-auto max-h-72 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs">Player</th>
+                    <th className="px-3 py-2 text-left text-xs">Status</th>
+                    <th className="px-3 py-2 text-left text-xs">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {importResult.results.map((r: any, i: number) => (
+                    <tr key={i} className={r.status === "error" ? "bg-red-50" : r.status === "already_on_roster" ? "bg-yellow-50" : ""}>
+                      <td className="px-3 py-1.5 text-xs font-medium">{r.name}</td>
+                      <td className="px-3 py-1.5 text-xs">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          r.status === "created" ? "bg-green-100 text-green-700" :
+                          r.status === "linked_existing" ? "bg-blue-100 text-blue-700" :
+                          r.status === "already_on_roster" ? "bg-yellow-100 text-yellow-700" :
+                          r.status === "error" ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {r.status.replace(/_/g, " ")}
+                        </span>
+                        {r.invited && <span className="ml-1 rounded-full bg-purple-100 text-purple-700 px-2 py-0.5 text-[10px] font-medium">invited</span>}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-red-600">{r.error || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Link href="/roster" className="rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90">View Roster</Link>
+            <button onClick={() => { setStep("upload"); setAllRows([]); setMappedPlayers([]); setImportResult(null); setMapping({}); }}
+              className="rounded-md border px-4 py-2.5 text-sm">Import Another</button>
+          </div>
+        </div>
       )}
     </div>
   );

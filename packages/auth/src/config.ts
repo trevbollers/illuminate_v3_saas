@@ -139,7 +139,9 @@ async function findMemberships(userId: string): Promise<TenantMembership[]> {
   const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
   if (!user?.memberships) return [];
 
-  const activeMemberships = user.memberships.filter((m: any) => m.isActive);
+  const activeMemberships = user.memberships.filter(
+    (m: any) => m.isActive === true || m.status === "active",
+  );
 
   const tenantIds = activeMemberships.map((m: any) => m.tenantId);
   const tenants = await db
@@ -178,7 +180,12 @@ async function updateLastLogin(userId: string): Promise<void> {
 
 /**
  * Resolve the active tenant context for a user.
- * Priority: owner role > admin role > first membership.
+ *
+ * In dev, each app runs on a different port. We use NEXTAUTH_URL to infer
+ * which app is asking so we pick the right membership:
+ *   - Port 4002 → prefer league memberships
+ *   - Port 4003 → prefer organization memberships
+ *   - Otherwise → highest priority membership
  */
 function resolveActiveTenant(
   memberships: TenantMembership[],
@@ -191,6 +198,27 @@ function resolveActiveTenant(
 } | null {
   if (memberships.length === 0) return null;
 
+  // Infer preferred tenant type from NEXTAUTH_URL port
+  const url = process.env.NEXTAUTH_URL || "";
+  const portMatch = url.match(/:(\d+)/);
+  const port = portMatch ? parseInt(portMatch[1]) : 0;
+  let preferredType: TenantType | null = null;
+  if (port === 4002) preferredType = "league";
+  if (port === 4003) preferredType = "organization";
+
+  // If we have a preferred type, try to find a matching membership first
+  if (preferredType) {
+    const preferred = memberships.filter((m) => m.tenantType === preferredType);
+    if (preferred.length > 0) {
+      return pickHighestRole(preferred);
+    }
+  }
+
+  // Fallback: highest priority across all memberships
+  return pickHighestRole(memberships);
+}
+
+function pickHighestRole(memberships: TenantMembership[]) {
   const owned = memberships.find(
     (m) => m.role === "league_owner" || m.role === "org_owner",
   );
@@ -227,8 +255,46 @@ function resolveActiveTenant(
   };
 }
 
+// In dev, each app runs on a different port but shares `localhost` domain.
+// Without unique cookie names, logging into one app overwrites another's session.
+const cookiePrefix = (() => {
+  const url = process.env.NEXTAUTH_URL || "";
+  const match = url.match(/:(\d+)/);
+  return match ? `gp${match[1]}` : "gp";
+})();
+
 export const authConfig: NextAuthConfig = {
   adapter: MongoDBAdapter(() => getClientPromise()),
+
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `${cookiePrefix}.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `${cookiePrefix}.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
 
   providers: [
     Google({
@@ -302,7 +368,7 @@ export const authConfig: NextAuthConfig = {
   },
 
   pages: {
-    signIn: "/auth/login",
+    signIn: "/login",
   },
 
   callbacks: {
@@ -381,22 +447,11 @@ export const authConfig: NextAuthConfig = {
       return session;
     },
 
-    async authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user;
-      const isAuthPage = request.nextUrl.pathname.startsWith("/auth");
-
-      if (isAuthPage) {
-        if (isLoggedIn) {
-          const dashboardUrl =
-            process.env.NEXT_PUBLIC_DASHBOARD_URL ??
-            new URL("/dashboard", request.nextUrl).toString();
-          return Response.redirect(new URL(dashboardUrl));
-        }
-        return true;
-      }
-
-      return isLoggedIn;
-    },
+    // Auth redirects are handled by each app's own middleware.
+    // The shared authorized callback was removed because:
+    // 1. Each app has login at different paths (/login vs /auth/login)
+    // 2. Each app has its own middleware with tenant-type-specific checks
+    // 3. The shared callback was redirecting to /auth/login which doesn't exist on all apps
   },
 
   events: {

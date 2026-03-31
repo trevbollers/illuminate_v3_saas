@@ -437,22 +437,32 @@ export default function AccountPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {profile.memberships.map((m) => (
-                  <div
-                    key={m.tenantId}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="font-medium">{m.tenantName}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {m.tenantType}
-                      </p>
+                {profile.memberships.map((m) => {
+                  const appUrl =
+                    m.tenantType === "league"
+                      ? process.env.NEXT_PUBLIC_LEAGUE_URL || "http://localhost:4002"
+                      : process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003";
+
+                  return (
+                    <div
+                      key={m.tenantId}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div>
+                        <p className="font-medium">{m.tenantName}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {m.tenantType} · {m.role.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                      <a
+                        href={appUrl}
+                        className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90"
+                      >
+                        Open {m.tenantType === "league" ? "League" : "Dashboard"}
+                      </a>
                     </div>
-                    <Badge variant="secondary" className="capitalize">
-                      {m.role.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

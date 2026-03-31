@@ -50,18 +50,24 @@ export default async function RootLayout({
 
   const scopedRole = session?.user?.scopedRole ?? null;
 
+  const hasValidSession = !!sidebarUser && !!session?.user?.tenantSlug;
+
   return (
     <html lang="en">
       <body className={inter.className}>
-        <DashboardShell
-          businessName={tenantName}
-          planName={planName}
-          locations={locations}
-          user={sidebarUser}
-          scopedRole={scopedRole}
-        >
-          {children}
-        </DashboardShell>
+        {hasValidSession ? (
+          <DashboardShell
+            businessName={tenantName}
+            planName={planName}
+            locations={locations}
+            user={sidebarUser}
+            scopedRole={scopedRole}
+          >
+            {children}
+          </DashboardShell>
+        ) : (
+          children
+        )}
       </body>
     </html>
   );

@@ -9,7 +9,7 @@ import {
   MapPin,
   Trophy,
   Users,
-  ShoppingBag,
+  Store,
   Loader2,
   ExternalLink,
 } from "lucide-react";
@@ -29,7 +29,7 @@ interface TenantPublicData {
   events?: LeagueEvent[];
   // Org
   teams?: OrgTeam[];
-  upcomingEvents?: OrgScheduleItem[];
+  programs?: OrgProgram[];
   products?: OrgProduct[];
   hasStore?: boolean;
 }
@@ -55,13 +55,24 @@ interface OrgTeam {
   logoUrl?: string;
 }
 
-interface OrgScheduleItem {
+interface OrgProgram {
   _id: string;
-  title: string;
-  type: string;
+  name: string;
+  slug: string;
+  programType: string;
+  sport: string;
   startDate: string;
   endDate?: string;
+  fee: number;
+  status: string;
   location?: string;
+  city?: string;
+  state?: string;
+  imageUrl?: string;
+  ageGroups?: { label: string; gender?: string; capacity?: number }[];
+  leagueSlug?: string;
+  leagueEventId?: string;
+  tags?: string[];
 }
 
 interface OrgProduct {
@@ -80,6 +91,7 @@ export default function TenantPublicPage() {
   const [data, setData] = useState<TenantPublicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [registerProgram, setRegisterProgram] = useState<OrgProgram | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -161,9 +173,18 @@ export default function TenantPublicPage() {
         {data.tenantType === "league" ? (
           <LeagueContent data={data} />
         ) : (
-          <OrgContent data={data} />
+          <OrgContent data={data} onRegister={setRegisterProgram} />
         )}
       </main>
+
+      {/* Tryout Registration Modal */}
+      {registerProgram && (
+        <TryoutRegistrationModal
+          slug={slug}
+          program={registerProgram}
+          onClose={() => setRegisterProgram(null)}
+        />
+      )}
 
       <footer className="border-t bg-white py-6 text-center text-sm text-gray-400">
         Powered by{" "}
@@ -300,12 +321,12 @@ function EventCard({
 
 // ─── Org Content ───
 
-function OrgContent({ data }: { data: TenantPublicData }) {
+function OrgContent({ data, onRegister }: { data: TenantPublicData; onRegister?: (p: OrgProgram) => void }) {
   const teams = data.teams || [];
-  const schedule = data.upcomingEvents || [];
+  const programs = data.programs || [];
   const products = data.products || [];
 
-  const hasContent = teams.length > 0 || schedule.length > 0 || products.length > 0;
+  const hasContent = teams.length > 0 || programs.length > 0 || products.length > 0;
 
   if (!hasContent) {
     return (
@@ -317,15 +338,129 @@ function OrgContent({ data }: { data: TenantPublicData }) {
     );
   }
 
-  const dashboardUrl =
-    process.env.NEXT_PUBLIC_DASHBOARD_URL ||
-    `https://${data.slug}.goparticipate.com`;
   const storefrontUrl =
     process.env.NEXT_PUBLIC_STOREFRONT_URL ||
     `https://${data.slug}.goparticipate.com/store`;
 
+  const programTypeLabels: Record<string, string> = {
+    camp: "Camp",
+    clinic: "Clinic",
+    training: "Training",
+    tryout: "Tryout",
+    tournament: "Tournament",
+    league_season: "League",
+    class: "Class",
+    combine: "Combine",
+    showcase: "Showcase",
+  };
+
+  const statusColors: Record<string, string> = {
+    registration_open: "bg-green-100 text-green-800",
+    in_progress: "bg-blue-100 text-blue-800",
+    completed: "bg-gray-100 text-gray-600",
+    registration_closed: "bg-yellow-100 text-yellow-800",
+  };
+
   return (
     <div className="space-y-8">
+      {/* Programs */}
+      {programs.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Programs</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {programs.map((prog) => (
+              <div
+                key={prog._id}
+                className="rounded-lg border bg-white p-5 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                        {programTypeLabels[prog.programType] || prog.programType}
+                      </span>
+                      {prog.tags?.includes("elite") && (
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 uppercase tracking-wide">
+                          Elite
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="font-semibold text-lg leading-snug">{prog.name}</h3>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      statusColors[prog.status] || "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {prog.status === "registration_open" ? "Open" : prog.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-1.5 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    <span>
+                      {format(new Date(prog.startDate), "MMM d, yyyy")}
+                      {prog.endDate &&
+                        prog.endDate !== prog.startDate &&
+                        ` — ${format(new Date(prog.endDate), "MMM d, yyyy")}`}
+                    </span>
+                  </div>
+                  {(prog.location || prog.city) && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        {prog.location}
+                        {prog.city && ` · ${prog.city}${prog.state ? `, ${prog.state}` : ""}`}
+                      </span>
+                    </div>
+                  )}
+                  {prog.fee > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        ${(prog.fee / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {prog.ageGroups && prog.ageGroups.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {prog.ageGroups.map((ag, i) => (
+                        <span
+                          key={i}
+                          className="rounded bg-gray-50 border px-1.5 py-0.5 text-[11px] text-gray-500"
+                        >
+                          {ag.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Link to league event if tournament */}
+                {prog.leagueSlug && prog.leagueEventId && (
+                  <a
+                    href={`/${prog.leagueSlug}`}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    View on {prog.leagueSlug} <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+
+                {/* Register button for open-registration programs */}
+                {prog.status === "registration_open" && onRegister && (
+                  <button
+                    onClick={() => onRegister(prog)}
+                    className="mt-3 w-full rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Register Now{prog.fee > 0 ? ` — $${(prog.fee / 100).toFixed(2)}` : ""}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Teams */}
       {teams.length > 0 && (
         <section>
@@ -359,42 +494,16 @@ function OrgContent({ data }: { data: TenantPublicData }) {
         </section>
       )}
 
-      {/* Upcoming Schedule */}
-      {schedule.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-4">Upcoming Schedule</h2>
-          <div className="space-y-2">
-            {schedule.map((item) => (
-              <div
-                key={item._id}
-                className="flex items-center justify-between rounded-lg border bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium">{item.title}</p>
-                  <p className="text-sm text-gray-500">
-                    {format(new Date(item.startDate), "MMM d, yyyy · h:mm a")}
-                    {item.location && ` · ${item.location}`}
-                  </p>
-                </div>
-                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 capitalize">
-                  {item.type}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Store Preview */}
+      {/* Shop Preview */}
       {products.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Store</h2>
+            <h2 className="text-lg font-semibold">Shop</h2>
             <a
               href={storefrontUrl}
               className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1"
             >
-              View Store <ExternalLink className="h-3.5 w-3.5" />
+              View Shop <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
@@ -404,21 +513,21 @@ function OrgContent({ data }: { data: TenantPublicData }) {
                 href={`${storefrontUrl}/products/${product.slug}`}
                 className="rounded-lg border bg-white overflow-hidden hover:shadow-md transition-shadow"
               >
-                {product.images?.[0] ? (
+                {product.imageUrl ? (
                   <img
-                    src={product.images[0]}
+                    src={product.imageUrl}
                     alt={product.name}
                     className="w-full aspect-square object-cover"
                   />
                 ) : (
                   <div className="w-full aspect-square bg-gray-100 flex items-center justify-center">
-                    <ShoppingBag className="h-8 w-8 text-gray-300" />
+                    <Store className="h-8 w-8 text-gray-300" />
                   </div>
                 )}
                 <div className="p-3">
                   <p className="font-medium text-sm truncate">{product.name}</p>
                   <p className="text-sm text-gray-500">
-                    ${(product.price / 100).toFixed(2)}
+                    ${(product.pricing?.amount ? product.pricing.amount / 100 : 0).toFixed(2)}
                   </p>
                 </div>
               </a>
@@ -426,6 +535,181 @@ function OrgContent({ data }: { data: TenantPublicData }) {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+// ─── Tryout Registration Modal ───
+
+function TryoutRegistrationModal({
+  slug,
+  program,
+  onClose,
+}: {
+  slug: string;
+  program: OrgProgram;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    parentEmail: "",
+    parentName: "",
+    parentPhone: "",
+    playerFirstName: "",
+    playerLastName: "",
+    playerDob: "",
+    ageGroup: program.ageGroups?.[0]?.label || "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ tryoutNumber?: number; message?: string; error?: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setResult(null);
+
+    const res = await fetch(`/api/public/${slug}/programs/${program.slug}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      setResult({ tryoutNumber: data.tryoutNumber, message: data.message });
+    } else {
+      setResult({ error: data.error || "Registration failed" });
+    }
+    setSubmitting(false);
+  };
+
+  const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">Register for {program.name}</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          </div>
+
+          {result?.tryoutNumber ? (
+            <div className="text-center py-6">
+              <div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                <span className="text-2xl font-bold text-green-700">#{result.tryoutNumber}</span>
+              </div>
+              <p className="font-medium text-lg">You're registered!</p>
+              <p className="text-gray-500 mt-1">{result.message}</p>
+              <p className="text-sm text-gray-400 mt-3">
+                Your tryout number is <strong>#{result.tryoutNumber}</strong>. Please wear this number on your bib.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-6 rounded-md bg-gray-900 text-white px-6 py-2 text-sm font-medium"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <p className="text-sm text-gray-500 mb-2">
+                {program.fee > 0 && `Fee: $${(program.fee / 100).toFixed(2)} · `}
+                {program.location && `${program.location} · `}
+                {format(new Date(program.startDate), "MMM d, yyyy")}
+              </p>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Parent/Guardian Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={form.parentEmail}
+                  onChange={(e) => set("parentEmail", e.target.value)}
+                  className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Parent Name</label>
+                  <input
+                    value={form.parentName}
+                    onChange={(e) => set("parentName", e.target.value)}
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Phone</label>
+                  <input
+                    value={form.parentPhone}
+                    onChange={(e) => set("parentPhone", e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Player First Name *</label>
+                  <input
+                    required
+                    value={form.playerFirstName}
+                    onChange={(e) => set("playerFirstName", e.target.value)}
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Player Last Name *</label>
+                  <input
+                    required
+                    value={form.playerLastName}
+                    onChange={(e) => set("playerLastName", e.target.value)}
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={form.playerDob}
+                    onChange={(e) => set("playerDob", e.target.value)}
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Age Group *</label>
+                  <select
+                    required
+                    value={form.ageGroup}
+                    onChange={(e) => set("ageGroup", e.target.value)}
+                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  >
+                    {program.ageGroups?.map((ag, i) => (
+                      <option key={i} value={ag.label}>{ag.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {result?.error && (
+                <p className="text-sm text-red-600">{result.error}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-md bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {submitting ? "Registering..." : "Register"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

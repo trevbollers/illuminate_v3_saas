@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect, useRef } from "react";
+import { signIn, signOut } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Shield, Loader2, ArrowLeft, Smartphone, Mail, KeyRound } from "lucide-react";
 import { Button } from "@goparticipate/ui/src/components/button";
@@ -24,11 +24,20 @@ export default function DashboardLoginPage() {
 
   const [mode, setMode] = useState<LoginMode>("choose");
   const [loading, setLoading] = useState(false);
+  const clearedRef = useRef(false);
   const [error, setError] = useState(
     errorParam === "invalid_account"
       ? "This account is not associated with a team or organization."
       : "",
   );
+
+  // Auto-sign out stale sessions so user can log in with a different account
+  useEffect(() => {
+    if (errorParam === "invalid_account" && !clearedRef.current) {
+      clearedRef.current = true;
+      signOut({ redirect: false });
+    }
+  }, [errorParam]);
 
   // Email/password
   const [email, setEmail] = useState("");

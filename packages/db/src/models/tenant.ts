@@ -106,7 +106,8 @@ export interface ITenant extends Document {
   plan: ITenantPlan;
   settings: ITenantSettings;
   socials: ITenantSocials;
-  sport: string;
+  sport: string;           // Primary sport (legacy, kept for backwards compat)
+  sports: string[];        // All sports this tenant participates in
   logoUrl?: string;
   bannerUrl?: string;
   status: "active" | "suspended" | "onboarding";
@@ -249,6 +250,7 @@ const TenantSchema = new Schema<ITenant>(
       website: { type: String },
     },
     sport: { type: String, required: true, default: "7v7_football" },
+    sports: [{ type: String }],
     logoUrl: { type: String },
     bannerUrl: { type: String },
     status: {

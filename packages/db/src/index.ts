@@ -3,6 +3,7 @@ export {
   connectPlatformDB,
   connectDB, // deprecated alias
   connectTenantDB,
+  connectFamilyDB,
   disconnectTenantDB,
   disconnectAllTenantDBs,
 } from "./connection";

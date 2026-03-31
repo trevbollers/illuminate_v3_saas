@@ -35,7 +35,7 @@ const DAYS_OF_WEEK = [
 ];
 
 const schema = z.object({
-  teamId: z.string().min(1, "Team is required"),
+  teamId: z.string().optional(), // Legacy, kept for backwards compat
   title: z.string().min(1, "Title is required"),
   type: z.enum(["practice", "game", "scrimmage", "meeting", "tournament", "tryout", "other"]),
   startDate: z.string().min(1, "Start date is required"),
@@ -67,6 +67,8 @@ export default function NewScheduleEventPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+  const [isOrgWide, setIsOrgWide] = useState(false);
 
   const {
     register,
@@ -122,11 +124,14 @@ export default function NewScheduleEventPage() {
     }
 
     const body: any = {
-      teamId: data.teamId,
       title: data.title,
       type: data.type,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
+      isOrgWide,
+      teamIds: isOrgWide ? [] : selectedTeamIds,
+      // Legacy: set teamId to first selected team for backwards compat
+      teamId: isOrgWide ? undefined : selectedTeamIds[0],
     };
 
     if (data.locationName) {
@@ -200,32 +205,59 @@ export default function NewScheduleEventPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>
-                Team <span className="text-red-500">*</span>
-              </Label>
+              <Label>Teams</Label>
               {loadingTeams ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading teams...
                 </div>
               ) : (
-                <Select
-                  value={watch("teamId") || ""}
-                  onValueChange={(v) => setValue("teamId", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((t) => (
-                      <SelectItem key={t._id} value={t._id}>
-                        {t.name} ({t.sport})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {errors.teamId && (
-                <p className="text-xs text-red-500">{errors.teamId.message}</p>
+                <div className="space-y-2">
+                  {/* All Teams checkbox */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isOrgWide}
+                      onChange={(e) => {
+                        setIsOrgWide(e.target.checked);
+                        if (e.target.checked) setSelectedTeamIds([]);
+                      }}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium">All Teams (Org-Wide)</span>
+                  </label>
+
+                  {/* Team tags */}
+                  {!isOrgWide && (
+                    <div className="flex flex-wrap gap-2">
+                      {teams.map((t) => {
+                        const selected = selectedTeamIds.includes(t._id);
+                        return (
+                          <button
+                            key={t._id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedTeamIds((prev) =>
+                                selected
+                                  ? prev.filter((id) => id !== t._id)
+                                  : [...prev, t._id],
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
+                              selected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+                            }`}
+                          >
+                            {t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!isOrgWide && selectedTeamIds.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Select one or more teams, or check "All Teams"</p>
+                  )}
+                </div>
               )}
             </div>
 

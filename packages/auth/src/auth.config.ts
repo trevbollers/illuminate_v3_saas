@@ -3,6 +3,13 @@ import Google from "next-auth/providers/google";
 import type { PlatformRole } from "./types";
 import "./types";
 
+// Per-port cookie names so each app gets its own session in dev
+const cookiePrefix = (() => {
+  const url = process.env.NEXTAUTH_URL || "";
+  const match = url.match(/:(\d+)/);
+  return match ? `gp${match[1]}` : "gp";
+})();
+
 export const edgeAuthConfig: NextAuthConfig = {
   providers: [
     Google({
@@ -18,7 +25,37 @@ export const edgeAuthConfig: NextAuthConfig = {
   },
 
   pages: {
-    signIn: "/auth/login",
+    signIn: "/login",
+  },
+
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `${cookiePrefix}.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `${cookiePrefix}.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
 
   callbacks: {
@@ -50,22 +87,7 @@ export const edgeAuthConfig: NextAuthConfig = {
       return session;
     },
 
-    async authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user;
-      const isAuthPage = request.nextUrl.pathname.startsWith("/auth");
-
-      if (isAuthPage) {
-        if (isLoggedIn) {
-          const dashboardUrl =
-            process.env.NEXT_PUBLIC_DASHBOARD_URL ??
-            new URL("/dashboard", request.nextUrl).toString();
-          return Response.redirect(new URL(dashboardUrl));
-        }
-        return true;
-      }
-
-      return isLoggedIn;
-    },
+    // No authorized callback — each app's middleware handles its own auth checks.
   },
 
   secret: process.env.NEXTAUTH_SECRET,

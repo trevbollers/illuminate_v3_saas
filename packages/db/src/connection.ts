@@ -134,6 +134,53 @@ export async function connectTenantDB(
   return tenantCache[tenantSlug].conn!;
 }
 
+/**
+ * Get (or create) a cached Mongoose Connection to a **family database**.
+ *
+ * Each family gets their own isolated DB: `family_<familyId>`
+ * This is the identity vault — player profiles, verification records,
+ * encrypted documents, and connection tracking.
+ *
+ * @param familyId - The family's ObjectId string
+ */
+export async function connectFamilyDB(familyId: string): Promise<Connection> {
+  if (!familyId) {
+    throw new Error("connectFamilyDB requires a non-empty familyId");
+  }
+
+  const cacheKey = `family_${familyId}`;
+
+  if (tenantCache[cacheKey]?.conn) {
+    return tenantCache[cacheKey].conn!;
+  }
+
+  await connectPlatformDB();
+
+  if (!tenantCache[cacheKey]) {
+    tenantCache[cacheKey] = { conn: null, promise: null, tenantType: "family" as any };
+  }
+
+  if (!tenantCache[cacheKey].promise) {
+    const dbName = `family_${familyId}`;
+    const url = new URL(getMongoURI());
+    url.pathname = `/${dbName}`;
+    const uri = url.toString();
+
+    const conn = mongoose.createConnection(uri, {
+      bufferCommands: false,
+    });
+
+    tenantCache[cacheKey].promise = conn.asPromise().then((c) => {
+      const { registerFamilyModels } = require("./models/tenant-models");
+      registerFamilyModels(c);
+      return c;
+    });
+  }
+
+  tenantCache[cacheKey].conn = await tenantCache[cacheKey].promise!;
+  return tenantCache[cacheKey].conn!;
+}
+
 export async function disconnectTenantDB(tenantSlug: string): Promise<void> {
   const entry = tenantCache[tenantSlug];
   if (entry?.conn) {

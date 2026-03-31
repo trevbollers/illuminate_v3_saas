@@ -45,7 +45,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const teamId = searchParams.get("teamId");
   if (teamId && Types.ObjectId.isValid(teamId)) {
-    filter.teamId = new Types.ObjectId(teamId);
+    // Show events for this specific team + org-wide events
+    filter.$and = [
+      filter.$or ? { $or: filter.$or } : {},
+      {
+        $or: [
+          { teamId: new Types.ObjectId(teamId) },
+          { teamIds: new Types.ObjectId(teamId) },
+          { isOrgWide: true },
+        ],
+      },
+    ];
+    delete filter.$or;
   }
 
   const type = searchParams.get("type");
@@ -58,21 +69,34 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .lean();
 
   // Populate team names
-  const teamIds = [...new Set(events.map((e: any) => e.teamId.toString()))];
+  const allTeamIds = new Set<string>();
+  for (const e of events as any[]) {
+    if (e.teamId) allTeamIds.add(e.teamId.toString());
+    if (e.teamIds) for (const id of e.teamIds) allTeamIds.add(id.toString());
+  }
   const teams = await models.Team.find({
-    _id: { $in: teamIds.map((id) => new Types.ObjectId(id)) },
+    _id: { $in: [...allTeamIds].map((id) => new Types.ObjectId(id)) },
   })
     .select("_id name")
     .lean();
 
   const teamMap = new Map(teams.map((t: any) => [t._id.toString(), t.name]));
 
-  const enriched = events.map((e: any) => ({
-    ...e,
-    _id: e._id.toString(),
-    teamId: e.teamId.toString(),
-    teamName: teamMap.get(e.teamId.toString()) ?? "Unknown Team",
-  }));
+  const enriched = events.map((e: any) => {
+    const eventTeamIds = e.teamIds?.length > 0
+      ? e.teamIds.map((id: any) => id.toString())
+      : e.teamId ? [e.teamId.toString()] : [];
+    const teamNames = eventTeamIds.map((id: string) => teamMap.get(id) ?? "Unknown");
+
+    return {
+      ...e,
+      _id: e._id.toString(),
+      teamId: e.teamId?.toString(),
+      teamIds: eventTeamIds,
+      isOrgWide: e.isOrgWide || false,
+      teamName: e.isOrgWide ? "All Teams" : teamNames.join(", ") || "Unknown Team",
+    };
+  });
 
   return NextResponse.json(enriched);
 }
@@ -87,6 +111,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = await req.json();
   const {
     teamId,
+    teamIds: bodyTeamIds,
+    isOrgWide: bodyIsOrgWide,
     title,
     type,
     startTime,
@@ -99,8 +125,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     notes,
   } = body;
 
-  if (!teamId || !Types.ObjectId.isValid(teamId)) {
-    return NextResponse.json({ error: "Valid teamId is required" }, { status: 400 });
+  // Must have at least one team or be org-wide
+  if (!bodyIsOrgWide && !teamId && (!bodyTeamIds || bodyTeamIds.length === 0)) {
+    return NextResponse.json({ error: "Select at least one team or mark as org-wide" }, { status: 400 });
   }
   if (!title?.trim()) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -126,20 +153,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const conn = await connectTenantDB(session.user.tenantSlug, "organization");
   const models = getOrgModels(conn);
 
-  // Verify team exists
-  const team = await models.Team.findById(teamId).lean();
-  if (!team || !(team as any).isActive) {
-    return NextResponse.json({ error: "Team not found" }, { status: 404 });
-  }
-
   const eventData: any = {
-    teamId: new Types.ObjectId(teamId),
     title: title.trim(),
     type,
     startTime: start,
     endTime: end,
+    isOrgWide: bodyIsOrgWide || false,
     createdBy: new Types.ObjectId(session.user.id),
   };
+
+  if (bodyIsOrgWide) {
+    eventData.teamIds = [];
+  } else {
+    const ids = bodyTeamIds?.length > 0
+      ? bodyTeamIds.filter((id: string) => Types.ObjectId.isValid(id))
+      : teamId ? [teamId] : [];
+    eventData.teamIds = ids.map((id: string) => new Types.ObjectId(id));
+    // Legacy: set teamId to first for backwards compat
+    if (ids.length > 0) eventData.teamId = new Types.ObjectId(ids[0]);
+  }
 
   if (location?.name) {
     eventData.location = {
