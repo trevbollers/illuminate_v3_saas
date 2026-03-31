@@ -12,6 +12,8 @@ import {
   Store,
   Loader2,
   ExternalLink,
+  CheckCircle2,
+  Shield,
 } from "lucide-react";
 
 // ─── Types ───
@@ -560,13 +562,41 @@ function TryoutRegistrationModal({
     ageGroup: program.ageGroups?.[0]?.label || "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ tryoutNumber?: number; message?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ tryoutNumber?: number; checkInCode?: string; message?: string; error?: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setResult(null);
 
+    // If program has a fee, go through checkout flow
+    if (program.fee > 0) {
+      const res = await fetch(`/api/public/${slug}/programs/${program.slug}/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerName: `${form.playerFirstName} ${form.playerLastName}`.trim(),
+          parentEmail: form.parentEmail,
+          parentPhone: form.parentPhone,
+          parentName: form.parentName,
+          ageGroup: form.ageGroup,
+        }),
+      });
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      if (data.checkInCode) {
+        setResult({ checkInCode: data.checkInCode, message: data.message });
+      } else {
+        setResult({ error: data.error || "Checkout failed" });
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // Free program — register directly
     const res = await fetch(`/api/public/${slug}/programs/${program.slug}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -593,16 +623,29 @@ function TryoutRegistrationModal({
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
           </div>
 
-          {result?.tryoutNumber ? (
+          {(result?.tryoutNumber || result?.checkInCode) ? (
             <div className="text-center py-6">
               <div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                <span className="text-2xl font-bold text-green-700">#{result.tryoutNumber}</span>
+                {result.tryoutNumber ? (
+                  <span className="text-2xl font-bold text-green-700">#{result.tryoutNumber}</span>
+                ) : (
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                )}
               </div>
               <p className="font-medium text-lg">You're registered!</p>
               <p className="text-gray-500 mt-1">{result.message}</p>
-              <p className="text-sm text-gray-400 mt-3">
-                Your tryout number is <strong>#{result.tryoutNumber}</strong>. Please wear this number on your bib.
-              </p>
+              {result.tryoutNumber && (
+                <p className="text-sm text-gray-400 mt-3">
+                  Your tryout number is <strong>#{result.tryoutNumber}</strong>. Please wear this number on your bib.
+                </p>
+              )}
+              {result.checkInCode && (
+                <div className="mt-4 rounded-lg bg-gray-50 border p-4">
+                  <p className="text-xs text-gray-500 mb-1">Your Check-In Code</p>
+                  <p className="text-2xl font-bold font-mono tracking-widest">{result.checkInCode}</p>
+                  <p className="text-xs text-gray-400 mt-1">Show this at the event entrance</p>
+                </div>
+              )}
               <button
                 onClick={onClose}
                 className="mt-6 rounded-md bg-gray-900 text-white px-6 py-2 text-sm font-medium"
@@ -639,8 +682,9 @@ function TryoutRegistrationModal({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Phone</label>
+                  <label className="text-sm font-medium">Phone *</label>
                   <input
+                    required
                     value={form.parentPhone}
                     onChange={(e) => set("parentPhone", e.target.value)}
                     placeholder="(555) 123-4567"

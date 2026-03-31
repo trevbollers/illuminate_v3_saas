@@ -28,6 +28,7 @@ import { ProductSchema, type IProduct } from "./org/product";
 import { StorefrontOrderSchema, type IStorefrontOrder } from "./org/storefront-order";
 import { MessageTemplateSchema, type IMessageTemplate } from "./shared/message-template";
 import { ProgramSchema, type IProgram } from "./org/program";
+import { ProgramRegistrationSchema, type IProgramRegistration } from "./org/program-registration";
 import { TryoutSessionSchema, type ITryoutSession } from "./org/tryout-session";
 import { TryoutRegistrationSchema, type ITryoutRegistration } from "./org/tryout-registration";
 import { TryoutEvaluationSchema, type ITryoutEvaluation } from "./org/tryout-evaluation";
@@ -79,6 +80,7 @@ export function registerOrgModels(conn: Connection): void {
   if (!conn.models.StorefrontOrder) conn.model<IStorefrontOrder>("StorefrontOrder", StorefrontOrderSchema);
   if (!conn.models.MessageTemplate) conn.model<IMessageTemplate>("MessageTemplate", MessageTemplateSchema);
   if (!conn.models.Program) conn.model<IProgram>("Program", ProgramSchema);
+  if (!conn.models.ProgramRegistration) conn.model<IProgramRegistration>("ProgramRegistration", ProgramRegistrationSchema);
   if (!conn.models.TryoutSession) conn.model<ITryoutSession>("TryoutSession", TryoutSessionSchema);
   if (!conn.models.TryoutRegistration) conn.model<ITryoutRegistration>("TryoutRegistration", TryoutRegistrationSchema);
   if (!conn.models.TryoutEvaluation) conn.model<ITryoutEvaluation>("TryoutEvaluation", TryoutEvaluationSchema);
@@ -124,6 +126,7 @@ export function getOrgModels(conn: Connection) {
     StorefrontOrder: conn.model<IStorefrontOrder>("StorefrontOrder"),
     MessageTemplate: conn.model<IMessageTemplate>("MessageTemplate"),
     Program: conn.model<IProgram>("Program"),
+    ProgramRegistration: conn.model<IProgramRegistration>("ProgramRegistration"),
     TryoutSession: conn.model<ITryoutSession>("TryoutSession"),
     TryoutRegistration: conn.model<ITryoutRegistration>("TryoutRegistration"),
     TryoutEvaluation: conn.model<ITryoutEvaluation>("TryoutEvaluation"),

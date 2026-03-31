@@ -31,6 +31,9 @@ export type { IRegistrationCart, ICartItem, ICartCheckout } from "./registration
 export { ProgramSchema } from "./program";
 export type { IProgram, IProgramSession, IProgramAgeGroup, ProgramType } from "./program";
 
+export { ProgramRegistrationSchema } from "./program-registration";
+export type { IProgramRegistration } from "./program-registration";
+
 export { TryoutSessionSchema } from "./tryout-session";
 export type { ITryoutSession, IScoringCategory } from "./tryout-session";
 
