@@ -168,6 +168,80 @@ export async function POST(
     }
   }
 
+  // Auto-create family DB if user doesn't have one yet
+  if (!user.familyId && (invite.role === "viewer" || invite.role === "player")) {
+    try {
+      const familyId = new Types.ObjectId();
+      const { connectFamilyDB, getFamilyModels } = await import("@goparticipate/db");
+      const famConn = await connectFamilyDB(familyId.toString());
+      const famModels = getFamilyModels(famConn);
+
+      await famModels.FamilyProfile.create({
+        familyName: `${user.name}'s Family`,
+        primaryUserId: user._id,
+        orgConnections: [{
+          tenantSlug: session.user.tenantSlug,
+          tenantName: tenant.name,
+          connectedAt: new Date(),
+          status: "active",
+        }],
+        leagueConnections: [],
+        programHistory: [],
+        preferences: {
+          emailNotifications: true,
+          smsNotifications: false,
+          shareVerificationAcrossLeagues: true,
+        },
+      });
+
+      await famModels.FamilyGuardian.create({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        relationship: "guardian",
+        isPrimary: true,
+        canMakeDecisions: true,
+        playerIds: invite.playerId ? [invite.playerId] : [],
+      });
+
+      // If invite has a playerId, copy basic player info into family DB
+      if (invite.playerId) {
+        const { Player } = await import("@goparticipate/db");
+        const platformPlayer = await Player.findById(invite.playerId).lean();
+        if (platformPlayer) {
+          const pp = platformPlayer as any;
+          await famModels.FamilyPlayer.create({
+            firstName: pp.firstName,
+            lastName: pp.lastName,
+            dateOfBirth: pp.dateOfBirth,
+            gender: pp.gender || "other",
+            photos: [],
+            sizing: pp.sizing || {},
+            emergencyContacts: pp.emergencyContacts || [],
+            medical: pp.medical || {},
+            sports: [],
+            teamHistory: [{
+              tenantSlug: session.user.tenantSlug,
+              tenantName: tenant.name,
+              teamName: (await models.Team.findById(invite.teamId).select("name").lean() as any)?.name || "",
+              teamId: invite.teamId.toString(),
+              sport: (await models.Team.findById(invite.teamId).select("sport").lean() as any)?.sport || "",
+              season: new Date().getFullYear().toString(),
+              year: new Date().getFullYear(),
+              joinedAt: new Date(),
+            }],
+            verificationStatus: pp.verificationStatus || "unverified",
+            isActive: true,
+          });
+        }
+      }
+
+      await User.findByIdAndUpdate(user._id, { $set: { familyId } });
+    } catch (err) {
+      console.error("[invite:accept] Failed to create family DB:", err);
+    }
+  }
+
   // Mark invite as accepted
   invite.status = "accepted";
   invite.acceptedBy = new Types.ObjectId(session.user.id);

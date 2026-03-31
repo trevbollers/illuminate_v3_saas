@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
+import { Types } from "mongoose";
 import { connectPlatformDB, connectTenantDB, User, Tenant } from "@goparticipate/db";
 import { sendEmail, VerifyEmail } from "@goparticipate/email";
 import { createCheckoutSession } from "@goparticipate/billing";
@@ -69,18 +70,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── FAMILY signup — no tenant ────────────────────────────────────────
+    // ── FAMILY signup — create user + family DB ──────────────────────────
     if (role === "family") {
+      const familyId = new Types.ObjectId();
+
       const user = await User.create({
         email: email.toLowerCase(),
         name: fullName,
         passwordHash: password,
         memberships: [],
+        familyId,
       });
+
+      // Create the family database with profile + guardian
+      try {
+        const { connectFamilyDB, getFamilyModels } = await import("@goparticipate/db");
+        const famConn = await connectFamilyDB(familyId.toString());
+        const famModels = getFamilyModels(famConn);
+
+        await famModels.FamilyProfile.create({
+          familyName: `${fullName}'s Family`,
+          primaryUserId: user._id,
+          address: {},
+          orgConnections: [],
+          leagueConnections: [],
+          programHistory: [],
+          preferences: {
+            emailNotifications: true,
+            smsNotifications: false,
+            shareVerificationAcrossLeagues: true,
+          },
+        });
+
+        await famModels.FamilyGuardian.create({
+          userId: user._id,
+          name: fullName,
+          email: email.toLowerCase(),
+          relationship: "guardian",
+          isPrimary: true,
+          canMakeDecisions: true,
+          playerIds: [],
+        });
+      } catch (err) {
+        console.error("[register] Failed to create family DB:", err);
+      }
 
       await sendVerificationEmail(user._id.toString(), fullName, email);
 
-      return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+      return NextResponse.json({ checkoutUrl: null, familyId: familyId.toString() }, { status: 201 });
     }
 
     // ── LEAGUE signup ────────────────────────────────────────────────────
