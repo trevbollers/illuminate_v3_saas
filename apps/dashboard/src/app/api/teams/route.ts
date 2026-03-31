@@ -1,17 +1,19 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
+import { Types } from "mongoose";
+import { headers } from "next/headers";
 import { connectTenantDB, getOrgModels } from "@goparticipate/db";
 
 // GET /api/teams — list teams for this org
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const slug = h.get("x-tenant-slug");
+  if (!slug) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(slug, "organization");
   const models = getOrgModels(conn);
 
   const teams = await models.Team.find({ isActive: true })
@@ -43,8 +45,10 @@ export async function GET(): Promise<NextResponse> {
 
 // POST /api/teams — create a new team
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const slug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!slug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(slug, "organization");
   const models = getOrgModels(conn);
 
   const team = await models.Team.create({
@@ -66,7 +70,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     sport,
     divisionKey,
     season: season || undefined,
-    headCoachId: session.user.id,
+    headCoachId: new Types.ObjectId(userId),
     coachIds: [],
     managerIds: [],
     isActive: true,
