@@ -162,10 +162,15 @@ export default function SignupPage() {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || "Registration failed. Please try again.");
       }
-      const { checkoutUrl } = await res.json();
-      if (checkoutUrl) {
-        router.push(checkoutUrl);
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        // Paid plan → Stripe checkout → redirects to correct app on success
+        window.location.href = data.checkoutUrl;
+      } else if (data.redirectUrl) {
+        // Free plan → go directly to the correct app
+        window.location.href = data.redirectUrl;
       } else {
+        // Fallback: verify email page
         const email = payload.email as string;
         router.push("/auth/verify-email?email=" + encodeURIComponent(email));
       }

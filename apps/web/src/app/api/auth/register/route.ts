@@ -117,7 +117,12 @@ export async function POST(req: NextRequest) {
 
       await sendVerificationEmail(user._id.toString(), fullName, email);
 
-      return NextResponse.json({ checkoutUrl: null, familyId: familyId.toString() }, { status: 201 });
+      return NextResponse.json({
+        checkoutUrl: null,
+        role: "family",
+        familyId: familyId.toString(),
+        redirectUrl: "/family",
+      }, { status: 201 });
     }
 
     // ── LEAGUE signup ────────────────────────────────────────────────────
@@ -194,6 +199,7 @@ export async function POST(req: NextRequest) {
         user._id.toString(),
         email,
         slug,
+        "league",
       );
     }
 
@@ -269,7 +275,12 @@ export async function POST(req: NextRequest) {
     await sendVerificationEmail(user._id.toString(), fullName, email);
 
     if (isFree) {
-      return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+      const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4003";
+      return NextResponse.json({
+        checkoutUrl: null,
+        role: "org",
+        redirectUrl: `${dashboardUrl}/login?welcome=true`,
+      }, { status: 201 });
     }
 
     return await handlePaidCheckout(
@@ -326,8 +337,11 @@ async function handlePaidCheckout(
   userId: string,
   email: string,
   _slug: string,
+  role: "league" | "org" = "org",
 ) {
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003";
+  const targetUrl = role === "league"
+    ? (process.env.NEXT_PUBLIC_LEAGUE_URL ?? "http://localhost:4002")
+    : (process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:4003");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4000";
 
   try {
@@ -337,12 +351,20 @@ async function handlePaidCheckout(
       tenantId,
       userId,
       email: email.toLowerCase(),
-      successUrl: `${dashboardUrl}?checkout=success`,
+      successUrl: `${targetUrl}/login?welcome=true&checkout=success`,
       cancelUrl: `${appUrl}/signup?checkout=cancelled`,
     });
-    return NextResponse.json({ checkoutUrl: checkoutSession.url }, { status: 201 });
+    return NextResponse.json({
+      checkoutUrl: checkoutSession.url,
+      role,
+      redirectUrl: `${targetUrl}/login?welcome=true`,
+    }, { status: 201 });
   } catch (stripeErr) {
     console.error("[register] Failed to create Stripe checkout session:", stripeErr);
-    return NextResponse.json({ checkoutUrl: null }, { status: 201 });
+    return NextResponse.json({
+      checkoutUrl: null,
+      role,
+      redirectUrl: `${targetUrl}/login?welcome=true`,
+    }, { status: 201 });
   }
 }

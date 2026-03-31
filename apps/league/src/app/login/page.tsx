@@ -21,6 +21,7 @@ export default function LeagueLoginPage() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const errorParam = searchParams.get("error");
+  const isWelcome = searchParams.get("welcome") === "true";
 
   const [mode, setMode] = useState<LoginMode>("choose");
   const [loading, setLoading] = useState(false);
@@ -97,6 +98,11 @@ export default function LeagueLoginPage() {
               <CardDescription>Sign in to manage your league</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {isWelcome && (
+                <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+                  League created! Sign in with the credentials you just used to get started.
+                </div>
+              )}
               {error && <p className="text-sm text-destructive rounded-md bg-destructive/10 p-3">{error}</p>}
 
               <Button variant="outline" className="w-full gap-3" onClick={handleGoogleSignIn}>
