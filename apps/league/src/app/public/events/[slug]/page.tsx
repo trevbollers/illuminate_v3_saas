@@ -143,12 +143,12 @@ export default function PublicEventPage() {
         return r.json();
       })
       .then((data) => {
-        setEvent(data.event);
-        setDivisions(data.divisions);
-        setGames(data.games);
-        setLeagueName(data.leagueName);
+        setEvent(data.event || null);
+        setDivisions(data.divisions || []);
+        setGames(data.games || []);
+        setLeagueName(data.leagueName || "");
         // Default to first division if available
-        if (data.divisions.length > 0) {
+        if (data.divisions?.length > 0) {
           setSelectedDivision(data.divisions[0]._id);
         }
       })
