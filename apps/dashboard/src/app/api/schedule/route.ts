@@ -204,10 +204,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     eventData.notes = notes.trim();
   }
 
-  const created = await models.OrgEvent.create(eventData);
-
-  return NextResponse.json(
-    { ...created.toObject(), teamName: (team as any).name },
-    { status: 201 },
-  );
+  try {
+    const created = await models.OrgEvent.create(eventData);
+    return NextResponse.json(created.toObject(), { status: 201 });
+  } catch (err: any) {
+    console.error("[schedule:create] Failed:", err.message);
+    return NextResponse.json({ error: err.message || "Failed to create event" }, { status: 500 });
+  }
 }
