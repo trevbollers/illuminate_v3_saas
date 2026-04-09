@@ -10,6 +10,10 @@ out/
 # Build
 dist/
 build/
+*.tsbuildinfo
+
+# Local file uploads (will move to S3)
+apps/*/public/uploads/
 
 # Environment
 .env
