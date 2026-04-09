@@ -12,6 +12,8 @@ import {
   Loader2,
   Users,
   Trash2,
+  Trophy,
+  Medal,
 } from "lucide-react";
 import {
   Button,
@@ -46,6 +48,14 @@ interface Team {
   isActive: boolean;
 }
 
+interface Achievement {
+  teamName: string;
+  eventName: string;
+  division: string;
+  bracketTier?: string;
+  type: "champion" | "finalist";
+}
+
 const sportOptions = ["All Sports", "7v7 Football", "Basketball"];
 
 export default function TeamsPage() {
@@ -53,10 +63,12 @@ export default function TeamsPage() {
   const [search, setSearch] = useState("");
   const [sport, setSport] = useState("All Sports");
   const [teams, setTeams] = useState<Team[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTeams();
+    fetchAchievements();
   }, []);
 
   async function fetchTeams() {
@@ -73,6 +85,22 @@ export default function TeamsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchAchievements() {
+    try {
+      const res = await fetch("/api/teams/achievements");
+      if (res.ok) {
+        const data = await res.json();
+        setAchievements(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  }
+
+  function getTeamAchievements(teamName: string): Achievement[] {
+    return achievements.filter(
+      (a) => a.teamName.toLowerCase() === teamName.toLowerCase(),
+    );
   }
 
   async function deleteTeam(teamId: string) {
@@ -188,6 +216,38 @@ export default function TeamsPage() {
                       active
                     </Badge>
                   </div>
+                  {/* Achievement badges */}
+                  {getTeamAchievements(team.name).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {getTeamAchievements(team.name).map((a, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            a.type === "champion"
+                              ? a.bracketTier === "Silver"
+                                ? "bg-slate-100 text-slate-700 border border-slate-300"
+                                : a.bracketTier === "Bronze"
+                                ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-300"
+                              : "bg-slate-50 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {a.type === "champion" ? (
+                            <Trophy className={`h-3 w-3 ${
+                              a.bracketTier === "Silver" ? "text-slate-500" :
+                              a.bracketTier === "Bronze" ? "text-orange-500" :
+                              "text-amber-500"
+                            }`} />
+                          ) : (
+                            <Medal className="h-3 w-3 text-slate-400" />
+                          )}
+                          {a.type === "champion" ? "Champion" : "Finalist"}
+                          {a.bracketTier ? ` (${a.bracketTier})` : ""}
+                          {a.division ? ` — ${a.division}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-3 flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     {team.playerCount} players

@@ -14,9 +14,9 @@ export interface IRosterEntry {
 
 export interface IRegistration extends Document {
   eventId: Types.ObjectId;
-  divisionId: Types.ObjectId;
+  divisionId?: Types.ObjectId;
   orgTenantId: Types.ObjectId;
-  teamId: Types.ObjectId;
+  teamId?: Types.ObjectId;
   teamName: string;
   roster: IRosterEntry[];
   status: "pending" | "approved" | "rejected" | "waitlisted" | "withdrawn";
@@ -25,6 +25,10 @@ export interface IRegistration extends Document {
   amountPaid: number;
   registeredBy: Types.ObjectId;
   notes?: string;
+  champion?: boolean;
+  finalist?: boolean;
+  championDivision?: string;
+  bracketTier?: string; // "Gold", "Silver", "Bronze" etc.
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,9 +38,9 @@ export interface IRegistration extends Document {
 export const RegistrationSchema = new Schema<IRegistration>(
   {
     eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
-    divisionId: { type: Schema.Types.ObjectId, ref: "Division", required: true },
+    divisionId: { type: Schema.Types.ObjectId, ref: "Division" },
     orgTenantId: { type: Schema.Types.ObjectId, required: true },
-    teamId: { type: Schema.Types.ObjectId, required: true },
+    teamId: { type: Schema.Types.ObjectId },
     teamName: { type: String, required: true },
     roster: [
       {
@@ -65,6 +69,10 @@ export const RegistrationSchema = new Schema<IRegistration>(
     amountPaid: { type: Number, default: 0 },
     registeredBy: { type: Schema.Types.ObjectId, required: true },
     notes: { type: String },
+    champion: { type: Boolean, default: false },
+    finalist: { type: Boolean, default: false },
+    championDivision: { type: String },
+    bracketTier: { type: String },
   },
   { timestamps: true }
 );

@@ -163,10 +163,10 @@ async function saveAndReturnSchedule(
   event: any,
   schedule: ScheduleSlot[],
 ): Promise<NextResponse> {
-  // Delete existing scheduled games
+  // Delete existing non-bracket games (completed pool play games too, since we're regenerating)
   await tenant.models.Game.deleteMany({
     eventId: new Types.ObjectId(eventId),
-    status: "scheduled",
+    bracketId: { $exists: false },
   });
 
   // Create games from schedule
@@ -247,15 +247,17 @@ RULES:
 1. Each game takes ${event.settings.gameDurationMinutes} minutes with ${event.settings.timeBetweenGamesMinutes} minutes between games
 2. Games must fit within each day's start/end times
 3. A field can only host one game at a time
-4. IMPORTANT: Each division has its own format. Respect each division's eventFormat independently:
+4. CRITICAL CONSTRAINT: A team CANNOT play two games at the same time. Before assigning a game to a time slot, verify that NEITHER the home team NOR the away team is already playing another game at that same time slot. This is the most important rule.
+5. IMPORTANT: Each division has its own format. Respect each division's eventFormat independently:
    - "round_robin": Generate round-robin matchups. Every team plays every other team (or enough games so each team plays at least minPoolGamesPerTeam games). With uneven teams, some teams play one extra game.
    - "pool_play_to_bracket": Generate pool play round-robin games first, then bracket games for advancing teams (use "TBD" for bracket slots since pool results aren't known yet). Set round to "Pool Play" for pool games and "Quarterfinal"/"Semifinal"/"Final" etc. for bracket games.
    - "bracket_only": Generate single/double elimination bracket games with round labels. First round uses team names, later rounds use "TBD".
 5. Spread divisions across fields fairly — don't stack all of one division on one field
 6. Use registered team names if available, otherwise use "${event.sport === "7v7_football" ? "Team" : "Squad"} 1", "${event.sport === "7v7_football" ? "Team" : "Squad"} 2", etc. prefixed with division label
-7. Try to spread each team's games out — avoid back-to-back games for the same team
+7. Try to spread each team's games out — avoid back-to-back games for the same team. Give at least one time slot gap between games.
 8. Schedule pool play games first on earlier time slots, then bracket games later
-9. IMPORTANT: Avoid scheduling teams from the same organization against each other in early rounds. Teams from the same org (same orgId) should ideally not meet until later in the bracket or later pool rounds. This prevents local/same-area matchups early in the event
+9. Avoid scheduling teams from the same organization against each other in early rounds. Teams from the same org (same orgId) should ideally not meet until later in the bracket or later pool rounds
+10. VERIFY your output: scan through all games at each time slot and confirm no team name appears twice at the same timeSlot. If it does, move one of the conflicting games to a later slot
 
 Return ONLY a JSON array of objects with this exact structure (no markdown, no explanation):
 [
@@ -356,8 +358,28 @@ function generateBasicSchedule(
   // Combine: pool games first, then bracket games
   const allMatchups = [...poolMatchups, ...bracketMatchups];
 
-  // Assign matchups to field/time slots across days
-  let matchupIdx = 0;
+  // Assign matchups to field/time slots across days WITH team conflict checking.
+  // A team cannot play two games in the same time slot.
+  // We also try to give teams a break between games (avoid back-to-back).
+
+  // Track which teams are busy at each time slot
+  // key = timeSlot string, value = Set of team names playing at that time
+  const busyAtSlot = new Map<string, Set<string>>();
+  // Track each team's last scheduled slot index for back-to-back avoidance
+  const teamLastSlot = new Map<string, number>();
+
+  // Build all available slots across all days
+  interface TimeFieldSlot {
+    dayIndex: number;
+    dayDate: Date;
+    timeSlot: string;
+    slotIndex: number; // global sequential index for back-to-back tracking
+    locationName: string;
+    field: string;
+  }
+
+  const allSlots: TimeFieldSlot[] = [];
+  let globalSlotIdx = 0;
 
   for (let dayIndex = 0; dayIndex < event.days.length; dayIndex++) {
     const day = event.days[dayIndex];
@@ -369,42 +391,107 @@ function generateBasicSchedule(
     const startMinutes = (startH || 0) * 60 + (startM || 0);
     const endMinutes = (endH || 0) * 60 + (endM || 0);
 
-    // Generate time slots
-    const timeSlots: string[] = [];
     for (let t = startMinutes; t + gameDuration <= endMinutes; t += slotDuration) {
       const h = Math.floor(t / 60);
       const m = t % 60;
-      timeSlots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
-    }
+      const ts = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 
-    // Fill time slots across fields
-    for (let slotIdx = 0; slotIdx < timeSlots.length && matchupIdx < allMatchups.length; slotIdx++) {
-      for (let fieldIdx = 0; fieldIdx < fields.length && matchupIdx < allMatchups.length; fieldIdx++) {
-        const matchup = allMatchups[matchupIdx]!;
-        const fieldInfo = fields[fieldIdx]!;
-        const ts = timeSlots[slotIdx]!;
-        const [tsH, tsM] = ts.split(":").map(Number);
-
-        const scheduledAt = new Date(dayDate);
-        scheduledAt.setHours(tsH || 0, tsM || 0, 0, 0);
-
-        schedule.push({
+      for (const fieldInfo of fields) {
+        allSlots.push({
           dayIndex,
+          dayDate,
+          timeSlot: ts,
+          slotIndex: globalSlotIdx,
           locationName: fieldInfo.locationName,
           field: fieldInfo.field,
-          timeSlot: ts,
-          scheduledAt: scheduledAt.toISOString(),
-          homeTeamName: matchup.home,
-          awayTeamName: matchup.away,
-          divisionLabel: matchup.divisionLabel,
-          divisionId: matchup.divisionId,
-          round: matchup.round,
-          gameNumber: gameNumber++,
         });
+      }
+      globalSlotIdx++;
+    }
+  }
 
-        matchupIdx++;
+  // Helper: check if a team is busy at a time slot
+  function isTeamBusy(teamName: string, timeSlot: string, dayIndex: number): boolean {
+    if (!teamName || teamName === "TBD" || teamName === "BYE") return false;
+    const key = `${dayIndex}|${timeSlot}`;
+    return busyAtSlot.get(key)?.has(teamName) || false;
+  }
+
+  // Helper: mark a team as busy at a time slot
+  function markBusy(teamName: string, timeSlot: string, dayIndex: number, slotIndex: number) {
+    if (!teamName || teamName === "TBD" || teamName === "BYE") return;
+    const key = `${dayIndex}|${timeSlot}`;
+    if (!busyAtSlot.has(key)) busyAtSlot.set(key, new Set());
+    busyAtSlot.get(key)!.add(teamName);
+    teamLastSlot.set(teamName, slotIndex);
+  }
+
+  // Helper: check if either team would be back-to-back (played in immediately prior slot)
+  function isBackToBack(home: string, away: string, slotIndex: number): boolean {
+    if (slotIndex === 0) return false;
+    const homeLastSlot = teamLastSlot.get(home);
+    const awayLastSlot = teamLastSlot.get(away);
+    if (homeLastSlot !== undefined && slotIndex - homeLastSlot <= 1) return true;
+    if (awayLastSlot !== undefined && slotIndex - awayLastSlot <= 1) return true;
+    return false;
+  }
+
+  // Track which slots are taken (field occupied)
+  const occupiedSlots = new Set<string>(); // "dayIndex|timeSlot|field"
+
+  // Assign each matchup to the best available slot
+  for (const matchup of allMatchups) {
+    let bestSlot: TimeFieldSlot | null = null;
+    let bestScore = -Infinity;
+
+    for (const slot of allSlots) {
+      const slotKey = `${slot.dayIndex}|${slot.timeSlot}|${slot.field}`;
+      if (occupiedSlots.has(slotKey)) continue; // Field taken
+
+      // Hard constraint: neither team can be playing at this time
+      if (isTeamBusy(matchup.home, slot.timeSlot, slot.dayIndex)) continue;
+      if (isTeamBusy(matchup.away, slot.timeSlot, slot.dayIndex)) continue;
+
+      // Score: prefer earlier slots, penalize back-to-back
+      let score = 1000 - slot.slotIndex; // prefer earlier
+      if (isBackToBack(matchup.home, matchup.away, slot.slotIndex)) {
+        score -= 500; // strong penalty for back-to-back
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestSlot = slot;
       }
     }
+
+    if (!bestSlot) {
+      // No valid slot found — skip this matchup (shouldn't happen with enough time)
+      console.warn(`[schedule] Could not find slot for ${matchup.home} vs ${matchup.away} in ${matchup.divisionLabel}`);
+      continue;
+    }
+
+    const [tsH, tsM] = bestSlot.timeSlot.split(":").map(Number);
+    const scheduledAt = new Date(bestSlot.dayDate);
+    scheduledAt.setHours(tsH || 0, tsM || 0, 0, 0);
+
+    schedule.push({
+      dayIndex: bestSlot.dayIndex,
+      locationName: bestSlot.locationName,
+      field: bestSlot.field,
+      timeSlot: bestSlot.timeSlot,
+      scheduledAt: scheduledAt.toISOString(),
+      homeTeamName: matchup.home,
+      awayTeamName: matchup.away,
+      divisionLabel: matchup.divisionLabel,
+      divisionId: matchup.divisionId,
+      round: matchup.round,
+      gameNumber: gameNumber++,
+    });
+
+    // Mark slot as occupied and teams as busy
+    occupiedSlots.add(`${bestSlot.dayIndex}|${bestSlot.timeSlot}|${bestSlot.field}`);
+    markBusy(matchup.home, bestSlot.timeSlot, bestSlot.dayIndex, bestSlot.slotIndex);
+    markBusy(matchup.away, bestSlot.timeSlot, bestSlot.dayIndex, bestSlot.slotIndex);
   }
 
   return schedule;

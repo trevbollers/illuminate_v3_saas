@@ -10,6 +10,11 @@ import {
   Loader2,
   Users,
   BarChart3,
+  GitBranch,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 
 // ============================================================
@@ -78,7 +83,34 @@ interface Team {
   pool?: string;
 }
 
-type SubTab = "teams" | "schedule" | "standings";
+interface BracketMatch {
+  matchNumber: number;
+  round: number;
+  roundLabel?: string;
+  position: number;
+  nextMatchNumber?: number;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  homeScore?: number;
+  awayScore?: number;
+  winnerName?: string;
+  isBye?: boolean;
+  scheduledAt?: string;
+  field?: string;
+  status: string;
+}
+
+interface Bracket {
+  _id: string;
+  eventId: string;
+  divisionId: string;
+  name: string;
+  type: string;
+  matches: BracketMatch[];
+  status: string;
+}
+
+type SubTab = "teams" | "schedule" | "standings" | "brackets";
 
 // ============================================================
 // Helpers
@@ -125,16 +157,33 @@ export default function PublicEventPage() {
   const [standings, setStandings] = useState<Standing[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
+  const [brackets, setBrackets] = useState<Bracket[]>([]);
+
   // Loading flags
   const [standingsLoaded, setStandingsLoaded] = useState(false);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [bracketsLoaded, setBracketsLoaded] = useState(false);
 
   // Navigation state
   const [selectedDivision, setSelectedDivision] = useState<string>("all");
   const [subTab, setSubTab] = useState<SubTab>("schedule");
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  // Load schedule (primary data)
+  // Load schedule (primary data) + auto-refresh every 30s for live events
+  function refreshSchedule() {
+    return fetch(`/api/public/events/${slug}/schedule`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Event not found");
+        return r.json();
+      })
+      .then((data) => {
+        setEvent(data.event || null);
+        setDivisions(data.divisions || []);
+        setGames(data.games || []);
+        setLeagueName(data.leagueName || "");
+      });
+  }
+
   useEffect(() => {
     setLoading(true);
     fetch(`/api/public/events/${slug}/schedule`)
@@ -155,6 +204,28 @@ export default function PublicEventPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // Auto-refresh for live events (every 30 seconds)
+  useEffect(() => {
+    if (!event || event.status !== "in_progress") return;
+    const interval = setInterval(() => {
+      refreshSchedule();
+      // Also refresh standings and brackets if loaded
+      if (standingsLoaded) {
+        fetch(`/api/public/events/${slug}/standings`)
+          .then((r) => r.json())
+          .then((data) => setStandings(data.standings || []))
+          .catch(() => {});
+      }
+      if (bracketsLoaded) {
+        fetch(`/api/public/events/${slug}/brackets`)
+          .then((r) => r.json())
+          .then((data) => setBrackets(data.brackets || []))
+          .catch(() => {});
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [event?.status, slug, standingsLoaded, bracketsLoaded]);
 
   // Lazy-load standings
   useEffect(() => {
@@ -179,6 +250,18 @@ export default function PublicEventPage() {
       })
       .catch(() => {});
   }, [subTab, slug, teamsLoaded]);
+
+  // Lazy-load brackets
+  useEffect(() => {
+    if (subTab !== "brackets" || bracketsLoaded) return;
+    fetch(`/api/public/events/${slug}/brackets`)
+      .then((r) => r.json())
+      .then((data) => {
+        setBrackets(data.brackets || []);
+        setBracketsLoaded(true);
+      })
+      .catch(() => {});
+  }, [subTab, slug, bracketsLoaded]);
 
   // --------------------------------------------------------
   // Render
@@ -257,7 +340,12 @@ export default function PublicEventPage() {
       {/* ---- Header ---- */}
       <header className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-          <p className="text-sm font-medium text-blue-600">{leagueName}</p>
+          <a
+            href={`${process.env.NEXT_PUBLIC_APP_URL || ""}/${process.env.NEXT_PUBLIC_LEAGUE_SLUG || ""}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            {leagueName}
+          </a>
           <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
             {event.name}
           </h1>
@@ -278,6 +366,31 @@ export default function PublicEventPage() {
               <Clock className="h-4 w-4" />
               {event.settings.gameDurationMinutes} min games
             </span>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {event.status === "registration_open" && (
+              <a
+                href={`/public/events/${slug}/register`}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+              >
+                Register for this Event
+              </a>
+            )}
+            <button
+              onClick={() => {
+                const url = window.location.href;
+                if (navigator.share) {
+                  navigator.share({ title: event.name, url });
+                } else {
+                  navigator.clipboard.writeText(url);
+                  alert("Event link copied to clipboard!");
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </button>
           </div>
         </div>
       </header>
@@ -314,6 +427,7 @@ export default function PublicEventPage() {
                 { key: "teams", label: "Teams", icon: Users },
                 { key: "schedule", label: "Schedule", icon: Calendar },
                 { key: "standings", label: "Standings", icon: BarChart3 },
+                { key: "brackets", label: "Brackets", icon: GitBranch },
               ] as { key: SubTab; label: string; icon: any }[]
             ).map(({ key, label, icon: Icon }) => (
               <button
@@ -382,6 +496,18 @@ export default function PublicEventPage() {
             divisionMap={divisionMap}
             loading={!standingsLoaded}
             singleDivision={selectedDivision !== "all"}
+          />
+        )}
+        {subTab === "brackets" && (
+          <BracketsView
+            brackets={
+              selectedDivision === "all"
+                ? brackets
+                : brackets.filter((b) => b.divisionId === selectedDivision)
+            }
+            divisionMap={divisionMap}
+            loading={!bracketsLoaded}
+            showDivisionLabel={selectedDivision === "all"}
           />
         )}
       </div>
@@ -827,6 +953,242 @@ function StandingsView({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ============================================================
+// Brackets Tab
+// ============================================================
+
+function BracketsView({
+  brackets,
+  divisionMap,
+  loading,
+  showDivisionLabel,
+}: {
+  brackets: Bracket[];
+  divisionMap: Map<string, Division>;
+  loading: boolean;
+  showDivisionLabel: boolean;
+}) {
+  const [mobileRound, setMobileRound] = useState<Record<string, number>>({});
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (brackets.length === 0) {
+    return (
+      <EmptyState
+        icon={GitBranch}
+        title="No brackets yet"
+        description="Brackets will appear here once the event bracket draw is published."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {brackets.map((bracket) => {
+        const div = divisionMap.get(bracket.divisionId);
+        const maxRound = Math.max(...bracket.matches.map((m) => m.round), 0);
+        const rounds: { round: number; label: string; matches: BracketMatch[] }[] = [];
+
+        for (let r = 1; r <= maxRound; r++) {
+          const roundMatches = bracket.matches
+            .filter((m) => m.round === r)
+            .sort((a, b) => a.position - b.position);
+          const label =
+            roundMatches[0]?.roundLabel ||
+            (r === maxRound
+              ? "Championship"
+              : r === maxRound - 1
+              ? "Semifinals"
+              : `Round ${r}`);
+          rounds.push({ round: r, label, matches: roundMatches });
+        }
+
+        const currentMobileRound = mobileRound[bracket._id] ?? 0;
+        const isChampionshipRound = currentMobileRound === rounds.length - 1;
+
+        return (
+          <div key={bracket._id}>
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold text-slate-900">
+                {bracket.name}
+              </h2>
+              {showDivisionLabel && div && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {div.label}
+                </span>
+              )}
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {bracket.type.replace(/_/g, " ")}
+              </span>
+            </div>
+
+            {/* ── Desktop: horizontal scroll bracket ── */}
+            <div className="hidden sm:block">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex gap-6" style={{ minWidth: `${rounds.length * 220}px` }}>
+                  {rounds.map(({ round, label, matches }) => (
+                    <div key={round} className="flex-shrink-0" style={{ width: 200 }}>
+                      <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        {label}
+                      </p>
+                      <div
+                        className="flex flex-col justify-around gap-4"
+                        style={{ minHeight: `${bracket.matches.filter((m) => m.round === 1).length * 80}px` }}
+                      >
+                        {matches.map((match) => (
+                          <BracketMatchCard key={match.matchNumber} match={match} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Mobile: round-by-round navigation ── */}
+            <div className="sm:hidden">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                {/* Round navigation */}
+                <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2">
+                  <button
+                    onClick={() =>
+                      setMobileRound((prev) => ({
+                        ...prev,
+                        [bracket._id]: Math.max(0, currentMobileRound - 1),
+                      }))
+                    }
+                    disabled={currentMobileRound === 0}
+                    className="rounded-full p-1.5 text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <div className="text-center">
+                    <p className={`text-sm font-semibold ${isChampionshipRound ? "text-amber-700" : "text-slate-900"}`}>
+                      {isChampionshipRound && <Trophy className="inline h-4 w-4 text-amber-500 mr-1" />}
+                      {rounds[currentMobileRound]?.label}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      {currentMobileRound + 1} of {rounds.length}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setMobileRound((prev) => ({
+                        ...prev,
+                        [bracket._id]: Math.min(rounds.length - 1, currentMobileRound + 1),
+                      }))
+                    }
+                    disabled={currentMobileRound === rounds.length - 1}
+                    className="rounded-full p-1.5 text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Round dots */}
+                <div className="flex justify-center gap-1.5 py-2 border-b border-slate-100">
+                  {rounds.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() =>
+                        setMobileRound((prev) => ({ ...prev, [bracket._id]: idx }))
+                      }
+                      className={`h-2 rounded-full transition-all ${
+                        idx === currentMobileRound
+                          ? "w-4 bg-blue-600"
+                          : "w-2 bg-slate-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                {/* Match cards for current round */}
+                <div className="space-y-2 p-3">
+                  {rounds[currentMobileRound]?.matches.map((match) => (
+                    <BracketMatchCard key={match.matchNumber} match={match} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BracketMatchCard({ match }: { match: BracketMatch }) {
+  const isComplete = match.status === "completed";
+  const isLive = match.status === "in_progress";
+  const homeWon = isComplete && (match.homeScore ?? 0) > (match.awayScore ?? 0);
+  const awayWon = isComplete && (match.awayScore ?? 0) > (match.homeScore ?? 0);
+
+  return (
+    <div
+      className={`rounded-lg border text-sm shadow-sm ${
+        isLive
+          ? "border-green-300 ring-1 ring-green-200"
+          : "border-slate-200"
+      }`}
+    >
+      {/* Home team */}
+      <div
+        className={`flex items-center justify-between px-3 py-2.5 ${
+          homeWon ? "bg-blue-50 font-semibold text-slate-900" : "text-slate-700"
+        }`}
+      >
+        <span className="truncate text-sm">
+          {homeWon && <Trophy className="inline h-3 w-3 text-amber-500 mr-1" />}
+          {match.homeTeamName || (match.isBye ? "BYE" : "TBD")}
+        </span>
+        {(isComplete || isLive) && (
+          <span className={`ml-2 text-base tabular-nums ${homeWon ? "font-bold" : ""}`}>
+            {match.homeScore ?? "–"}
+          </span>
+        )}
+      </div>
+      <div className="border-t border-slate-100" />
+      {/* Away team */}
+      <div
+        className={`flex items-center justify-between px-3 py-2.5 ${
+          awayWon ? "bg-blue-50 font-semibold text-slate-900" : "text-slate-700"
+        }`}
+      >
+        <span className="truncate text-sm">
+          {awayWon && <Trophy className="inline h-3 w-3 text-amber-500 mr-1" />}
+          {match.awayTeamName || (match.isBye ? "BYE" : "TBD")}
+        </span>
+        {(isComplete || isLive) && (
+          <span className={`ml-2 text-base tabular-nums ${awayWon ? "font-bold" : ""}`}>
+            {match.awayScore ?? "–"}
+          </span>
+        )}
+      </div>
+      {/* Match info footer */}
+      <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] text-slate-500">
+          {match.field || "TBD"}
+          {match.scheduledAt && ` · ${formatTime(match.scheduledAt)}`}
+        </span>
+        {isLive && (
+          <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 animate-pulse">
+            LIVE
+          </span>
+        )}
+        {isComplete && (
+          <span className="text-[9px] font-medium text-slate-400">FINAL</span>
+        )}
+      </div>
     </div>
   );
 }

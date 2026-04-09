@@ -17,6 +17,7 @@ import {
   UserX,
   Keyboard,
 } from "lucide-react";
+import jsQR from "jsqr";
 import { Card, CardContent, CardHeader, CardTitle } from "@goparticipate/ui/src/components/card";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Badge } from "@goparticipate/ui/src/components/badge";
@@ -39,6 +40,9 @@ interface ScanResult {
   playerName?: string;
   teamName?: string;
   jerseyNumber?: number;
+  photoUrl?: string;
+  divisionLabel?: string;
+  ageGroup?: string;
   timestamp: Date;
 }
 
@@ -129,6 +133,9 @@ export default function CheckInPage() {
         playerName: data.playerName,
         teamName: data.teamName,
         jerseyNumber: data.jerseyNumber,
+        photoUrl: data.photoUrl,
+        divisionLabel: data.divisionLabel,
+        ageGroup: data.ageGroup,
         timestamp: new Date(),
       };
 
@@ -152,7 +159,7 @@ export default function CheckInPage() {
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -161,27 +168,36 @@ export default function CheckInPage() {
       }
       setScanning(true);
 
-      // Start scanning frames for QR codes using BarcodeDetector API
-      if ("BarcodeDetector" in window) {
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-        scanIntervalRef.current = setInterval(async () => {
-          if (!videoRef.current || processing) return;
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const qrValue = barcodes[0].rawValue;
-              if (qrValue) {
-                processQR(qrValue);
-              }
-            }
-          } catch {
-            // detection frame error — ignore
-          }
-        }, 500);
-      } else {
-        // Fallback: no BarcodeDetector — switch to manual mode
-        setUseManualMode(true);
-      }
+      // Scan frames using jsQR (cross-browser, works on all devices)
+      let lastScannedValue = "";
+      let lastScannedTime = 0;
+
+      scanIntervalRef.current = setInterval(() => {
+        if (!videoRef.current || !canvasRef.current || processing) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+
+        if (code?.data) {
+          // Debounce: don't scan the same code within 3 seconds
+          const now = Date.now();
+          if (code.data === lastScannedValue && now - lastScannedTime < 3000) return;
+          lastScannedValue = code.data;
+          lastScannedTime = now;
+          processQR(code.data);
+        }
+      }, 250); // scan 4 times per second
     } catch (err) {
       console.error("Camera access failed:", err);
       setUseManualMode(true);
@@ -310,7 +326,7 @@ export default function CheckInPage() {
                           playsInline
                           muted
                         />
-                        <canvas ref={canvasRef} className="hidden" />
+                        <canvas ref={canvasRef} style={{ display: "none" }} />
                         {processing && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                             <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -380,30 +396,91 @@ export default function CheckInPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-                {scanResults.map((result) => (
-                  <div
-                    key={result.id}
-                    className={`flex items-center gap-3 rounded-lg border p-3 ${getStatusColor(result.status)}`}
-                  >
-                    {getStatusIcon(result.status)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {result.playerName && (
-                          <span className="font-semibold">{result.playerName}</span>
-                        )}
-                        {result.jerseyNumber !== undefined && (
-                          <Badge variant="outline" className="text-xs">#{result.jerseyNumber}</Badge>
+              <div className="space-y-3">
+                {scanResults.map((result, idx) => (
+                  <div key={result.id}>
+                    {/* Player Card — shown prominently for the most recent scan */}
+                    {idx === 0 && result.status === "checked_in" && result.playerName ? (
+                      <div className="rounded-xl border-2 border-green-400 bg-green-50 p-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white border border-green-200 overflow-hidden">
+                            {result.photoUrl ? (
+                              <img src={result.photoUrl} alt={result.playerName} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-2xl font-bold text-green-600">
+                                {result.playerName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              <span className="text-lg font-bold text-green-900">{result.playerName}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {result.jerseyNumber !== undefined && (
+                                <span className="rounded bg-green-200 px-2 py-0.5 text-xs font-bold text-green-800">
+                                  #{result.jerseyNumber}
+                                </span>
+                              )}
+                              {result.teamName && (
+                                <span className="text-sm text-green-700">{result.teamName}</span>
+                              )}
+                            </div>
+                            {(result.divisionLabel || result.ageGroup) && (
+                              <div className="mt-1 text-xs text-green-600">
+                                {result.divisionLabel}{result.ageGroup ? ` · ${result.ageGroup}` : ""}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Compact result row for history */
+                      <div className={`flex items-center gap-3 rounded-lg border p-3 ${getStatusColor(result.status)}`}>
+                        {idx === 0 && result.status !== "checked_in" ? (
+                          /* Most recent non-success — show bigger */
+                          <div className="flex items-center gap-3 flex-1">
+                            {getStatusIcon(result.status)}
+                            <div className="flex-1 min-w-0">
+                              {result.playerName && (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-lg">{result.playerName}</span>
+                                  {result.jerseyNumber !== undefined && (
+                                    <Badge variant="outline" className="text-xs">#{result.jerseyNumber}</Badge>
+                                  )}
+                                </div>
+                              )}
+                              <div className="text-sm font-medium">{result.message}</div>
+                              {result.teamName && (
+                                <div className="text-xs opacity-75">{result.teamName}</div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {getStatusIcon(result.status)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {result.playerName && (
+                                  <span className="font-semibold text-sm">{result.playerName}</span>
+                                )}
+                                {result.jerseyNumber !== undefined && (
+                                  <span className="text-xs opacity-60">#{result.jerseyNumber}</span>
+                                )}
+                                {result.teamName && (
+                                  <span className="text-xs opacity-60">· {result.teamName}</span>
+                                )}
+                              </div>
+                              <div className="text-xs opacity-75">{result.message}</div>
+                            </div>
+                            <div className="text-[10px] opacity-50 whitespace-nowrap">
+                              {result.timestamp.toLocaleTimeString()}
+                            </div>
+                          </>
                         )}
                       </div>
-                      <div className="text-sm">{result.message}</div>
-                      {result.teamName && (
-                        <div className="text-xs opacity-75">{result.teamName}</div>
-                      )}
-                    </div>
-                    <div className="text-xs opacity-60 whitespace-nowrap">
-                      {result.timestamp.toLocaleTimeString()}
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>

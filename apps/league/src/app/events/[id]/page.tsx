@@ -44,7 +44,23 @@ import {
   ArrowUp,
   ArrowDown,
   GripVertical,
+  BarChart3,
+  RefreshCw,
+  Move,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 // ─── Types ───
 
@@ -215,7 +231,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "divisions" | "registrations" | "brackets" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "schedule" | "divisions" | "registrations" | "brackets" | "standings" | "settings">("overview");
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [showEndTimes, setShowEndTimes] = useState(false);
@@ -229,6 +245,32 @@ export default function EventDetailPage() {
   const [scoringMatch, setScoringMatch] = useState<{ bracketId: string; matchNumber: number } | null>(null);
   const [matchHomeScore, setMatchHomeScore] = useState("");
   const [matchAwayScore, setMatchAwayScore] = useState("");
+  const [standings, setStandings] = useState<any[]>([]);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+
+  // Schedule edit mode (drag-drop)
+  const [scheduleEditMode, setScheduleEditMode] = useState(false);
+  const [activeGameDrag, setActiveGameDrag] = useState<GameData | null>(null);
+  const [dragOverCellId, setDragOverCellId] = useState<string | null>(null);
+  const [dragConflict, setDragConflict] = useState(false);
+  const [lastMove, setLastMove] = useState<{
+    gameId: string;
+    prevField: string;
+    prevTimeSlot: string;
+    prevLocationName: string;
+    prevDayIndex: number;
+    label: string;
+  } | null>(null);
+  const [pendingBump, setPendingBump] = useState<{
+    primaryMove: { gameId: string; field: string; timeSlot: string };
+    bumpMoves: { gameId: string; gameNumber?: number; teamNames: string; fromSlot: string; toSlot: string; field: string; timeSlot: string }[];
+  } | null>(null);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
 
   // Edit mode
   const [editing, setEditing] = useState(false);
@@ -426,9 +468,27 @@ export default function EventDetailPage() {
     setBrackets(Array.isArray(data) ? data : []);
   }, [id]);
 
+  const fetchStandings = useCallback(async () => {
+    setStandingsLoading(true);
+    try {
+      const res = await fetch(`/api/events/${id}/standings`);
+      const data = await res.json();
+      setStandings(data.standings || []);
+    } catch {} finally { setStandingsLoading(false); }
+  }, [id]);
+
+  async function recalculateStandings() {
+    setRecalculating(true);
+    try {
+      const res = await fetch(`/api/events/${id}/standings`, { method: "POST" });
+      const data = await res.json();
+      setStandings(data.standings || []);
+    } catch {} finally { setRecalculating(false); }
+  }
+
   useEffect(() => {
-    Promise.all([fetchEvent(), fetchGames(), fetchRegistrations(), fetchBrackets()]).then(() => setLoading(false));
-  }, [fetchEvent, fetchGames, fetchRegistrations, fetchBrackets]);
+    Promise.all([fetchEvent(), fetchGames(), fetchRegistrations(), fetchBrackets(), fetchStandings()]).then(() => setLoading(false));
+  }, [fetchEvent, fetchGames, fetchRegistrations, fetchBrackets, fetchStandings]);
 
   async function updateStatus(newStatus: string) {
     setUpdating(true);
@@ -493,8 +553,239 @@ export default function EventDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ homeScore, awayScore, status: "completed" }),
     });
-    await fetchGames();
+    await Promise.all([fetchGames(), fetchStandings()]);
     setSelectedGame(null);
+  }
+
+  async function updateGameFull(
+    gameId: string,
+    update: { homeTeamName?: string; awayTeamName?: string; homeScore?: number; awayScore?: number; status?: string },
+  ) {
+    await fetch(`/api/events/${id}/games/${gameId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
+    });
+    await Promise.all([fetchGames(), fetchStandings()]);
+    setSelectedGame(null);
+  }
+
+  // ─── DnD Handlers ───
+
+  function checkGameConflict(game: GameData, targetField: string, targetTimeSlot: string): string | null {
+    const occupant = dayGames.find(
+      (g) => g._id !== game._id && g.field === targetField && g.timeSlot === targetTimeSlot,
+    );
+    if (occupant) return `Cell occupied by Game #${occupant.gameNumber}`;
+
+    const teamsInGame = [game.homeTeamName, game.awayTeamName].filter(
+      (t) => t && t !== "TBD" && t !== "BYE",
+    );
+    const sameTimeGames = dayGames.filter(
+      (g) => g._id !== game._id && g.timeSlot === targetTimeSlot,
+    );
+    for (const g of sameTimeGames) {
+      for (const t of teamsInGame) {
+        if (g.homeTeamName === t || g.awayTeamName === t) {
+          return `${t} already plays at ${targetTimeSlot} (Game #${g.gameNumber})`;
+        }
+      }
+    }
+    return null;
+  }
+
+  function handleDragStart(e: DragStartEvent) {
+    const game = e.active.data.current as GameData;
+    setActiveGameDrag(game);
+  }
+
+  function handleDragOver(e: DragOverEvent) {
+    if (!e.over) {
+      setDragOverCellId(null);
+      setDragConflict(false);
+      return;
+    }
+    const cellId = e.over.id as string;
+    setDragOverCellId(cellId);
+
+    const [targetField, targetTimeSlot] = cellId.split("|");
+    if (!targetField || !targetTimeSlot || !activeGameDrag) {
+      setDragConflict(false);
+      return;
+    }
+    const conflict = checkGameConflict(activeGameDrag, targetField, targetTimeSlot);
+    setDragConflict(!!conflict);
+  }
+
+  function computeBumpMoves(
+    movedGame: GameData,
+    targetField: string,
+    targetTimeSlot: string,
+  ): { gameId: string; gameNumber?: number; teamNames: string; fromSlot: string; toSlot: string; field: string; timeSlot: string }[] {
+    const moves: { gameId: string; gameNumber?: number; teamNames: string; fromSlot: string; toSlot: string; field: string; timeSlot: string }[] = [];
+
+    // Find occupant at the target cell
+    let occupant = dayGames.find(
+      (g) => g._id !== movedGame._id && g.field === targetField && g.timeSlot === targetTimeSlot,
+    );
+    if (!occupant) return moves;
+
+    // Chain: push occupant(s) to the next available slot on the same field
+    let slotIdx = timeSlots.indexOf(targetTimeSlot);
+    while (occupant && slotIdx + 1 < timeSlots.length) {
+      const nextSlot = timeSlots[slotIdx + 1]!;
+      moves.push({
+        gameId: occupant._id,
+        gameNumber: occupant.gameNumber,
+        teamNames: `${occupant.homeTeamName} vs ${occupant.awayTeamName}`,
+        fromSlot: timeSlots[slotIdx]!,
+        toSlot: nextSlot,
+        field: targetField,
+        timeSlot: nextSlot,
+      });
+      // Check if the next slot is also occupied (chain continues)
+      occupant = dayGames.find(
+        (g) => g._id !== movedGame._id && !moves.some((m) => m.gameId === g._id) && g.field === targetField && g.timeSlot === nextSlot,
+      );
+      slotIdx++;
+    }
+
+    // If the chain pushes past the last slot, it's invalid
+    if (occupant) return []; // Can't bump — no room
+
+    return moves;
+  }
+
+  async function executeBumpMoves(
+    primaryMove: { gameId: string; field: string; timeSlot: string },
+    bumpMoves: { gameId: string; field: string; timeSlot: string }[],
+  ) {
+    const day = event!.days[selectedDay];
+    const fieldInfo = allFields.find((f) => f.field === primaryMove.field);
+    const locationName = fieldInfo?.locationName || "";
+
+    // Build all updates
+    const allMoves = [primaryMove, ...bumpMoves];
+    const updates = allMoves.map((move) => {
+      const [h, m] = move.timeSlot.split(":").map(Number);
+      const scheduledAt = new Date(day.date);
+      scheduledAt.setHours(h || 0, m || 0, 0, 0);
+      return {
+        gameId: move.gameId,
+        update: {
+          field: move.field,
+          timeSlot: move.timeSlot,
+          scheduledAt: scheduledAt.toISOString(),
+          locationName,
+          dayIndex: selectedDay,
+        },
+      };
+    });
+
+    // Fire all PATCH requests in parallel
+    await Promise.all(
+      updates.map(({ gameId, update }) =>
+        fetch(`/api/events/${id}/games/${gameId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(update),
+        }),
+      ),
+    );
+
+    await fetchGames();
+    setPendingBump(null);
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    const game = activeGameDrag;
+    setActiveGameDrag(null);
+    setDragOverCellId(null);
+    setDragConflict(false);
+
+    if (!e.over || !game) return;
+
+    const cellId = e.over.id as string;
+    const [targetField, targetTimeSlot] = cellId.split("|");
+    if (!targetField || !targetTimeSlot) return;
+
+    // Same cell — no move
+    if (game.field === targetField && game.timeSlot === targetTimeSlot) return;
+
+    // Check if target cell is occupied
+    const occupant = dayGames.find(
+      (g) => g._id !== game._id && g.field === targetField && g.timeSlot === targetTimeSlot,
+    );
+
+    if (occupant) {
+      // Same field — try bump logic
+      if (game.field === targetField || !game.field) {
+        const bumpMoves = computeBumpMoves(game, targetField, targetTimeSlot);
+        if (bumpMoves.length === 0) {
+          alert("Cannot move: no room to bump games down on this field.");
+          return;
+        }
+
+        // Check team conflicts for ALL bumped games
+        for (const bump of bumpMoves) {
+          const bumpedGame = dayGames.find((g) => g.gameId === bump.gameId || g._id === bump.gameId);
+          if (bumpedGame) {
+            const conflict = checkGameConflict(bumpedGame, bump.field, bump.timeSlot);
+            if (conflict) {
+              alert(`Cannot bump: ${conflict}`);
+              return;
+            }
+          }
+        }
+
+        // Show confirmation dialog
+        setPendingBump({
+          primaryMove: { gameId: game._id, field: targetField, timeSlot: targetTimeSlot },
+          bumpMoves,
+        });
+        return;
+      }
+
+      // Cross-field to occupied cell — block
+      alert(`Cannot move: ${targetField} at ${targetTimeSlot} is occupied by Game #${occupant.gameNumber}`);
+      return;
+    }
+
+    // Team conflict check (empty cell but team plays at same time on another field)
+    const teamConflict = checkGameConflict(game, targetField, targetTimeSlot);
+    if (teamConflict) {
+      alert(`Cannot move: ${teamConflict}`);
+      return;
+    }
+
+    // Simple move — no bump needed
+    // Save undo state
+    setLastMove({
+      gameId: game._id,
+      prevField: game.field,
+      prevTimeSlot: game.timeSlot,
+      prevLocationName: game.locationName,
+      prevDayIndex: game.dayIndex,
+      label: `Game #${game.gameNumber} moved to ${targetField} at ${targetTimeSlot}`,
+    });
+
+    const day = event!.days[selectedDay];
+    const [h, m] = targetTimeSlot.split(":").map(Number);
+    const scheduledAt = new Date(day.date);
+    scheduledAt.setHours(h || 0, m || 0, 0, 0);
+
+    const fieldInfo = allFields.find((f) => f.field === targetField);
+
+    await updateGameFull(game._id, {
+      field: targetField,
+      timeSlot: targetTimeSlot,
+      scheduledAt: scheduledAt.toISOString(),
+      locationName: fieldInfo?.locationName || game.locationName,
+      dayIndex: selectedDay,
+    });
+
+    // Auto-clear undo after 8 seconds
+    setTimeout(() => setLastMove(null), 8000);
   }
 
   async function updateRegistration(regId: string, status: string) {
@@ -505,6 +796,15 @@ export default function EventDetailPage() {
     });
     await fetchRegistrations();
     await fetchEvent();
+  }
+
+  async function updateRegistrationDivision(regId: string, divisionId: string) {
+    await fetch(`/api/events/${id}/registrations/${regId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisionId }),
+    });
+    await fetchRegistrations();
   }
 
   async function createBracket(divisionId: string) {
@@ -692,6 +992,7 @@ export default function EventDetailPage() {
     { key: "registrations" as const, label: "Registrations", icon: ClipboardList },
     { key: "schedule" as const, label: "Schedule", icon: CalendarDays },
     { key: "brackets" as const, label: "Brackets", icon: GitBranch },
+    { key: "standings" as const, label: "Standings", icon: BarChart3 },
     { key: "divisions" as const, label: "Divisions", icon: Layers },
     { key: "settings" as const, label: "Settings", icon: Settings2 },
   ];
@@ -1258,6 +1559,17 @@ export default function EventDetailPage() {
                 <input type="checkbox" checked={showEndTimes} onChange={(e) => setShowEndTimes(e.target.checked)} className="h-3 w-3" />
                 End times
               </label>
+              <button
+                onClick={() => setScheduleEditMode(!scheduleEditMode)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  scheduleEditMode
+                    ? "bg-blue-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                <Move className="h-3 w-3" />
+                {scheduleEditMode ? "Done Editing" : "Edit Schedule"}
+              </button>
             </div>
           </div>
 
@@ -1281,6 +1593,13 @@ export default function EventDetailPage() {
             </Card>
           ) : (
             /* ─── Schedule Grid ─── */
+            <DndContext
+              sensors={scheduleEditMode ? dndSensors : undefined}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
             <div className="overflow-x-auto rounded-xl border">
               <div className="min-w-[600px]">
                 {/* Header row: field names */}
@@ -1316,51 +1635,83 @@ export default function EventDetailPage() {
                         const divColor = game ? (divColorMap.get(game.divisionId) || "") : "";
 
                         return (
-                          <div key={fi} className="flex-1 border-r p-1.5 last:border-r-0">
-                            {game ? (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedGame(game)}
-                                className={`w-full rounded-lg border p-2 text-left transition-all hover:shadow-md ${divColor}`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold opacity-60">#{game.gameNumber}</span>
-                                  <div className="flex items-center gap-1">
-                                    {game.round && game.round !== "Pool Play" && (
-                                      <Badge variant="outline" className="h-4 border-amber-500 px-1 text-[9px] text-amber-700">
-                                        {game.round}
-                                      </Badge>
+                          <ScheduleDropCell key={fi} cellId={`${f.field}|${ts}`} isEditMode={scheduleEditMode} isDragOver={dragOverCellId === `${f.field}|${ts}`} hasConflict={dragConflict && dragOverCellId === `${f.field}|${ts}`}>
+                            {game ? (() => {
+                                const roundLower = (game.round || "").toLowerCase();
+                                const isChampionship =
+                                  roundLower === "championship" ||
+                                  roundLower === "final" ||
+                                  roundLower === "gold medal" ||
+                                  roundLower === "title game" ||
+                                  roundLower.startsWith("championship");
+                                const winner = game.status === "completed" && game.homeScore !== undefined && game.awayScore !== undefined
+                                  ? (game.homeScore > game.awayScore ? game.homeTeamName : game.awayScore > game.homeScore ? game.awayTeamName : null)
+                                  : null;
+
+                                return (
+                                  <ScheduleDragCard gameId={game._id} gameData={game} isEditMode={scheduleEditMode} isDragging={activeGameDrag?._id === game._id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => { if (!activeGameDrag) setSelectedGame(game); }}
+                                    className={`w-full rounded-lg border p-2 text-left transition-all hover:shadow-md ${
+                                      isChampionship
+                                        ? "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-300 ring-1 ring-amber-200"
+                                        : divColor
+                                    } ${activeGameDrag?._id === game._id ? "opacity-30" : ""}`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1">
+                                        {isChampionship && <Trophy className="h-3.5 w-3.5 text-amber-500" />}
+                                        <span className="text-[10px] font-bold opacity-60">#{game.gameNumber}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {isChampionship ? (
+                                          <Badge className="h-4 bg-amber-500 px-1 text-[9px] text-white hover:bg-amber-600">
+                                            Championship
+                                          </Badge>
+                                        ) : game.round && game.round !== "Pool Play" ? (
+                                          <Badge variant="outline" className="h-4 border-amber-500 px-1 text-[9px] text-amber-700">
+                                            {game.round}
+                                          </Badge>
+                                        ) : null}
+                                        {game.status === "completed" ? (
+                                          <Badge variant="secondary" className="h-4 px-1 text-[9px]">Final</Badge>
+                                        ) : game.status === "in_progress" ? (
+                                          <Badge variant="default" className="h-4 px-1 text-[9px]">Live</Badge>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <div className="mt-1 space-y-0.5">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className={`truncate font-medium ${isChampionship && winner === game.homeTeamName ? "text-amber-700" : ""}`}>
+                                          {isChampionship && winner === game.homeTeamName && <Trophy className="inline h-3 w-3 text-amber-500 mr-0.5" />}
+                                          {game.homeTeamName}
+                                        </span>
+                                        {game.homeScore !== undefined && (
+                                          <span className={`ml-1 font-bold ${winner === game.homeTeamName ? "text-amber-700" : ""}`}>{game.homeScore}</span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className={`truncate font-medium ${isChampionship && winner === game.awayTeamName ? "text-amber-700" : ""}`}>
+                                          {isChampionship && winner === game.awayTeamName && <Trophy className="inline h-3 w-3 text-amber-500 mr-0.5" />}
+                                          {game.awayTeamName}
+                                        </span>
+                                        {game.awayScore !== undefined && (
+                                          <span className={`ml-1 font-bold ${winner === game.awayTeamName ? "text-amber-700" : ""}`}>{game.awayScore}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {game.round === "Pool Play" && (
+                                      <p className="mt-1 text-[10px] opacity-50">Pool Play</p>
                                     )}
-                                    {game.status === "completed" ? (
-                                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">Final</Badge>
-                                    ) : game.status === "in_progress" ? (
-                                      <Badge variant="default" className="h-4 px-1 text-[9px]">Live</Badge>
-                                    ) : null}
-                                  </div>
-                                </div>
-                                <div className="mt-1 space-y-0.5">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="truncate font-medium">{game.homeTeamName}</span>
-                                    {game.homeScore !== undefined && (
-                                      <span className="ml-1 font-bold">{game.homeScore}</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="truncate font-medium">{game.awayTeamName}</span>
-                                    {game.awayScore !== undefined && (
-                                      <span className="ml-1 font-bold">{game.awayScore}</span>
-                                    )}
-                                  </div>
-                                </div>
-                                {game.round === "Pool Play" && (
-                                  <p className="mt-1 text-[10px] opacity-50">Pool Play</p>
-                                )}
-                              </button>
-                            ) : (
+                                  </button>
+                                  </ScheduleDragCard>
+                                );
+                              })() : (
                               <div className="flex h-full min-h-[60px] items-center justify-center rounded-lg border border-dashed border-transparent">
                               </div>
                             )}
-                          </div>
+                          </ScheduleDropCell>
                         );
                       })}
                     </div>
@@ -1369,6 +1720,116 @@ export default function EventDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Unscheduled Games (bracket games without time slots) */}
+          {(() => {
+            const unscheduled = games.filter(
+              (g) => !g.field || !g.timeSlot || g.field === "" || g.field === "TBD",
+            );
+            if (unscheduled.length === 0) return null;
+            return (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                  Unscheduled Games ({unscheduled.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  These games need a field and time slot assigned. Click to edit.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {unscheduled.map((game) => {
+                    const divColor = divColorMap.get(game.divisionId) || "bg-slate-50 border-slate-200";
+                    const div = event.divisions.find((d) => d._id === game.divisionId);
+                    return (
+                      <ScheduleDragCard key={game._id} gameId={game._id} gameData={game} isEditMode={scheduleEditMode} isDragging={activeGameDrag?._id === game._id}>
+                      <button
+                        type="button"
+                        onClick={() => { if (!activeGameDrag) setSelectedGame(game); }}
+                        className={`rounded-lg border p-3 text-left transition-all hover:shadow-md ${divColor} ${activeGameDrag?._id === game._id ? "opacity-30" : ""}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold opacity-60">#{game.gameNumber}</span>
+                          <div className="flex items-center gap-1">
+                            {game.round && (
+                              <Badge variant="outline" className="h-4 border-amber-500 px-1 text-[9px] text-amber-700">
+                                {game.round}
+                              </Badge>
+                            )}
+                            {div && (
+                              <Badge variant="secondary" className="h-4 px-1 text-[9px]">
+                                {div.label}
+                              </Badge>
+                            )}
+                            {game.status === "completed" && (
+                              <Badge variant="secondary" className="h-4 px-1 text-[9px]">Final</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="truncate font-medium">{game.homeTeamName}</span>
+                            {game.homeScore !== undefined && (
+                              <span className="ml-1 font-bold">{game.homeScore}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="truncate font-medium">{game.awayTeamName}</span>
+                            {game.awayScore !== undefined && (
+                              <span className="ml-1 font-bold">{game.awayScore}</span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      </ScheduleDragCard>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Undo toast */}
+          {lastMove && scheduleEditMode && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-xl">
+              <span>{lastMove.label}</span>
+              <button
+                onClick={async () => {
+                  const day = event!.days[lastMove.prevDayIndex];
+                  const [h, m] = lastMove.prevTimeSlot.split(":").map(Number);
+                  const scheduledAt = new Date(day.date);
+                  scheduledAt.setHours(h || 0, m || 0, 0, 0);
+                  await updateGameFull(lastMove.gameId, {
+                    field: lastMove.prevField,
+                    timeSlot: lastMove.prevTimeSlot,
+                    scheduledAt: scheduledAt.toISOString(),
+                    locationName: lastMove.prevLocationName,
+                    dayIndex: lastMove.prevDayIndex,
+                  });
+                  setLastMove(null);
+                }}
+                className="rounded bg-white/20 px-2 py-1 text-xs font-medium hover:bg-white/30"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => setLastMove(null)}
+                className="text-white/50 hover:text-white"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
+          {/* DragOverlay for floating card during drag */}
+          <DragOverlay>
+            {activeGameDrag && (
+              <div className="rounded-lg border bg-white p-2 shadow-xl opacity-90 scale-105 pointer-events-none w-[180px]">
+                <div className="text-[10px] font-bold opacity-60">#{activeGameDrag.gameNumber}</div>
+                <div className="text-xs font-medium">{activeGameDrag.homeTeamName}</div>
+                <div className="text-xs font-medium">{activeGameDrag.awayTeamName}</div>
+              </div>
+            )}
+          </DragOverlay>
+          </DndContext>
 
           {/* Division Legend */}
           {games.length > 0 && event.divisions.length > 0 && (
@@ -1891,9 +2352,18 @@ export default function EventDetailPage() {
                           <div>
                             <p className="font-medium">{reg.teamName}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{div?.label || "Unknown Division"}</span>
+                              <select
+                                value={reg.divisionId || ""}
+                                onChange={(e) => updateRegistrationDivision(reg._id, e.target.value)}
+                                className="rounded border border-input bg-background px-1.5 py-0.5 text-xs font-medium"
+                              >
+                                <option value="">Assign division...</option>
+                                {(event.divisions || []).map((d) => (
+                                  <option key={d._id} value={d._id}>{d.label}</option>
+                                ))}
+                              </select>
                               <span>·</span>
-                              <span>{reg.roster.length} players</span>
+                              <span>{(reg.roster || []).length} players</span>
                               <span>·</span>
                               <span>{format(new Date(reg.createdAt), "MMM d, yyyy")}</span>
                             </div>
@@ -2204,6 +2674,108 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* ─── STANDINGS TAB ─── */}
+      {activeTab === "standings" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Standings</h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={recalculateStandings}
+              disabled={recalculating}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${recalculating ? "animate-spin" : ""}`} />
+              {recalculating ? "Recalculating..." : "Recalculate"}
+            </Button>
+          </div>
+          {event.tiebreakerRules && event.tiebreakerRules.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium">Tiebreakers:</span>{" "}
+              {event.tiebreakerRules
+                .sort((a: any, b: any) => a.priority - b.priority)
+                .map((r: any) => r.rule)
+                .join(" → ")}
+            </div>
+          )}
+          {standingsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : standings.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground/50" />
+                <h3 className="mt-3 text-lg font-medium">No standings yet</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Standings are calculated automatically when games are completed, or click Recalculate.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Group by division */}
+              {(() => {
+                const byDiv = new Map<string, any[]>();
+                for (const s of standings) {
+                  const key = s.divisionId?.toString() || "unknown";
+                  if (!byDiv.has(key)) byDiv.set(key, []);
+                  byDiv.get(key)!.push(s);
+                }
+                return [...byDiv.entries()].map(([divId, divStandings]) => {
+                  const div = event.divisions.find((d: any) => d._id === divId);
+                  return (
+                    <div key={divId}>
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                        {div?.label || "Division"}
+                      </h3>
+                      <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              <th className="w-8 px-3 py-2">#</th>
+                              <th className="px-3 py-2">Team</th>
+                              <th className="px-2 py-2 text-center">W</th>
+                              <th className="px-2 py-2 text-center">L</th>
+                              <th className="px-2 py-2 text-center">T</th>
+                              <th className="px-2 py-2 text-center">GP</th>
+                              <th className="px-2 py-2 text-center">PF</th>
+                              <th className="px-2 py-2 text-center">PA</th>
+                              <th className="px-2 py-2 text-center">+/−</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {divStandings.sort((a: any, b: any) => (a.rank || 99) - (b.rank || 99)).map((s: any) => (
+                              <tr key={s._id} className="hover:bg-muted/30">
+                                <td className="px-3 py-2 font-medium text-muted-foreground">{s.rank}</td>
+                                <td className="px-3 py-2 font-semibold">{s.teamName}</td>
+                                <td className="px-2 py-2 text-center font-medium text-green-700">{s.wins}</td>
+                                <td className="px-2 py-2 text-center font-medium text-red-600">{s.losses}</td>
+                                <td className="px-2 py-2 text-center text-muted-foreground">{s.ties}</td>
+                                <td className="px-2 py-2 text-center text-muted-foreground">{s.gamesPlayed}</td>
+                                <td className="px-2 py-2 text-center text-muted-foreground">{s.pointsFor}</td>
+                                <td className="px-2 py-2 text-center text-muted-foreground">{s.pointsAgainst}</td>
+                                <td className={`px-2 py-2 text-center font-medium ${
+                                  s.pointDifferential > 0 ? "text-green-700" :
+                                  s.pointDifferential < 0 ? "text-red-600" : "text-muted-foreground"
+                                }`}>
+                                  {s.pointDifferential > 0 ? "+" : ""}{s.pointDifferential}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </>
+          )}
+        </div>
+      )}
+
       {/* ─── SETTINGS TAB ─── */}
       {activeTab === "settings" && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -2297,13 +2869,63 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* ─── BUMP CONFIRMATION DIALOG ─── */}
+      {pendingBump && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingBump(null)}>
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b p-4">
+              <h3 className="text-lg font-bold">Move & Bump Games</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                This will shift {pendingBump.bumpMoves.length} game{pendingBump.bumpMoves.length !== 1 ? "s" : ""} to make room.
+              </p>
+            </div>
+            <div className="p-4 space-y-2">
+              {pendingBump.bumpMoves.map((bump, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border p-2 text-sm">
+                  <div>
+                    <p className="font-medium">Game #{bump.gameNumber}</p>
+                    <p className="text-xs text-muted-foreground">{bump.teamNames}</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span>{bump.fromSlot}</span>
+                    <ArrowDown className="h-3 w-3" />
+                    <span className="font-medium text-blue-600">{bump.toSlot}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 border-t p-4">
+              <Button variant="ghost" size="sm" onClick={() => setPendingBump(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => executeBumpMoves(pendingBump.primaryMove, pendingBump.bumpMoves)}
+              >
+                <Move className="h-3 w-3 mr-1" />
+                Move & Bump
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── GAME DETAIL MODAL ─── */}
       {selectedGame && (
         <GameDetailModal
           game={selectedGame}
           division={event.divisions.find((d) => d._id === selectedGame.divisionId)}
+          eventTeams={registrations
+            .filter((r) => r.status === "approved" || r.status === "pending")
+            .map((r) => ({ name: r.teamName, divisionId: r.divisionId }))}
+          allFields={allFields}
+          timeSlots={timeSlots}
+          days={event.days}
+          dayGames={dayGames}
+          selectedDay={selectedDay}
           onClose={() => setSelectedGame(null)}
-          onSaveScore={updateGameScore}
+          onSave={updateGameFull}
         />
       )}
     </div>
@@ -2315,34 +2937,121 @@ export default function EventDetailPage() {
 function GameDetailModal({
   game,
   division,
+  eventTeams,
+  allFields,
+  timeSlots,
+  days,
+  dayGames,
+  selectedDay,
   onClose,
-  onSaveScore,
+  onSave,
 }: {
   game: GameData;
   division?: DivisionInfo;
+  eventTeams: { name: string; divisionId: string }[];
+  allFields: { locationName: string; field: string }[];
+  timeSlots: string[];
+  days: { date: string; startTime: string; endTime: string; label?: string }[];
+  dayGames: GameData[];
+  selectedDay: number;
   onClose: () => void;
-  onSaveScore: (gameId: string, homeScore: number, awayScore: number) => void;
+  onSave: (gameId: string, update: any) => void;
 }) {
+  const [homeTeam, setHomeTeam] = useState(game.homeTeamName || "");
+  const [awayTeam, setAwayTeam] = useState(game.awayTeamName || "");
   const [homeScore, setHomeScore] = useState(game.homeScore?.toString() ?? "");
   const [awayScore, setAwayScore] = useState(game.awayScore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const [showScheduleEdit, setShowScheduleEdit] = useState(false);
 
-  async function handleSave() {
+  // Schedule editing state
+  const [editField, setEditField] = useState(game.field || "");
+  const [editTimeSlot, setEditTimeSlot] = useState(game.timeSlot || "");
+  const [editDayIndex, setEditDayIndex] = useState(game.dayIndex ?? selectedDay);
+
+  const teamOptions = [...new Set([
+    ...eventTeams.map((t) => t.name),
+    ...(game.homeTeamName && game.homeTeamName !== "TBD" ? [game.homeTeamName] : []),
+    ...(game.awayTeamName && game.awayTeamName !== "TBD" ? [game.awayTeamName] : []),
+  ])].sort();
+
+  // Conflict check for schedule changes
+  const scheduleConflict = (() => {
+    if (editField === game.field && editTimeSlot === game.timeSlot && editDayIndex === game.dayIndex) return null;
+    if (!editField || !editTimeSlot) return null;
+
+    // Check if cell is occupied
+    const occupant = dayGames.find(
+      (g) => g._id !== game._id && g.field === editField && g.timeSlot === editTimeSlot,
+    );
+    if (occupant) return `${editField} at ${editTimeSlot} is occupied by Game #${occupant.gameNumber} (${occupant.homeTeamName} vs ${occupant.awayTeamName})`;
+
+    // Check team conflicts at the target time
+    const sameTimeGames = dayGames.filter(
+      (g) => g._id !== game._id && g.timeSlot === editTimeSlot,
+    );
+    const teamsInGame = [homeTeam || game.homeTeamName, awayTeam || game.awayTeamName].filter(
+      (t) => t && t !== "TBD",
+    );
+    for (const g of sameTimeGames) {
+      for (const t of teamsInGame) {
+        if (g.homeTeamName === t || g.awayTeamName === t) {
+          return `${t} already plays at ${editTimeSlot} (Game #${g.gameNumber})`;
+        }
+      }
+    }
+    return null;
+  })();
+
+  const scheduleChanged = editField !== game.field || editTimeSlot !== game.timeSlot || editDayIndex !== game.dayIndex;
+
+  async function handleSave(markComplete: boolean) {
     setSaving(true);
-    await onSaveScore(game._id, parseInt(homeScore) || 0, parseInt(awayScore) || 0);
+    const update: any = {};
+    if (homeTeam !== game.homeTeamName) update.homeTeamName = homeTeam;
+    if (awayTeam !== game.awayTeamName) update.awayTeamName = awayTeam;
+    if (homeScore !== "" && homeScore !== (game.homeScore?.toString() ?? "")) update.homeScore = parseInt(homeScore) || 0;
+    if (awayScore !== "" && awayScore !== (game.awayScore?.toString() ?? "")) update.awayScore = parseInt(awayScore) || 0;
+    if (markComplete) {
+      update.homeScore = parseInt(homeScore) || 0;
+      update.awayScore = parseInt(awayScore) || 0;
+      update.status = "completed";
+    }
+
+    // Schedule changes
+    if (scheduleChanged && !scheduleConflict) {
+      if (editField !== game.field) {
+        update.field = editField;
+        const fieldInfo = allFields.find((f) => f.field === editField);
+        if (fieldInfo) update.locationName = fieldInfo.locationName;
+      }
+      if (editTimeSlot !== game.timeSlot) update.timeSlot = editTimeSlot;
+      if (editDayIndex !== game.dayIndex) update.dayIndex = editDayIndex;
+
+      // Compute scheduledAt from day + timeSlot
+      const day = days[editDayIndex];
+      if (day && editTimeSlot) {
+        const [h, m] = editTimeSlot.split(":").map(Number);
+        const d = new Date(day.date);
+        d.setHours(h || 0, m || 0, 0, 0);
+        update.scheduledAt = d.toISOString();
+      }
+    }
+
+    await onSave(game._id, update);
     setSaving(false);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b p-4">
           <div>
             <h3 className="text-lg font-bold">Game #{game.gameNumber}</h3>
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">
-                {division?.label} · {game.field}
+                {division?.label} · {game.field || "Unscheduled"}
               </p>
               <Badge variant={game.round && game.round !== "Pool Play" ? "default" : "secondary"} className="text-[10px]">
                 {game.round || "Pool Play"}
@@ -2354,51 +3063,135 @@ function GameDetailModal({
           </button>
         </div>
 
-        {/* Matchup */}
         <div className="space-y-4 p-4">
+          {/* Schedule info + edit toggle */}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{format(new Date(game.scheduledAt), "MMM d, yyyy")}</span>
-            <span>{game.timeSlot}</span>
+            <span>{format(new Date(game.scheduledAt), "MMM d, yyyy")} · {game.timeSlot || "No time"}</span>
+            <button
+              type="button"
+              onClick={() => setShowScheduleEdit(!showScheduleEdit)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              {showScheduleEdit ? "Hide" : "Edit"} Schedule
+            </button>
           </div>
 
-          <div className="space-y-3">
-            {/* Home Team */}
-            <div className="flex items-center gap-3 rounded-lg border p-3">
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{game.homeTeamName}</p>
-                <p className="text-xs text-muted-foreground">Home</p>
+          {/* Schedule editing section */}
+          {showScheduleEdit && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-3">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Schedule</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-medium text-slate-500">Field</label>
+                  <select
+                    value={editField}
+                    onChange={(e) => setEditField(e.target.value)}
+                    className="mt-0.5 w-full rounded-md border bg-white px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {allFields.map((f, i) => (
+                      <option key={i} value={f.field}>
+                        {f.field} ({f.locationName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-500">Time Slot</label>
+                  <select
+                    value={editTimeSlot}
+                    onChange={(e) => setEditTimeSlot(e.target.value)}
+                    className="mt-0.5 w-full rounded-md border bg-white px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {timeSlots.map((ts) => (
+                      <option key={ts} value={ts}>{ts}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              {days.length > 1 && (
+                <div>
+                  <label className="text-[10px] font-medium text-slate-500">Day</label>
+                  <select
+                    value={editDayIndex}
+                    onChange={(e) => setEditDayIndex(parseInt(e.target.value))}
+                    className="mt-0.5 w-full rounded-md border bg-white px-2 py-1.5 text-sm"
+                  >
+                    {days.map((d, i) => (
+                      <option key={i} value={i}>
+                        {d.label || `Day ${i + 1}`} — {new Date(d.date).toLocaleDateString()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {scheduleConflict && (
+                <div className="rounded bg-red-50 border border-red-200 px-2 py-1.5 text-xs text-red-700">
+                  Conflict: {scheduleConflict}
+                </div>
+              )}
+              {scheduleChanged && !scheduleConflict && (
+                <div className="rounded bg-green-50 border border-green-200 px-2 py-1.5 text-xs text-green-700">
+                  Will move to {editField || "unassigned"} at {editTimeSlot || "no time"}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Teams + Scores */}
+          <div className="space-y-3">
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Home Team</p>
+              <select
+                value={homeTeam}
+                onChange={(e) => setHomeTeam(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm font-semibold"
+              >
+                <option value="">Select team...</option>
+                <option value="TBD">TBD</option>
+                {teamOptions.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
               <Input
                 type="number"
                 min="0"
                 value={homeScore}
                 onChange={(e) => setHomeScore(e.target.value)}
-                className="w-20 text-center text-lg font-bold"
-                placeholder="-"
+                className="w-full text-center text-lg font-bold"
+                placeholder="Score"
               />
             </div>
 
             <div className="text-center text-xs font-bold text-muted-foreground">VS</div>
 
-            {/* Away Team */}
-            <div className="flex items-center gap-3 rounded-lg border p-3">
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{game.awayTeamName}</p>
-                <p className="text-xs text-muted-foreground">Away</p>
-              </div>
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Away Team</p>
+              <select
+                value={awayTeam}
+                onChange={(e) => setAwayTeam(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm font-semibold"
+              >
+                <option value="">Select team...</option>
+                <option value="TBD">TBD</option>
+                {teamOptions.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
               <Input
                 type="number"
                 min="0"
                 value={awayScore}
                 onChange={(e) => setAwayScore(e.target.value)}
-                className="w-20 text-center text-lg font-bold"
-                placeholder="-"
+                className="w-full text-center text-lg font-bold"
+                placeholder="Score"
               />
             </div>
           </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{game.locationName} - {game.field}</span>
+            <span>{game.locationName} - {game.field || "Unscheduled"}</span>
             <Badge variant={game.status === "completed" ? "secondary" : game.status === "in_progress" ? "default" : "outline"}>
               {game.status}
             </Badge>
@@ -2409,16 +3202,100 @@ function GameDetailModal({
         <div className="flex justify-end gap-2 border-t p-4">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSave(false)}
+            disabled={saving || (scheduleChanged && !!scheduleConflict)}
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Save Changes
+          </Button>
+          <Button
             size="sm"
             className="gap-1 bg-blue-600 hover:bg-blue-700"
-            onClick={handleSave}
-            disabled={saving}
+            onClick={() => handleSave(true)}
+            disabled={saving || homeScore === "" || awayScore === "" || (scheduleChanged && !!scheduleConflict)}
           >
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
-            Save Score & Complete
+            Complete Game
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Schedule DnD Components ───
+
+function ScheduleDropCell({
+  cellId,
+  isEditMode,
+  isDragOver,
+  hasConflict,
+  children,
+}: {
+  cellId: string;
+  isEditMode: boolean;
+  isDragOver: boolean;
+  hasConflict: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: cellId, disabled: !isEditMode });
+
+  const highlight = (isOver || isDragOver) && isEditMode;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex-1 border-r p-1.5 last:border-r-0 transition-colors ${
+        highlight
+          ? hasConflict
+            ? "ring-2 ring-red-400 bg-red-50/30"
+            : "ring-2 ring-blue-400 bg-blue-50/30"
+          : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ScheduleDragCard({
+  gameId,
+  gameData,
+  isEditMode,
+  isDragging,
+  children,
+}: {
+  gameId: string;
+  gameData: any;
+  isEditMode: boolean;
+  isDragging: boolean;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: gameId,
+    data: gameData,
+    disabled: !isEditMode,
+  });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...(isEditMode ? { ...listeners, ...attributes } : {})}
+      className={isEditMode ? "cursor-grab active:cursor-grabbing" : ""}
+    >
+      {isEditMode && (
+        <div className="flex justify-center mb-0.5">
+          <GripVertical className="h-3 w-3 text-muted-foreground/40" />
+        </div>
+      )}
+      {children}
     </div>
   );
 }

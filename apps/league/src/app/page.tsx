@@ -43,16 +43,23 @@ const statusLabels: Record<string, string> = {
 
 export default function LeagueDashboard() {
   const [events, setEvents] = useState<EventSummary[]>([]);
+  const [stats, setStats] = useState<{
+    registeredTeams: number; totalPlayers: number;
+    totalGames: number; completedGames: number; totalRevenue: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/events")
-      .then((r) => r.json())
-      .then((data) => {
-        setEvents(Array.isArray(data) ? data : []);
-        setLoading(false);
+    Promise.all([
+      fetch("/api/events").then((r) => r.json()),
+      fetch("/api/dashboard").then((r) => r.json()).catch(() => null),
+    ])
+      .then(([eventsData, statsData]) => {
+        setEvents(Array.isArray(eventsData) ? eventsData : []);
+        if (statsData && !statsData.error) setStats(statsData);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const upcomingEvents = events.filter(
@@ -110,7 +117,7 @@ export default function LeagueDashboard() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Registered Teams</p>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{stats?.registeredTeams ?? "—"}</p>
             </div>
           </CardContent>
         </Card>
@@ -120,8 +127,10 @@ export default function LeagueDashboard() {
               <ShieldCheck className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Verified Players</p>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-xs text-muted-foreground">Games Completed</p>
+              <p className="text-2xl font-bold">
+                {stats ? `${stats.completedGames}/${stats.totalGames}` : "—"}
+              </p>
             </div>
           </CardContent>
         </Card>

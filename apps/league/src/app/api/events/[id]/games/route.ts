@@ -92,10 +92,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
   }
 
-  // Only allow deleting games that haven't started
+  // Delete all non-bracket games for regeneration
+  // Bracket games are managed by the bracket endpoints
   const result = await tenant.models.Game.deleteMany({
     eventId: new Types.ObjectId(params.id),
-    status: "scheduled",
+    bracketId: { $exists: false },
   });
 
   return NextResponse.json({ deleted: result.deletedCount });

@@ -28,6 +28,7 @@ import {
   ClipboardCheck,
   Mic,
   Medal,
+  UserPlus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -69,6 +70,7 @@ const fullNavGroups = [
     label: "Team Management",
     items: [
       { title: "Teams", href: "/teams", icon: Shield },
+      { title: "Staff & Coaches", href: "/staff", icon: UserPlus },
       { title: "Roster", href: "/roster", icon: Users },
       { title: "Schedule", href: "/schedule", icon: Calendar },
       { title: "Attendance", href: "/attendance", icon: UserCheck },
@@ -94,6 +96,7 @@ const fullNavGroups = [
     label: "System",
     items: [
       { title: "Settings", href: "/settings", icon: Settings },
+      { title: "Role Permissions", href: "/settings/roles", icon: Shield },
       { title: "Help", href: "/help", icon: HelpCircle },
     ],
   },

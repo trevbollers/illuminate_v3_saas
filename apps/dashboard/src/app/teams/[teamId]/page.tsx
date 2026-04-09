@@ -19,6 +19,10 @@ import {
   Check,
   Edit2,
   Save,
+  Trophy,
+  Calendar,
+  Award,
+  RefreshCw,
 } from "lucide-react";
 import {
   Button,
@@ -75,6 +79,27 @@ interface PendingInvite {
   createdAt: string;
 }
 
+interface CoachInfo {
+  _id: string;
+  userId: string;
+  name: string;
+  photoUrl?: string;
+  role: string;
+  email?: string;
+  phone?: string;
+  checkInCode?: string;
+}
+
+interface TeamEvent {
+  eventName: string;
+  leagueName: string;
+  division: string;
+  status: string;
+  startDate: string;
+  champion?: boolean;
+  finalist?: boolean;
+}
+
 type AddMode = null | "existing" | "invite";
 
 export default function TeamDetailPage() {
@@ -85,6 +110,8 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [roster, setRoster] = useState<RosterEntry[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [coaches, setCoaches] = useState<CoachInfo[]>([]);
+  const [events, setEvents] = useState<TeamEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -101,6 +128,9 @@ export default function TeamDetailPage() {
   ]);
   const [sendingInvites, setSendingInvites] = useState(false);
 
+  // Reminder state
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editJersey, setEditJersey] = useState("");
@@ -109,14 +139,18 @@ export default function TeamDetailPage() {
 
   const fetchTeam = useCallback(async () => {
     try {
-      const [teamRes, rosterRes, invitesRes] = await Promise.all([
+      const [teamRes, rosterRes, invitesRes, coachesRes, eventsRes] = await Promise.all([
         fetch(`/api/teams/${teamId}`),
         fetch(`/api/teams/${teamId}/roster`),
         fetch(`/api/teams/${teamId}/invites`),
+        fetch(`/api/teams/${teamId}/coaches`).catch(() => null),
+        fetch(`/api/teams/${teamId}/events`).catch(() => null),
       ]);
       if (teamRes.ok) setTeam(await teamRes.json());
       if (rosterRes.ok) setRoster(await rosterRes.json());
       if (invitesRes.ok) setInvites(await invitesRes.json());
+      if (coachesRes?.ok) setCoaches(await coachesRes.json());
+      if (eventsRes?.ok) setEvents(await eventsRes.json());
     } catch (err) {
       console.error("Failed to load team:", err);
     } finally {
@@ -242,6 +276,27 @@ export default function TeamDetailPage() {
     }
   }
 
+  async function sendReminder(inv: PendingInvite) {
+    setRemindingId(inv._id);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/invites/remind`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId: inv._id }),
+      });
+      if (res.ok) {
+        setMessage({ type: "success", text: `Reminder sent to ${inv.email || inv.phone}` });
+      } else {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Failed to send reminder" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to send reminder" });
+    } finally {
+      setRemindingId(null);
+    }
+  }
+
   function startEdit(entry: RosterEntry) {
     setEditingId(entry._id);
     setEditJersey(entry.jerseyNumber?.toString() || "");
@@ -335,6 +390,11 @@ export default function TeamDetailPage() {
           <Badge variant="secondary" className="gap-1">
             <Users className="h-3 w-3" /> {roster.length} players
           </Badge>
+          <Button variant="outline" size="sm" className="gap-1" asChild>
+            <Link href={`/teams/${teamId}/roster-cards`}>
+              <Shield className="h-3 w-3" /> Roster Cards
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -348,6 +408,99 @@ export default function TeamDetailPage() {
         >
           {message.text}
         </div>
+      )}
+
+      {/* Coaches */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4 text-blue-600" /> Coaches &amp; Staff
+            </CardTitle>
+            <Button size="sm" variant="outline" className="gap-1" asChild>
+              <Link href="/staff"><UserPlus className="h-3 w-3" /> Invite Coach</Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {coaches.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No coaches assigned to this team yet.{" "}
+              <Link href="/staff" className="text-blue-600 hover:underline">Invite a coach</Link>
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {coaches.map((coach) => (
+                <Link
+                  key={coach._id}
+                  href={`/staff/${coach.userId}`}
+                  className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 overflow-hidden">
+                    {coach.photoUrl ? (
+                      <img src={coach.photoUrl} alt={coach.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-blue-700">
+                        {coach.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{coach.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {coach.role === "head_coach" ? "Head Coach" :
+                       coach.role === "assistant_coach" ? "Assistant Coach" :
+                       coach.role === "team_manager" ? "Team Manager" : coach.role}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Events */}
+      {events.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-blue-600" /> Event History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {events.map((ev, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">{ev.eventName}</p>
+                      {ev.champion && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <Trophy className="h-3 w-3" /> Champion
+                        </span>
+                      )}
+                      {ev.finalist && !ev.champion && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          <Award className="h-3 w-3" /> Finalist
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {ev.leagueName} · {ev.division} · {new Date(ev.startDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant={
+                    ev.status === "completed" ? "secondary" :
+                    ev.status === "in_progress" ? "default" : "outline"
+                  } className="text-[10px]">
+                    {ev.status.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Add Player Actions */}
@@ -699,9 +852,25 @@ export default function TeamDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {inv.role}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {inv.role}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      disabled={remindingId === inv._id}
+                      onClick={() => sendReminder(inv)}
+                    >
+                      {remindingId === inv._id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                      Remind
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

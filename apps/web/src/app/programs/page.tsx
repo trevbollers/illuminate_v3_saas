@@ -89,8 +89,41 @@ export default function ProgramsListingPage() {
     (p) => new Date(p.endDate || p.startDate) < now && p.status !== "in_progress",
   );
 
+  const isDev = process.env.NODE_ENV === "development";
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Dev-only: Quick test links */}
+      {isDev && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3">
+          <div className="mx-auto max-w-5xl">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-2">
+              Dev Test Links
+            </p>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <span className="font-medium text-amber-800">Public Pages:</span>
+              <a href="/midamerica-7v7" className="text-blue-700 underline hover:text-blue-900">MidAmerica 7v7 (league)</a>
+              <a href="/kc-thunder" className="text-blue-700 underline hover:text-blue-900">KC Thunder (org)</a>
+              <a href="/court-45-basketball" className="text-blue-700 underline hover:text-blue-900">Court 45 Basketball (org)</a>
+              <a href="/minnesota-heat" className="text-blue-700 underline hover:text-blue-900">Minnesota Heat (org)</a>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm mt-1">
+              <span className="font-medium text-amber-800">League Events:</span>
+              <a href="http://localhost:4002/public/events" className="text-blue-700 underline hover:text-blue-900">All Events (4002)</a>
+              <a href="http://localhost:4002/public/events/spring-showdown-2026" className="text-blue-700 underline hover:text-blue-900">Spring Showdown</a>
+              <a href="http://localhost:4002/public/events/spring-showdown-2026/register" className="text-blue-700 underline hover:text-blue-900">Register for Spring Showdown</a>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm mt-1">
+              <span className="font-medium text-amber-800">Admin Portals:</span>
+              <a href="http://localhost:4001" className="text-blue-700 underline hover:text-blue-900">Platform Admin (4001)</a>
+              <a href="http://localhost:4002" className="text-blue-700 underline hover:text-blue-900">League Admin (4002)</a>
+              <a href="http://localhost:4003" className="text-blue-700 underline hover:text-blue-900">Org Dashboard (4003)</a>
+              <a href="http://localhost:4004" className="text-blue-700 underline hover:text-blue-900">Storefront (4004)</a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-4 py-8">

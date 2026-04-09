@@ -66,7 +66,15 @@ export async function POST(
     return NextResponse.json({ error: "Division not found" }, { status: 404 });
   }
 
-  // Delete existing brackets for this division (regeneration)
+  // Delete existing brackets and their games for this division (regeneration)
+  const oldBrackets = await tenant.models.Bracket.find({
+    eventId: new Types.ObjectId(params.id),
+    divisionId: new Types.ObjectId(divisionId),
+  }).select("_id").lean();
+  const oldBracketIds = oldBrackets.map((b: any) => b._id);
+  if (oldBracketIds.length > 0) {
+    await tenant.models.Game.deleteMany({ bracketId: { $in: oldBracketIds } });
+  }
   await tenant.models.Bracket.deleteMany({
     eventId: new Types.ObjectId(params.id),
     divisionId: new Types.ObjectId(divisionId),
@@ -120,6 +128,9 @@ export async function POST(
         status: "draft",
         createdBy: new Types.ObjectId(tenant.userId),
       });
+
+      // Create Game records for bracket matches that have team names
+      await createGamesFromBracket(tenant.models, bracket, params.id, divisionId);
 
       brackets.push(bracket.toObject());
       teamOffset += tierTeamCount;
@@ -184,7 +195,61 @@ export async function POST(
     createdBy: new Types.ObjectId(tenant.userId),
   });
 
+  // Create Game records for bracket matches
+  await createGamesFromBracket(tenant.models, bracket, params.id, divisionId);
+
   return NextResponse.json(bracket, { status: 201 });
 }
 
-// Pure functions imported from @goparticipate/db/src/utils/bracket-generator
+// ─── Create Game records from bracket matches ───
+
+async function createGamesFromBracket(
+  models: any,
+  bracket: any,
+  eventId: string,
+  divisionId: string,
+) {
+  const bracketObj = bracket.toObject ? bracket.toObject() : bracket;
+  const ops = [];
+
+  for (const match of bracketObj.matches) {
+    // Skip BYE-only matches (both sides are BYE or empty)
+    if (match.isBye && match.status === "completed") continue;
+    if (!match.homeTeamName && !match.awayTeamName) continue;
+
+    ops.push({
+      updateOne: {
+        filter: {
+          eventId: new Types.ObjectId(eventId),
+          bracketId: bracketObj._id,
+          gameNumber: match.matchNumber,
+        },
+        update: {
+          $set: {
+            eventId: new Types.ObjectId(eventId),
+            divisionId: new Types.ObjectId(divisionId),
+            bracketId: bracketObj._id,
+            homeTeamName: match.homeTeamName || "TBD",
+            awayTeamName: match.awayTeamName || "TBD",
+            homeTeamId: match.homeTeamId,
+            awayTeamId: match.awayTeamId,
+            round: match.roundLabel || `Round ${match.round}`,
+            gameNumber: match.matchNumber,
+            status: match.status || "scheduled",
+            field: match.field || "",
+            locationName: match.field || "TBD",
+            timeSlot: "",
+            dayIndex: 0,
+            scheduledAt: match.scheduledAt || new Date(),
+            sport: "",
+          },
+        },
+        upsert: true,
+      },
+    });
+  }
+
+  if (ops.length > 0) {
+    await models.Game.bulkWrite(ops);
+  }
+}
