@@ -55,7 +55,7 @@ if (!existingCoach) {
   var r = db.users.insertOne({
     email: coachEmail,
     name: "Coach Williams",
-    passwordHash: "$2a$12$xlRsO1/PlZejgrigOS1wa.u1xyU1Zw88fcP9L7bAkf.GhQjQ6O612",
+    passwordHash: "$2a$12$.dpT1I1oqvkSnpUAb.d/zunzMhLVEy0kRDwMGICvM9/ggqLng6dLq",
     platformRole: "user",
     emailVerified: now,
     memberships: [

@@ -51,7 +51,7 @@ print("Seeding platform admin...");
 var existingAdmin = db.users.findOne({ email: "admin@goparticipate.com" });
 var adminId;
 if (!existingAdmin) {
-  var r = db.users.insertOne({ email: "admin@goparticipate.com", name: "GP Admin", passwordHash: "$2a$12$xlRsO1/PlZejgrigOS1wa.u1xyU1Zw88fcP9L7bAkf.GhQjQ6O612", platformRole: "gp_admin", emailVerified: now, memberships: [], createdAt: now, updatedAt: now });
+  var r = db.users.insertOne({ email: "admin@goparticipate.com", name: "GP Admin", passwordHash: "$2a$12$.dpT1I1oqvkSnpUAb.d/zunzMhLVEy0kRDwMGICvM9/ggqLng6dLq", platformRole: "gp_admin", emailVerified: now, memberships: [], createdAt: now, updatedAt: now });
   adminId = r.insertedId;
   print("   ok Created platform admin (admin@goparticipate.com / admin123)");
 } else {
@@ -102,7 +102,7 @@ print("");
 print("Seeding league admin user (admin@midamerica7v7.org)...");
 var existingLeagueAdmin = db.users.findOne({ email: "admin@midamerica7v7.org" });
 if (!existingLeagueAdmin) {
-  db.users.insertOne({ email: "admin@midamerica7v7.org", name: "MidAmerica Admin", passwordHash: "$2a$12$xlRsO1/PlZejgrigOS1wa.u1xyU1Zw88fcP9L7bAkf.GhQjQ6O612", platformRole: "user", emailVerified: now, memberships: [{ tenantId: leagueId, tenantType: "league", role: "league_owner", teamIds: [], permissions: [], isActive: true, joinedAt: now }], activeTenantId: leagueId, createdAt: now, updatedAt: now });
+  db.users.insertOne({ email: "admin@midamerica7v7.org", name: "MidAmerica Admin", passwordHash: "$2a$12$.dpT1I1oqvkSnpUAb.d/zunzMhLVEy0kRDwMGICvM9/ggqLng6dLq", platformRole: "user", emailVerified: now, memberships: [{ tenantId: leagueId, tenantType: "league", role: "league_owner", teamIds: [], permissions: [], isActive: true, joinedAt: now }], activeTenantId: leagueId, createdAt: now, updatedAt: now });
   print("   ok Created league admin (admin@midamerica7v7.org / admin123)");
 } else {
   print("   ok League admin already exists, skipping.");

@@ -10,6 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
     "@goparticipate/auth": "*",
     "@goparticipate/billing": "*",
     "@goparticipate/db": "*",
@@ -17,6 +19,7 @@
     "@goparticipate/ui": "*",
     "@hookform/resolvers": "^3.9.0",
     "date-fns": "^4.1.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.460.0",
     "next": "^14.2.0",
     "qrcode": "^1.5.4",

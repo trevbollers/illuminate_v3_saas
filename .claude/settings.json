@@ -9,7 +9,21 @@
       "Bash(curl -s http://localhost:4000/api/public/minnesota-heat)",
       "Bash(node -e \":*)",
       "Bash(curl -s -c - -X POST http://localhost:4003/api/auth/callback/credentials -H \"Content-Type: application/x-www-form-urlencoded\" -d \"email=coach@court45.com&password=password123&csrfToken=test&callbackUrl=http://localhost:4003/\")",
-      "Bash(curl -s http://localhost:4000/api/public/programs)"
+      "Bash(curl -s http://localhost:4000/api/public/programs)",
+      "Bash(curl -s -X POST http://localhost:4003/api/teams -H \"Content-Type: application/json\" -H \"x-tenant-slug: court-45-basketball\" -H \"x-user-id: 69c8b773b7458ef2b7e13077\" -d '{\"\"name\"\":\"\"Test Team 14U\"\",\"\"sport\"\":\"\"basketball\"\",\"\"divisionKey\"\":\"\"Under 14\"\"}')",
+      "Bash(curl -s http://localhost:4003/api/auth/session)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4004)",
+      "Bash(curl -s http://localhost:4002/api/events)",
+      "Bash(curl -s -c /tmp/gp-cookies.txt -b /tmp/gp-cookies.txt -X POST http://localhost:4002/api/auth/callback/credentials -H 'Content-Type: application/x-www-form-urlencoded' -d 'email=admin@midamerica7v7.org&password=password123&csrfToken=&callbackUrl=http://localhost:4002' -L -o /dev/null -w '%{http_code}')",
+      "Bash(curl -s -b /tmp/gp-cookies.txt \"http://localhost:4002/api/events/69c2b3e166698a57561c5acc/games\")",
+      "Bash(mkdir -p \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/apps/dashboard/src/app/invite/[token]\")",
+      "Bash(mkdir -p \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/apps/dashboard/src/app/api/invite/[token]\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\league\\src\\app\\public\\events\\[slug]",
+      "c:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\league\\src\\app\\api\\public\\events\\[slug]",
+      "c:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\league\\src\\app\\api\\public\\events\\[slug]\\register",
+      "c:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\dashboard\\src\\app\\staff"
     ]
   }
 }
