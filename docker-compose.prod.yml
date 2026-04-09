@@ -1,0 +1,76 @@
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: gp-mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: gp-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    env_file: .env.production
+    depends_on:
+      - mongodb
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: gp-admin
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4001:4001"
+    env_file: .env.production
+    depends_on:
+      - mongodb
+
+  league:
+    build:
+      context: .
+      dockerfile: apps/league/Dockerfile
+    container_name: gp-league
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4002:4002"
+    env_file: .env.production
+    depends_on:
+      - mongodb
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: gp-dashboard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4003:4003"
+    env_file: .env.production
+    depends_on:
+      - mongodb
+
+  storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+    container_name: gp-storefront
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4004:4004"
+    env_file: .env.production
+    depends_on:
+      - mongodb
+
+volumes:
+  mongodb_data:
