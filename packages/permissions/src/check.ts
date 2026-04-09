@@ -15,9 +15,19 @@ export function getRolePermissions(role: TenantRole): string[] {
   return [];
 }
 
-function resolvePermissions(userRole: TenantRole, userPermissions: string[]): Set<string> {
-  const defaults = getRolePermissions(userRole);
-  return new Set<string>([...defaults, ...userPermissions]);
+/**
+ * Resolve effective permissions for a user.
+ * Priority: custom tenant role overrides > user-specific permissions > role defaults.
+ * If customRolePermissions is provided for this role, it REPLACES the defaults entirely.
+ */
+function resolvePermissions(
+  userRole: TenantRole,
+  userPermissions: string[],
+  customRolePermissions?: Record<string, string[]>,
+): Set<string> {
+  const roleKey = userRole as string;
+  const base = customRolePermissions?.[roleKey] ?? getRolePermissions(userRole);
+  return new Set<string>([...base, ...userPermissions]);
 }
 
 /**
@@ -28,9 +38,10 @@ export function hasPermission(
   userRole: TenantRole,
   userPermissions: string[],
   permission: string,
+  customRolePermissions?: Record<string, string[]>,
 ): boolean {
   if (isOwnerRole(userRole)) return true;
-  const effective = resolvePermissions(userRole, userPermissions);
+  const effective = resolvePermissions(userRole, userPermissions, customRolePermissions);
   return effective.has(permission);
 }
 
@@ -38,9 +49,10 @@ export function hasAnyPermission(
   userRole: TenantRole,
   userPermissions: string[],
   permissions: string[],
+  customRolePermissions?: Record<string, string[]>,
 ): boolean {
   if (isOwnerRole(userRole)) return true;
-  const effective = resolvePermissions(userRole, userPermissions);
+  const effective = resolvePermissions(userRole, userPermissions, customRolePermissions);
   return permissions.some((p) => effective.has(p));
 }
 
@@ -48,9 +60,10 @@ export function hasAllPermissions(
   userRole: TenantRole,
   userPermissions: string[],
   permissions: string[],
+  customRolePermissions?: Record<string, string[]>,
 ): boolean {
   if (isOwnerRole(userRole)) return true;
-  const effective = resolvePermissions(userRole, userPermissions);
+  const effective = resolvePermissions(userRole, userPermissions, customRolePermissions);
   return permissions.every((p) => effective.has(p));
 }
 

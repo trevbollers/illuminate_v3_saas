@@ -112,6 +112,10 @@ export interface ITenant extends Document {
   bannerUrl?: string;
   status: "active" | "suspended" | "onboarding";
   onboardingStep: number;
+  // Custom role permissions — overrides defaults from role-templates
+  // Map of role -> permission keys array
+  customRolePermissions?: Record<string, string[]>;
+
   // League-specific
   leagueInfo?: {
     region?: string;
@@ -259,6 +263,7 @@ const TenantSchema = new Schema<ITenant>(
       default: "onboarding",
     },
     onboardingStep: { type: Number, default: 0 },
+    customRolePermissions: { type: Schema.Types.Mixed },
     leagueInfo: {
       region: { type: String },
       website: { type: String },
