@@ -1,17 +1,20 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, connectPlatformDB, Player } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, connectPlatformDB, Player } from "@goparticipate/db";
 
 // GET /api/roster — cross-team roster view: all players across all org teams
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   // Get all active teams

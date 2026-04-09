@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import crypto from "crypto";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 
 function generateToken(): string {
   return crypto.randomBytes(32).toString("base64url");
@@ -12,12 +12,15 @@ function generateToken(): string {
 
 // GET /api/invites — list invites for the org (optionally filter by teamId)
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   const { searchParams } = new URL(req.url);
@@ -37,19 +40,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 // POST /api/invites — create a new invite
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session.user.id) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Only coaches/admins/owners can invite
   const allowedRoles = ["org_owner", "org_admin", "head_coach", "assistant_coach", "team_manager"];
-  if (!allowedRoles.includes(session.user.role ?? "")) {
+  if (!allowedRoles.includes(role ?? "")) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
   const body = await req.json();
-  const { teamId, email, phone, role } = body;
+  const { teamId, email, phone, role: inviteRole } = body;
 
   if (!teamId || !Types.ObjectId.isValid(teamId)) {
     return NextResponse.json({ error: "Valid teamId is required" }, { status: 400 });
@@ -60,11 +66,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const validRoles = ["player", "coach", "manager", "viewer"];
-  if (!role || !validRoles.includes(role)) {
+  if (!inviteRole || !validRoles.includes(inviteRole)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   // Verify team exists
@@ -97,9 +104,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email: email ? email.trim().toLowerCase() : undefined,
     phone: phone ? phone.trim() : undefined,
     token,
-    role,
+    role: inviteRole,
     status: "pending",
-    invitedBy: new Types.ObjectId(session.user.id),
+    invitedBy: new Types.ObjectId(userId),
     expiresAt,
   });
 
@@ -116,8 +123,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 // DELETE /api/invites?inviteId=xxx — revoke an invite
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -128,7 +137,8 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid invite ID" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   await models.Invite.findByIdAndUpdate(inviteId, {

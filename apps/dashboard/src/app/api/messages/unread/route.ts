@@ -1,47 +1,42 @@
 export const dynamic = "force-dynamic";
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 
 // GET /api/messages/unread — get unread message counts by channel
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+export async function GET(): Promise<NextResponse> {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Message } = getOrgModels(conn);
 
-  const userId = new Types.ObjectId(session.user.id);
-  const role = session.user.role;
+  const userOid = new Types.ObjectId(userId);
   const isAdmin = role === "org_owner" || role === "org_admin" || role === "head_coach";
 
-  // Base filter: messages not read by this user
   const baseFilter: Record<string, unknown> = {
-    readBy: { $ne: userId },
+    readBy: { $ne: userOid },
   };
 
-  // Non-admins only see messages where they are a recipient
   if (!isAdmin) {
-    baseFilter.recipientUserIds = userId;
+    baseFilter.recipientUserIds = userOid;
   }
 
   const counts = await Message.aggregate([
     { $match: baseFilter },
-    {
-      $group: {
-        _id: "$channel",
-        count: { $sum: 1 },
-      },
-    },
+    { $group: { _id: "$channel", count: { $sum: 1 } } },
   ]);
 
   const channelCounts: Record<string, number> = {};
   let total = 0;
-
   for (const c of counts) {
     channelCounts[c._id] = c.count;
     total += c.count;

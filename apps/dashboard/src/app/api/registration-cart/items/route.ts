@@ -2,10 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import {
   connectTenantDB,
+  registerOrgModels,
   getOrgModels,
+  registerLeagueModels,
   getLeagueModels,
   connectPlatformDB,
   Tenant,
@@ -13,8 +15,11 @@ import {
 
 // POST /api/registration-cart/items — add an item to the cart
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -30,6 +35,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Connect to league DB to validate event/division
   const leagueConn = await connectTenantDB(leagueSlug, "league");
+  registerLeagueModels(leagueConn);
   const leagueModels = getLeagueModels(leagueConn);
 
   // Verify event exists and registration is open
@@ -74,7 +80,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Get team name from org DB
-  const orgConn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const orgConn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(orgConn);
   const orgModels = getOrgModels(orgConn);
 
   const team = await orgModels.Team.findById(teamId).lean();
@@ -113,22 +120,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     sport: (event as any).sport || (team as any).sport,
     unitPriceCents,
     addedAt: new Date(),
-    addedBy: new Types.ObjectId(session.user.id),
+    addedBy: new Types.ObjectId(userId),
   };
 
   // Get or create the active cart
   let cart = await orgModels.RegistrationCart.findOne({
-    orgTenantId: new Types.ObjectId(session.user.tenantId),
+    orgTenantId: new Types.ObjectId(tenantId),
     status: "active",
   });
 
   if (!cart) {
     cart = await orgModels.RegistrationCart.create({
-      orgTenantId: new Types.ObjectId(session.user.tenantId),
+      orgTenantId: new Types.ObjectId(tenantId),
       status: "active",
       items: [cartItem],
       checkouts: [],
-      createdBy: new Types.ObjectId(session.user.id),
+      createdBy: new Types.ObjectId(userId),
     });
   } else {
     // Check duplicate in cart

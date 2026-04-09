@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import { connectPlatformDB, Player } from "@goparticipate/db";
 
 // GET /api/players/[playerId] — get full player details
@@ -10,10 +10,8 @@ export async function GET(
   _req: Request,
   { params }: { params: { playerId: string } },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  if (!h.get("x-user-id")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!Types.ObjectId.isValid(params.playerId)) {
     return NextResponse.json({ error: "Invalid player ID" }, { status: 400 });
@@ -51,10 +49,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { playerId: string } },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session.user.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  if (!h.get("x-user-id")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!Types.ObjectId.isValid(params.playerId)) {
     return NextResponse.json({ error: "Invalid player ID" }, { status: 400 });

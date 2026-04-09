@@ -22,6 +22,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/invite/") ||
+    pathname.startsWith("/api/invite/") ||
     pathname === "/login"
   ) {
     return NextResponse.next();
@@ -77,6 +79,7 @@ export async function middleware(request: NextRequest) {
   response.headers.set("x-tenant-slug", user.tenantSlug);
   response.headers.set("x-user-id", user.id);
   response.headers.set("x-user-role", user.role);
+  if (user.name) response.headers.set("x-user-name", user.name);
 
   return response;
 }

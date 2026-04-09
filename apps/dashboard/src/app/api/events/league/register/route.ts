@@ -2,14 +2,17 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { connectPlatformDB, Tenant, connectTenantDB, getLeagueModels } from "@goparticipate/db";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
+import { connectPlatformDB, Tenant, connectTenantDB, registerLeagueModels, getLeagueModels } from "@goparticipate/db";
 import { getTenantStripe, getTenantStripeConfig } from "@goparticipate/billing";
 
 // POST /api/events/league/register — register a team for a league event and create checkout
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Connect to the league's DB
   const conn = await connectTenantDB(leagueSlug, "league");
+  registerLeagueModels(conn);
   const models = getLeagueModels(conn);
 
   // Verify event exists and registration is open
@@ -72,14 +76,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const registration = await models.Registration.create({
     eventId: new Types.ObjectId(eventId),
     divisionId: new Types.ObjectId(divisionId),
-    orgTenantId: new Types.ObjectId(session.user.tenantId),
+    orgTenantId: new Types.ObjectId(tenantId),
     teamId: new Types.ObjectId(teamId),
     teamName,
     roster: [],
     status: "pending",
     paymentStatus: "unpaid",
     amountPaid: 0,
-    registeredBy: new Types.ObjectId(session.user.id),
+    registeredBy: new Types.ObjectId(userId),
   });
 
   // Calculate price
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (pricing?.multiTeamDiscounts?.length > 0) {
     const orgRegCount = await models.Registration.countDocuments({
       eventId: new Types.ObjectId(eventId),
-      orgTenantId: new Types.ObjectId(session.user.tenantId),
+      orgTenantId: new Types.ObjectId(tenantId),
       status: { $nin: ["rejected", "withdrawn"] },
     });
     const sorted = [...pricing.multiTeamDiscounts].sort(
@@ -177,7 +181,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       teamName,
       divisionId,
       tenantSlug: leagueSlug,
-      orgTenantSlug: session.user.tenantSlug,
+      orgTenantSlug: tenantSlug,
     },
     success_url: `${baseUrl}/events?registration=success&event=${eventId}`,
     cancel_url: `${baseUrl}/events?registration=canceled&event=${eventId}`,

@@ -2,21 +2,25 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, getLeagueModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, registerLeagueModels, getLeagueModels } from "@goparticipate/db";
 
 // GET /api/registration-cart — get the org's active cart with recalculated prices
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   const cart = await models.RegistrationCart.findOne({
-    orgTenantId: new Types.ObjectId(session.user.tenantId),
+    orgTenantId: new Types.ObjectId(tenantId),
     status: "active",
   }).lean();
 
@@ -38,6 +42,7 @@ export async function GET(): Promise<NextResponse> {
       // Get or reuse league connection
       if (!leagueConnections.has(item.leagueSlug)) {
         const leagueConn = await connectTenantDB(item.leagueSlug, "league");
+        registerLeagueModels(leagueConn);
         leagueConnections.set(item.leagueSlug, getLeagueModels(leagueConn));
       }
       const leagueModels = leagueConnections.get(item.leagueSlug)!;
@@ -65,7 +70,7 @@ export async function GET(): Promise<NextResponse> {
         if (pricing?.multiTeamDiscounts?.length > 0) {
           const existingRegCount = await leagueModels.Registration.countDocuments({
             eventId: new Types.ObjectId(item.eventId),
-            orgTenantId: new Types.ObjectId(session.user.tenantId),
+            orgTenantId: new Types.ObjectId(tenantId),
             status: { $nin: ["rejected", "withdrawn"] },
           });
           const cartItemsForEvent = (cart as any).items.filter(

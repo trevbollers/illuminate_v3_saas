@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import { connectPlatformDB, Tenant } from "@goparticipate/db";
 
 export const runtime = "nodejs";
 
 export async function GET(_req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const tenantSlug = session.user.tenantSlug;
-  if (!tenantSlug) {
-    return NextResponse.json({ error: "No active tenant" }, { status: 400 });
   }
 
   await connectPlatformDB();

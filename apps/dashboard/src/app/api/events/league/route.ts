@@ -1,20 +1,22 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { connectPlatformDB, Tenant, connectTenantDB, getLeagueModels } from "@goparticipate/db";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
+import { connectPlatformDB, Tenant, connectTenantDB, registerLeagueModels, getLeagueModels } from "@goparticipate/db";
 
 // GET /api/events/league — browse available league events for this org
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   await connectPlatformDB();
 
   // Get this org's tenant doc to find affiliated leagues
-  const orgTenant = await Tenant.findOne({ slug: session.user.tenantSlug }).lean();
+  const orgTenant = await Tenant.findOne({ slug: tenantSlug }).lean();
   if (!orgTenant) {
     return NextResponse.json({ error: "Org tenant not found" }, { status: 404 });
   }
@@ -37,6 +39,7 @@ export async function GET(): Promise<NextResponse> {
   for (const league of allLeagues) {
     try {
       const conn = await connectTenantDB((league as any).slug, "league");
+      registerLeagueModels(conn);
       const models = getLeagueModels(conn);
 
       const events = await models.Event.find({

@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, connectPlatformDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, connectPlatformDB, registerOrgModels, getOrgModels, User } from "@goparticipate/db";
 
 interface RouteContext {
   params: Promise<{ messageId: string }>;
@@ -14,8 +14,10 @@ export async function POST(
   req: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,13 +30,11 @@ export async function POST(
   const { response } = body;
 
   if (!response) {
-    return NextResponse.json(
-      { error: "response is required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "response is required" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Message, MessageAck } = getOrgModels(conn);
 
   const message = await Message.findById(messageId).lean();
@@ -43,30 +43,19 @@ export async function POST(
   }
 
   if (!message.requiresAck) {
-    return NextResponse.json(
-      { error: "This message does not require acknowledgement" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "This message does not require acknowledgement" }, { status: 400 });
   }
 
-  // Validate response is one of the allowed options
   if (!message.ackOptions.includes(response)) {
     return NextResponse.json(
-      {
-        error: `Invalid response. Must be one of: ${message.ackOptions.join(", ")}`,
-      },
-      { status: 400 }
+      { error: `Invalid response. Must be one of: ${message.ackOptions.join(", ")}` },
+      { status: 400 },
     );
   }
 
-  const userId = session.user.id;
+  await connectPlatformDB();
+  const user = await User.findById(userId).select("name").lean();
 
-  // Get user name from platform DB
-  const platformDb = await connectPlatformDB();
-  const User = platformDb.model("User");
-  const user = await User.findById(userId).lean() as { name: string } | null;
-
-  // Upsert — allows changing response
   const ack = await MessageAck.findOneAndUpdate(
     {
       messageId: new Types.ObjectId(messageId),
@@ -75,7 +64,7 @@ export async function POST(
     {
       messageId: new Types.ObjectId(messageId),
       userId: new Types.ObjectId(userId),
-      userName: user?.name || session.user.name || "Unknown",
+      userName: (user as any)?.name || "Unknown",
       response,
       respondedAt: new Date(),
     },

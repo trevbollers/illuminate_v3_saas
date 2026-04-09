@@ -2,30 +2,37 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
+import { headers } from "next/headers";
 import crypto from "crypto";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 import { sendEmail, InviteEmail, sendSMS, detectSMSProvider } from "@goparticipate/email";
 
 // GET /api/teams/[teamId]/invites — list pending invites
 export async function GET(
   _req: Request,
-  { params }: { params: { teamId: string } },
+  { params }: { params: Promise<{ teamId: string }> },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!Types.ObjectId.isValid(params.teamId)) {
+  const { teamId } = await params;
+  if (!Types.ObjectId.isValid(teamId)) {
     return NextResponse.json({ error: "Invalid team ID" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   const invites = await models.Invite.find({
-    teamId: new Types.ObjectId(params.teamId),
+    $or: [
+      { teamId: new Types.ObjectId(teamId) },
+      { teamIds: new Types.ObjectId(teamId) },
+    ],
     status: "pending",
     expiresAt: { $gt: new Date() },
   })
@@ -38,14 +45,18 @@ export async function GET(
 // POST /api/teams/[teamId]/invites — send invite(s) via email and/or SMS
 export async function POST(
   req: NextRequest,
-  { params }: { params: { teamId: string } },
+  { params }: { params: Promise<{ teamId: string }> },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const userName = h.get("x-user-name");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!Types.ObjectId.isValid(params.teamId)) {
+  const { teamId } = await params;
+  if (!Types.ObjectId.isValid(teamId)) {
     return NextResponse.json({ error: "Invalid team ID" }, { status: 400 });
   }
 
@@ -59,17 +70,20 @@ export async function POST(
     );
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
-  // Verify team exists
-  const team = await models.Team.findById(params.teamId).lean();
+  const team = await models.Team.findById(teamId).lean();
   if (!team || !(team as any).isActive) {
     return NextResponse.json({ error: "Team not found" }, { status: 404 });
   }
 
   const results: { email?: string; phone?: string; status: string; error?: string }[] = [];
-  const baseUrl = process.env.NEXTAUTH_URL || `https://${session.user.tenantSlug}.goparticipate.com`;
+  const baseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+    (process.env.NODE_ENV === "development"
+      ? "http://localhost:4003"
+      : `https://${tenantSlug}.goparticipate.com`);
 
   for (const inv of invites) {
     const { email, phone, role = "player" } = inv;
@@ -79,9 +93,11 @@ export async function POST(
       continue;
     }
 
-    // Check for existing pending invite with same email/phone for this team
     const existingFilter: any = {
-      teamId: new Types.ObjectId(params.teamId),
+      $or: [
+        { teamId: new Types.ObjectId(teamId) },
+        { teamIds: new Types.ObjectId(teamId) },
+      ],
       status: "pending",
       expiresAt: { $gt: new Date() },
     };
@@ -94,31 +110,29 @@ export async function POST(
       continue;
     }
 
-    // Generate secure token
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const invite = await models.Invite.create({
-      teamId: new Types.ObjectId(params.teamId),
+    await models.Invite.create({
+      teamId: new Types.ObjectId(teamId),
       email: email ? email.toLowerCase().trim() : undefined,
       phone: phone ? phone.trim() : undefined,
       token,
       role,
       status: "pending",
-      invitedBy: new Types.ObjectId(session.user.id),
+      invitedBy: new Types.ObjectId(userId),
       expiresAt,
     });
 
     const inviteUrl = `${baseUrl}/invite/${token}`;
 
-    // Send email if provided
     if (email) {
       try {
         await sendEmail({
           to: email.toLowerCase().trim(),
           subject: `You're invited to join ${(team as any).name} on Go Participate`,
           react: InviteEmail({
-            inviterName: session.user.name || "A coach",
+            inviterName: userName || "A coach",
             teamName: (team as any).name,
             role: role === "player" ? "Player" : role.charAt(0).toUpperCase() + role.slice(1),
             inviteUrl,
@@ -130,14 +144,13 @@ export async function POST(
       }
     }
 
-    // Send SMS if phone provided (and no email, or in addition to email)
     if (phone && !email) {
       const smsProvider = detectSMSProvider();
       if (smsProvider) {
         try {
           const smsResult = await sendSMS({
             to: phone.trim(),
-            body: `${session.user.name || "A coach"} invited you to join ${(team as any).name} on Go Participate. Accept here: ${inviteUrl}`,
+            body: `${userName || "A coach"} invited you to join ${(team as any).name} on Go Participate. Accept here: ${inviteUrl}`,
           });
           if (smsResult.success) {
             results.push({ email, phone, status: "sent" });
@@ -148,11 +161,8 @@ export async function POST(
           results.push({ email, phone, status: "sms_failed", error: err.message });
         }
       } else {
-        // No SMS provider — return the link for manual sharing
         results.push({
-          email,
-          phone,
-          status: "sms_pending",
+          email, phone, status: "sms_pending",
           error: "SMS provider not configured. Share this link: " + inviteUrl,
         });
       }

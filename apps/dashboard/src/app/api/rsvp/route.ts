@@ -2,17 +2,15 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, connectPlatformDB, Player } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, connectPlatformDB, Player } from "@goparticipate/db";
 
-/**
- * GET /api/rsvp?eventId=xxx — get RSVP status for the logged-in parent's children
- * PATCH /api/rsvp — update RSVP { eventId, playerId, rsvp: "yes"|"no"|"maybe" }
- */
-
+// GET /api/rsvp?eventId=xxx — get RSVP status for the logged-in parent's children
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -21,20 +19,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid eventId" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Attendance } = getOrgModels(conn);
 
-  // Find this parent's players via platform DB
   await connectPlatformDB();
   const players = await Player.find({
-    guardianUserIds: new Types.ObjectId(session.user.id),
+    guardianUserIds: new Types.ObjectId(userId),
   })
     .select("_id firstName lastName")
     .lean();
 
   const playerIds = players.map((p: any) => p._id);
 
-  // Get attendance/RSVP records for these players
   const records = await Attendance.find({
     eventId: new Types.ObjectId(eventId),
     playerId: { $in: playerIds },
@@ -54,9 +51,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 }
 
+// PATCH /api/rsvp — update RSVP { eventId, playerId, rsvp: "yes"|"no"|"maybe" }
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -73,18 +73,18 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "rsvp must be yes, no, or maybe" }, { status: 400 });
   }
 
-  // Verify this parent owns this player
   await connectPlatformDB();
   const player = await Player.findOne({
     _id: new Types.ObjectId(playerId),
-    guardianUserIds: new Types.ObjectId(session.user.id),
+    guardianUserIds: new Types.ObjectId(userId),
   }).lean();
 
   if (!player) {
     return NextResponse.json({ error: "Player not found or not yours" }, { status: 403 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Attendance } = getOrgModels(conn);
 
   const updated = await Attendance.findOneAndUpdate(

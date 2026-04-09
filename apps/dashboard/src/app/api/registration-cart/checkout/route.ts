@@ -2,10 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import {
   connectTenantDB,
+  registerOrgModels,
   getOrgModels,
+  registerLeagueModels,
   getLeagueModels,
   connectPlatformDB,
   Tenant,
@@ -14,16 +16,26 @@ import { getTenantStripe, getTenantStripeConfig } from "@goparticipate/billing";
 
 // POST /api/registration-cart/checkout — create registrations + Stripe sessions
 export async function POST(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const orgConn = await connectTenantDB(session.user.tenantSlug, "organization");
+  await connectPlatformDB();
+  const orgTenant = await Tenant.findOne({ slug: tenantSlug }).select("_id").lean();
+  if (!orgTenant) {
+    return NextResponse.json({ error: "Org not found" }, { status: 404 });
+  }
+  const tenantId = (orgTenant as any)._id.toString();
+
+  const orgConn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(orgConn);
   const orgModels = getOrgModels(orgConn);
 
   const cart = await orgModels.RegistrationCart.findOne({
-    orgTenantId: new Types.ObjectId(session.user.tenantId),
+    orgTenantId: new Types.ObjectId(tenantId),
     status: "active",
   });
 
@@ -54,6 +66,7 @@ export async function POST(): Promise<NextResponse> {
 
   for (const [leagueSlug, items] of byLeague) {
     const leagueConn = await connectTenantDB(leagueSlug, "league");
+    registerLeagueModels(leagueConn);
     const leagueModels = getLeagueModels(leagueConn);
 
     const registrationIds: string[] = [];
@@ -120,7 +133,7 @@ export async function POST(): Promise<NextResponse> {
       if (pricing?.multiTeamDiscounts?.length > 0) {
         const existingRegCount = await leagueModels.Registration.countDocuments({
           eventId: new Types.ObjectId(item.eventId),
-          orgTenantId: new Types.ObjectId(session.user.tenantId),
+          orgTenantId: new Types.ObjectId(tenantId),
           status: { $nin: ["rejected", "withdrawn"] },
         });
         const cartItemsForEvent = items.filter(
@@ -149,14 +162,14 @@ export async function POST(): Promise<NextResponse> {
       const registration = await leagueModels.Registration.create({
         eventId: new Types.ObjectId(item.eventId),
         divisionId: new Types.ObjectId(item.divisionId),
-        orgTenantId: new Types.ObjectId(session.user.tenantId),
+        orgTenantId: new Types.ObjectId(tenantId),
         teamId: new Types.ObjectId(item.teamId),
         teamName: item.teamName,
         roster: [],
         status: "pending",
         paymentStatus: "unpaid",
         amountPaid: 0,
-        registeredBy: new Types.ObjectId(session.user.id),
+        registeredBy: new Types.ObjectId(userId),
       });
 
       registrationIds.push(registration._id.toString());
@@ -240,7 +253,7 @@ export async function POST(): Promise<NextResponse> {
       metadata: {
         cartId: cart._id.toString(),
         registrationIds: registrationIds.join(","),
-        orgTenantSlug: session.user.tenantSlug,
+        orgTenantSlug: tenantSlug,
         tenantSlug: leagueSlug,
       },
       success_url: `${baseUrl}/registration-cart?checkout=success&league=${leagueSlug}`,

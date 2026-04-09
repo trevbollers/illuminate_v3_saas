@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, connectPlatformDB, User, Tenant } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, connectPlatformDB, User, Tenant } from "@goparticipate/db";
 
 // GET /api/invites/accept/[token] — get invite details (no auth required)
 export async function GET(
@@ -17,15 +17,9 @@ export async function GET(
 
   await connectPlatformDB();
 
-  // We need to find which org this invite belongs to. Search all org tenants.
-  // In practice, the invite URL encodes the tenant — but for simplicity,
-  // we store the org slug in the invite URL or look it up from the referrer.
-  // For now, we use a platform-level lookup approach:
-  // The token is globally unique, so we scan the request's tenant context.
-
-  // Try to resolve tenant from the logged-in user's session first
-  const session = await auth();
-  const tenantSlug = session?.user?.tenantSlug;
+  // Try to resolve tenant from the logged-in user's session via middleware headers
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
 
   if (!tenantSlug) {
     // No session — return minimal info. The landing page will prompt login.
@@ -36,6 +30,7 @@ export async function GET(
   }
 
   const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   const invite = await models.Invite.findOne({
@@ -71,8 +66,11 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { token: string } },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.id || !session.user.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const userName = h.get("x-user-name");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -81,7 +79,8 @@ export async function POST(
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   const invite = await models.Invite.findOne({
@@ -107,12 +106,12 @@ export async function POST(
   const membershipRole = roleMap[invite.role] ?? "viewer";
 
   // Check if user already has a membership for this tenant
-  const tenant = await Tenant.findOne({ slug: session.user.tenantSlug }).lean();
+  const tenant = await Tenant.findOne({ slug: tenantSlug }).lean();
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  const user = await User.findById(session.user.id);
+  const user = await User.findById(userId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -153,15 +152,15 @@ export async function POST(
   if (invite.role === "player") {
     const existingRoster = await models.Roster.findOne({
       teamId: invite.teamId,
-      playerId: new Types.ObjectId(session.user.id),
+      playerId: new Types.ObjectId(userId),
       status: "active",
     }).lean();
 
     if (!existingRoster) {
       await models.Roster.create({
         teamId: invite.teamId,
-        playerId: new Types.ObjectId(session.user.id),
-        playerName: user.name ?? session.user.name ?? "Unknown",
+        playerId: new Types.ObjectId(userId),
+        playerName: user.name ?? userName ?? "Unknown",
         status: "active",
         joinedAt: new Date(),
       });
@@ -180,7 +179,7 @@ export async function POST(
         familyName: `${user.name}'s Family`,
         primaryUserId: user._id,
         orgConnections: [{
-          tenantSlug: session.user.tenantSlug,
+          tenantSlug: tenantSlug,
           tenantName: tenant.name,
           connectedAt: new Date(),
           status: "active",
@@ -221,7 +220,7 @@ export async function POST(
             medical: pp.medical || {},
             sports: [],
             teamHistory: [{
-              tenantSlug: session.user.tenantSlug,
+              tenantSlug: tenantSlug,
               tenantName: tenant.name,
               teamName: (await models.Team.findById(invite.teamId).select("name").lean() as any)?.name || "",
               teamId: invite.teamId.toString(),
@@ -244,7 +243,7 @@ export async function POST(
 
   // Mark invite as accepted
   invite.status = "accepted";
-  invite.acceptedBy = new Types.ObjectId(session.user.id);
+  invite.acceptedBy = new Types.ObjectId(userId);
   await invite.save();
 
   return NextResponse.json({

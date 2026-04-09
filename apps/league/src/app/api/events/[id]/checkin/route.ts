@@ -188,6 +188,21 @@ export async function POST(
     });
   }
 
+  // Look up division label for the player card
+  let divisionLabel = "";
+  let ageGroup = "";
+  if ((registration as any).divisionId) {
+    const division = await tenant.models.Division.findById((registration as any).divisionId)
+      .select("label minAge maxAge")
+      .lean();
+    if (division) {
+      divisionLabel = (division as any).label || "";
+      if ((division as any).minAge && (division as any).maxAge) {
+        ageGroup = `Ages ${(division as any).minAge}–${(division as any).maxAge}`;
+      }
+    }
+  }
+
   // ALL CHECKS PASSED — record check-in
   const checkIn = await tenant.models.CheckIn.create({
     eventId: new Types.ObjectId(params.id),
@@ -212,7 +227,9 @@ export async function POST(
     playerName: rosterEntry.playerName,
     teamName: (registration as any).teamName,
     jerseyNumber: rosterEntry.jerseyNumber,
-    divisionId: (registration as any).divisionId.toString(),
+    divisionId: (registration as any).divisionId?.toString(),
+    divisionLabel,
+    ageGroup,
     eligibilityStatus: rosterEntry.eligibilityStatus,
     dayLabel,
     checkInId: checkIn._id,

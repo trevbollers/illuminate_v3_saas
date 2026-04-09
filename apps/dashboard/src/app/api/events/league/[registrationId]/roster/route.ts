@@ -2,16 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { connectTenantDB, getLeagueModels } from "@goparticipate/db";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
+import { connectTenantDB, registerLeagueModels, getLeagueModels } from "@goparticipate/db";
 
 // PUT /api/events/league/[registrationId]/roster — submit/update event roster for a registration
 export async function PUT(
   req: NextRequest,
   { params }: { params: { registrationId: string } },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,6 +34,7 @@ export async function PUT(
 
   // Connect to the league DB
   const conn = await connectTenantDB(leagueSlug, "league");
+  registerLeagueModels(conn);
   const models = getLeagueModels(conn);
 
   // Find registration and verify it belongs to this org
@@ -39,7 +43,7 @@ export async function PUT(
     return NextResponse.json({ error: "Registration not found" }, { status: 404 });
   }
 
-  if ((registration as any).orgTenantId.toString() !== session.user.tenantId) {
+  if ((registration as any).orgTenantId.toString() !== tenantId) {
     return NextResponse.json({ error: "Not authorized to modify this registration" }, { status: 403 });
   }
 
@@ -98,8 +102,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { registrationId: string } },
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -111,6 +118,7 @@ export async function GET(
   }
 
   const conn = await connectTenantDB(leagueSlug, "league");
+  registerLeagueModels(conn);
   const models = getLeagueModels(conn);
 
   const registration = await models.Registration.findById(params.registrationId).lean();
@@ -118,7 +126,7 @@ export async function GET(
     return NextResponse.json({ error: "Registration not found" }, { status: 404 });
   }
 
-  if ((registration as any).orgTenantId.toString() !== session.user.tenantId) {
+  if ((registration as any).orgTenantId.toString() !== tenantId) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 

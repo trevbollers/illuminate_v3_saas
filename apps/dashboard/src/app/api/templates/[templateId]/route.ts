@@ -1,20 +1,22 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 
 // PATCH /api/templates/[templateId] — update a custom template
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ templateId: string }> }
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.scopedRole;
   if (!role || !["org_owner", "org_admin", "head_coach"].includes(role)) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
@@ -22,7 +24,8 @@ export async function PATCH(
   const { templateId } = await params;
   const body = await req.json();
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { MessageTemplate } = getOrgModels(conn);
 
   const template = await MessageTemplate.findById(templateId);
@@ -55,19 +58,22 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ templateId: string }> }
 ): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.scopedRole;
   if (!role || !["org_owner", "org_admin", "head_coach"].includes(role)) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
   const { templateId } = await params;
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { MessageTemplate } = getOrgModels(conn);
 
   const template = await MessageTemplate.findById(templateId);

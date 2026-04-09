@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, connectPlatformDB, Player, Family } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, connectPlatformDB, Player, Family } from "@goparticipate/db";
 
 interface CSVRow {
   firstName: string;
@@ -30,8 +30,10 @@ interface ImportResult {
 
 // POST /api/roster/import — bulk import players from CSV data
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session.user.id) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userIdStr = h.get("x-user-id");
+  if (!tenantSlug || !userIdStr) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -50,7 +52,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Maximum 100 players per import" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   // Verify team exists
@@ -61,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   await connectPlatformDB();
 
-  const userId = new Types.ObjectId(session.user.id);
+  const userId = new Types.ObjectId(userIdStr);
   const results: ImportResult[] = [];
   let created = 0;
   let duplicates = 0;

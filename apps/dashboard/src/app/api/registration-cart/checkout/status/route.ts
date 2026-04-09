@@ -2,22 +2,26 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 
 // GET /api/registration-cart/checkout/status — check payment status after returning from Stripe
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session?.user?.tenantId) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const tenantId = h.get("x-tenant-id");
+  if (!tenantSlug || !userId || !tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const models = getOrgModels(conn);
 
   // Find the most recent checking_out or completed cart
   const cart = await models.RegistrationCart.findOne({
-    orgTenantId: new Types.ObjectId(session.user.tenantId),
+    orgTenantId: new Types.ObjectId(tenantId),
     status: { $in: ["checking_out", "completed"] },
   })
     .sort({ updatedAt: -1 })

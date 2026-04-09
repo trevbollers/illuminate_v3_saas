@@ -1,17 +1,20 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels, seedDefaultTemplates } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels, seedDefaultTemplates } from "@goparticipate/db";
 
 // GET /api/templates — list all message templates (system + custom)
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { MessageTemplate } = getOrgModels(conn);
 
   // Seed system defaults on first access
@@ -26,13 +29,16 @@ export async function GET(): Promise<NextResponse> {
 
 // POST /api/templates — create a custom template
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  const userName = h.get("x-user-name");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Only leaders can create templates
-  const role = session.user.scopedRole;
   if (!role || !["org_owner", "org_admin", "head_coach"].includes(role)) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
@@ -44,7 +50,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Name and body are required" }, { status: 400 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { MessageTemplate } = getOrgModels(conn);
 
   const template = await MessageTemplate.create({
@@ -55,8 +62,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     body: templateBody.trim(),
     context: "message",
     isSystem: false,
-    createdByUserId: session.user.id,
-    createdByName: session.user.name || "Unknown",
+    createdByUserId: userId,
+    createdByName: userName || "Unknown",
     suggestedPriority: suggestedPriority || undefined,
     suggestedAckOptions: suggestedAckOptions?.filter((o: string) => o.trim()) || undefined,
   });

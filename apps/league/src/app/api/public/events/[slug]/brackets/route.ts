@@ -25,10 +25,9 @@ export async function GET(
   }
 
   const [brackets, divisions] = await Promise.all([
-    // Only show published, in_progress, or completed brackets to the public
+    // Show all brackets including draft (unfilled) so teams can see the structure
     Bracket.find({
       eventId: (event as any)._id,
-      status: { $in: ["published", "in_progress", "completed"] },
     })
       .sort({ createdAt: 1 })
       .lean(),

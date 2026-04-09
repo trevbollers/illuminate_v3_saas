@@ -2,10 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import {
   connectTenantDB,
   connectPlatformDB,
+  registerOrgModels,
   getOrgModels,
   resolveRecipients,
 } from "@goparticipate/db";
@@ -20,8 +21,11 @@ import {
 
 // GET /api/messages — list messages (inbox)
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,10 +36,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
   const skip = (page - 1) * limit;
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Message, MessageAck } = getOrgModels(conn);
-
-  const userId = session.user.id;
 
   // Build query filter
   const filter: Record<string, unknown> = {};
@@ -49,7 +52,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Non-admin users only see messages where they are a recipient
-  const role = session.user.role;
   const isAdmin = role === "org_owner" || role === "org_admin" || role === "head_coach";
 
   if (!isAdmin) {
@@ -104,8 +106,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 // POST /api/messages — send a new message
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const userName = h.get("x-user-name");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -143,7 +148,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Message } = getOrgModels(conn);
 
   // Resolve recipients at send time
@@ -153,13 +159,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Get author name from platform DB
   const platformDb = await connectPlatformDB();
   const User = platformDb.model("User");
-  const author = await User.findById(session.user.id).lean() as { name: string } | null;
+  const author = await User.findById(userId).lean() as { name: string } | null;
 
   const message = await Message.create({
     teamId: teamId ? new Types.ObjectId(teamId) : undefined,
     channel,
-    authorId: new Types.ObjectId(session.user.id),
-    authorName: author?.name || session.user.name || "Unknown",
+    authorId: new Types.ObjectId(userId),
+    authorName: author?.name || userName || "Unknown",
     subject,
     body: messageBody,
     priority,
@@ -174,7 +180,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // --- Email / SMS delivery (fire-and-forget, don't block response) ---
   const messageId = (message._id as Types.ObjectId).toString();
-  const baseUrl = process.env.NEXTAUTH_URL || `https://${session.user.tenantSlug}.goparticipate.com`;
+  const baseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || `https://${tenantSlug}.goparticipate.com`;
   const messageUrl = `${baseUrl}/communication/${messageId}`;
 
   // Get team name for email template
@@ -185,7 +191,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (team) teamName = team.name;
   }
 
-  const authorName = author?.name || session.user.name || "Coach";
+  const authorName = author?.name || userName || "Coach";
 
   // Deliver emails and SMS in the background
   deliverMessages({

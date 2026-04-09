@@ -295,6 +295,8 @@ export async function POST(
     });
   }
 
+  // Clear old standings and write fresh ones
+  await Standing.deleteMany({ eventId: id });
   if (ops.length > 0) {
     await Standing.bulkWrite(ops);
   }

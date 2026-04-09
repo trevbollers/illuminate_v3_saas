@@ -1,43 +1,32 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import { connectPlatformDB, User } from "@goparticipate/db";
 
-// GET /api/settings/profile
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  const userId = h.get("x-user-id");
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await connectPlatformDB();
-  const user = await User.findById(session.user.id)
-    .select("name email phone notificationPreferences")
-    .lean();
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+  const user = await User.findById(userId).select("name email phone notificationPreferences").lean();
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json({
     name: (user as any).name,
     email: (user as any).email,
     phone: (user as any).phone,
     notificationPreferences: (user as any).notificationPreferences || {
-      emailMessages: true,
-      smsUrgent: false,
-      emailAnnouncements: true,
+      emailMessages: true, smsUrgent: false, emailAnnouncements: true,
     },
   });
 }
 
-// PATCH /api/settings/profile
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  const userId = h.get("x-user-id");
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
   const { name, phone, notificationPreferences } = body;
@@ -48,7 +37,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (phone !== undefined) update.phone = phone;
   if (notificationPreferences) update.notificationPreferences = notificationPreferences;
 
-  await User.findByIdAndUpdate(session.user.id, { $set: update });
-
+  await User.findByIdAndUpdate(userId, { $set: update });
   return NextResponse.json({ ok: true });
 }

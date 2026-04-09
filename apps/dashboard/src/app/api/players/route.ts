@@ -2,15 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
+import { headers } from "next/headers";
 import { connectPlatformDB, Player, Family } from "@goparticipate/db";
 
 // GET /api/players — search platform players (for adding to rosters)
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  const userId = h.get("x-user-id");
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q") || "";
@@ -20,8 +19,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const filter: any = { isActive: true };
 
-  if (familyOnly && session.user.familyId) {
-    filter.familyId = session.user.familyId;
+  if (familyOnly) {
+    // Find user's family
+    const user = await (await import("@goparticipate/db")).User.findById(userId).select("familyId").lean();
+    if ((user as any)?.familyId) filter.familyId = (user as any).familyId;
+    else return NextResponse.json([]);
   } else if (query.length >= 2) {
     const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     filter.$or = [
@@ -58,10 +60,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 // POST /api/players — create a new player in the platform DB
 // Also creates/updates family grouping and links guardian
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug || !session.user.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const h = await headers();
+  const userId = h.get("x-user-id");
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
   const {
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   await connectPlatformDB();
 
-  const userId = new Types.ObjectId(session.user.id);
+  const userOid = new Types.ObjectId(userId);
 
   // Resolve or create family
   let familyId: Types.ObjectId;
@@ -100,19 +101,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!family) {
       return NextResponse.json({ error: "Family not found" }, { status: 404 });
     }
-  } else if (session.user.familyId) {
-    familyId = new Types.ObjectId(session.user.familyId);
   } else {
-    // Create a new family for this guardian
-    const familyName = guardianName
-      ? `${guardianName.split(" ").pop() || guardianName} Family`
-      : `${lastName} Family`;
-    const family = await Family.create({
-      name: familyName,
-      guardianUserIds: [userId],
-      playerIds: [],
-    });
-    familyId = family._id;
+    // Check if user has a familyId
+    const currentUser = await (await import("@goparticipate/db")).User.findById(userId).select("familyId").lean();
+    if ((currentUser as any)?.familyId) {
+      familyId = new Types.ObjectId((currentUser as any).familyId);
+    } else {
+      // Create a new family for this guardian
+      const familyName = guardianName
+        ? `${guardianName.split(" ").pop() || guardianName} Family`
+        : `${lastName} Family`;
+      const family = await Family.create({
+        name: familyName,
+        guardianUserIds: [userOid],
+        playerIds: [],
+      });
+      familyId = family._id;
+    }
   }
 
   // Create player
@@ -122,7 +127,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     dateOfBirth: new Date(dateOfBirth),
     gender: gender || undefined,
     familyId,
-    guardianUserIds: [userId],
+    guardianUserIds: [userOid],
     emergencyContacts: emergencyContacts || [],
     medical: medical || {},
     verificationStatus: "unverified",
@@ -131,7 +136,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Add player to family's playerIds
   await Family.findByIdAndUpdate(familyId, {
-    $addToSet: { playerIds: player._id, guardianUserIds: userId },
+    $addToSet: { playerIds: player._id, guardianUserIds: userOid },
   });
 
   return NextResponse.json(

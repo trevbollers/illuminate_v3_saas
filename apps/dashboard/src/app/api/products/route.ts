@@ -2,22 +2,22 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { auth } from "@goparticipate/auth/edge";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { headers } from "next/headers";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
 
 // GET /api/products — list all products for this org
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  if (!tenantSlug) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Product } = getOrgModels(conn);
 
-  const { searchParams } = new URL(req.url);
-  const activeOnly = searchParams.get("active") !== "false";
-
+  const activeOnly = new URL(req.url).searchParams.get("active") !== "false";
   const filter: Record<string, unknown> = {};
   if (activeOnly) filter.isActive = true;
 
@@ -30,12 +30,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 // POST /api/products — create a new product
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
-  if (!session?.user?.tenantSlug) {
+  const h = await headers();
+  const tenantSlug = h.get("x-tenant-slug");
+  const userId = h.get("x-user-id");
+  const role = h.get("x-user-role");
+  if (!tenantSlug || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.scopedRole || session.user.role;
   if (!role || !["org_owner", "org_admin", "head_coach"].includes(role)) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
@@ -46,19 +48,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!name?.trim() || !category || !pricing?.amount) {
     return NextResponse.json(
       { error: "name, category, and pricing.amount are required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  // Generate slug from name
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
     + "-" + Date.now().toString(36);
 
-  const conn = await connectTenantDB(session.user.tenantSlug, "organization");
+  const conn = await connectTenantDB(tenantSlug, "organization");
+  registerOrgModels(conn);
   const { Product } = getOrgModels(conn);
 
   const product = await Product.create({
@@ -78,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     teamIds: teamIds?.map((id: string) => new Types.ObjectId(id)) || [],
     isActive: true,
     sortOrder: 0,
-    createdBy: new Types.ObjectId(session.user.id),
+    createdBy: new Types.ObjectId(userId),
   });
 
   return NextResponse.json({ product }, { status: 201 });
