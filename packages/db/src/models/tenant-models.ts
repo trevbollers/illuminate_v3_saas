@@ -33,6 +33,7 @@ import { TryoutSessionSchema, type ITryoutSession } from "./org/tryout-session";
 import { TryoutRegistrationSchema, type ITryoutRegistration } from "./org/tryout-registration";
 import { TryoutEvaluationSchema, type ITryoutEvaluation } from "./org/tryout-evaluation";
 import { TryoutDecisionSchema, type ITryoutDecision } from "./org/tryout-decision";
+import { CoachProfileSchema, type ICoachProfile } from "./org/coach-profile";
 
 // Family models
 import { FamilyProfileSchema, type IFamilyProfile } from "./family/family-profile";
@@ -85,6 +86,7 @@ export function registerOrgModels(conn: Connection): void {
   if (!conn.models.TryoutRegistration) conn.model<ITryoutRegistration>("TryoutRegistration", TryoutRegistrationSchema);
   if (!conn.models.TryoutEvaluation) conn.model<ITryoutEvaluation>("TryoutEvaluation", TryoutEvaluationSchema);
   if (!conn.models.TryoutDecision) conn.model<ITryoutDecision>("TryoutDecision", TryoutDecisionSchema);
+  if (!conn.models.CoachProfile) conn.model<ICoachProfile>("CoachProfile", CoachProfileSchema);
 }
 
 /**
@@ -131,6 +133,7 @@ export function getOrgModels(conn: Connection) {
     TryoutRegistration: conn.model<ITryoutRegistration>("TryoutRegistration"),
     TryoutEvaluation: conn.model<ITryoutEvaluation>("TryoutEvaluation"),
     TryoutDecision: conn.model<ITryoutDecision>("TryoutDecision"),
+    CoachProfile: conn.model<ICoachProfile>("CoachProfile"),
   };
 }
 

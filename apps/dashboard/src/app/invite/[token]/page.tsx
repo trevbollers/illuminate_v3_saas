@@ -2,266 +2,315 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   Shield,
   Loader2,
   CheckCircle2,
   XCircle,
   UserPlus,
-  Trophy,
+  Users,
+  LogIn,
 } from "lucide-react";
-import { Button } from "@goparticipate/ui/src/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@goparticipate/ui/src/components/card";
-import { Badge } from "@goparticipate/ui/src/components/badge";
 
-interface InviteDetails {
-  invite: {
-    _id: string;
-    role: string;
-    expiresAt: string;
-    createdAt: string;
-  };
-  team: { name: string; sport: string } | null;
-  org: { name: string } | null;
+interface InviteItem {
+  _id: string;
+  token: string;
+  role: string;
+  teamNames: string[];
 }
 
-type PageState = "loading" | "details" | "accepting" | "accepted" | "error" | "requires-auth";
+interface InvitePageData {
+  valid: boolean;
+  existingUser: boolean;
+  orgName: string;
+  orgSlug: string;
+  email?: string;
+  inviteName?: string;
+  invites: InviteItem[];
+  error?: string;
+}
 
-export default function InviteAcceptPage() {
-  const params = useParams();
+const ROLE_LABELS: Record<string, string> = {
+  head_coach: "Head Coach",
+  assistant_coach: "Assistant Coach",
+  team_manager: "Team Manager",
+  player: "Player",
+  viewer: "Viewer",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  head_coach: "bg-green-100 text-green-800",
+  assistant_coach: "bg-blue-100 text-blue-800",
+  team_manager: "bg-purple-100 text-purple-800",
+  player: "bg-slate-100 text-slate-800",
+  viewer: "bg-slate-100 text-slate-600",
+};
+
+type PageState = "loading" | "invites" | "login" | "accepting" | "accepted" | "error";
+
+export default function AcceptInvitePage() {
+  const { token } = useParams<{ token: string }>();
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
-  const token = params.token as string;
 
   const [state, setState] = useState<PageState>("loading");
-  const [invite, setInvite] = useState<InviteDetails | null>(null);
+  const [data, setData] = useState<InvitePageData | null>(null);
   const [error, setError] = useState("");
-  const [acceptResult, setAcceptResult] = useState<{ role: string; message: string } | null>(null);
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (sessionStatus === "loading") return;
-
-    async function fetchInvite() {
-      try {
-        const res = await fetch(`/api/invites/accept/${token}`);
-        const data = await res.json();
-
-        if (data.requiresAuth) {
-          setState("requires-auth");
-          return;
-        }
-
-        if (!res.ok) {
-          setError(data.error || "Invite not found.");
+    fetch(`/api/invite/${token}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.valid) {
+          setError(d.error || "Invite not found or expired.");
           setState("error");
           return;
         }
+        setData(d);
+        if (d.inviteName) setName(d.inviteName);
+        if (d.email) setEmail(d.email);
+        // Pre-select all invites
+        setSelected(new Set(d.invites.map((i: InviteItem) => i.token)));
 
-        setInvite(data);
-        setState("details");
-      } catch {
+        if (d.existingUser) {
+          setState("login");
+        } else {
+          setState("invites");
+        }
+      })
+      .catch(() => {
         setError("Failed to load invite.");
         setState("error");
-      }
-    }
+      });
+  }, [token]);
 
-    fetchInvite();
-  }, [token, sessionStatus]);
+  function toggleInvite(invToken: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(invToken)) next.delete(invToken);
+      else next.add(invToken);
+      return next;
+    });
+  }
 
-  async function handleAccept() {
+  async function handleAccept(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || selected.size === 0) return;
     setState("accepting");
+    setError("");
     try {
-      const res = await fetch(`/api/invites/accept/${token}`, { method: "POST" });
-      const data = await res.json();
-
+      const res = await fetch(`/api/invite/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          acceptTokens: [...selected],
+        }),
+      });
+      const d = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to accept invite.");
-        setState("error");
+        setError(d.error || "Failed to accept.");
+        setState("invites");
         return;
       }
-
-      setAcceptResult(data);
       setState("accepted");
     } catch {
       setError("Something went wrong.");
-      setState("error");
+      setState("invites");
     }
   }
 
-  function handleGoToDashboard() {
-    router.push("/");
-  }
-
-  function handleLogin() {
-    const callbackUrl = `/invite/${token}`;
-    router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-  }
-
-  const roleLabels: Record<string, string> = {
-    player: "Player",
-    coach: "Coach",
-    manager: "Team Manager",
-    viewer: "Viewer",
-  };
-
-  const roleColors: Record<string, string> = {
-    player: "bg-blue-100 text-blue-800",
-    coach: "bg-green-100 text-green-800",
-    manager: "bg-purple-100 text-purple-800",
-    viewer: "bg-gray-100 text-gray-800",
-  };
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-sm">
         {/* Loading */}
         {state === "loading" && (
-          <CardContent className="flex flex-col items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="mt-4 text-sm text-muted-foreground">Loading invite...</p>
-          </CardContent>
+          <div className="text-center py-12">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-400" />
+          </div>
         )}
 
-        {/* Requires Auth */}
-        {state === "requires-auth" && (
-          <>
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-600">
-                <UserPlus className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-xl">Team Invite</CardTitle>
-              <CardDescription>
-                Sign in to accept this invitation and join the team.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleLogin}>
-                Sign In to Continue
-              </Button>
-            </CardContent>
-          </>
+        {/* Existing user — just show login link */}
+        {state === "login" && data && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+              <LogIn className="h-6 w-6 text-blue-600" />
+            </div>
+            <h1 className="mt-3 text-xl font-bold text-slate-900">
+              Welcome back!
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              You have {data.invites.length} pending invite{data.invites.length !== 1 ? "s" : ""} from{" "}
+              <strong className="text-slate-700">{data.orgName}</strong>.
+              Sign in to view and accept them.
+            </p>
+
+            <div className="mt-4 space-y-1.5 text-left">
+              {data.invites.map((inv) => (
+                <div
+                  key={inv._id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                >
+                  <span className="text-sm font-medium text-slate-900">
+                    {inv.teamNames.join(", ") || "Organization-wide"}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[inv.role] || "bg-slate-100"}`}>
+                    {ROLE_LABELS[inv.role] || inv.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`)}
+              className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+            >
+              <LogIn className="h-4 w-4" />
+              Sign in to accept
+            </button>
+          </div>
         )}
 
-        {/* Invite Details */}
-        {state === "details" && invite && (
-          <>
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-600">
-                <UserPlus className="h-6 w-6 text-white" />
+        {/* New user — show all invites with checkboxes + signup form */}
+        {state === "invites" && data && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="text-center mb-5">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+                <Shield className="h-6 w-6 text-blue-600" />
               </div>
-              <CardTitle className="text-xl">You're Invited!</CardTitle>
-              <CardDescription>
-                You've been invited to join a team.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border p-4 space-y-3">
-                {invite.org && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Organization</span>
-                    <span className="text-sm font-medium">{invite.org.name}</span>
-                  </div>
-                )}
-                {invite.team && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Team</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{invite.team.name}</span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {invite.team.sport}
-                      </Badge>
+              <h1 className="mt-3 text-xl font-bold text-slate-900">
+                Join {data.orgName}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Select which teams to join
+              </p>
+            </div>
+
+            {/* Invite list with checkboxes */}
+            <div className="space-y-2 mb-5">
+              {data.invites.map((inv) => {
+                const checked = selected.has(inv.token);
+                return (
+                  <label
+                    key={inv._id}
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      checked ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleInvite(inv.token)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {inv.teamNames.join(", ") || "Organization-wide"}
+                        </p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[inv.role] || "bg-slate-100"}`}>
+                          {ROLE_LABELS[inv.role] || inv.role}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Role</span>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleColors[invite.invite.role] ?? "bg-gray-100 text-gray-800"}`}>
-                    {roleLabels[invite.invite.role] ?? invite.invite.role}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Expires</span>
-                  <span className="text-sm">
-                    {new Date(invite.invite.expiresAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
+                  </label>
+                );
+              })}
+            </div>
 
-              {session?.user && (
-                <p className="text-sm text-muted-foreground text-center">
-                  Signed in as <span className="font-medium text-foreground">{session.user.email}</span>
-                </p>
+            <form onSubmit={handleAccept} className="space-y-3">
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                  {error}
+                </div>
               )}
-
-              <Button
-                className="w-full bg-red-600 hover:bg-red-700"
-                onClick={handleAccept}
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Smith"
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="parent@example.com"
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!name.trim() || !email.trim() || selected.size === 0}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Accept & Join Team
-              </Button>
-            </CardContent>
-          </>
+                <UserPlus className="h-4 w-4" />
+                Join {selected.size} Team{selected.size !== 1 ? "s" : ""}
+              </button>
+            </form>
+          </div>
         )}
 
         {/* Accepting */}
         {state === "accepting" && (
-          <CardContent className="flex flex-col items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-red-600" />
-            <p className="mt-4 text-sm text-muted-foreground">Joining team...</p>
-          </CardContent>
+          <div className="text-center py-12">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-600" />
+            <p className="mt-4 text-sm text-slate-500">Joining...</p>
+          </div>
         )}
 
         {/* Accepted */}
-        {state === "accepted" && acceptResult && (
-          <>
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600">
-                <CheckCircle2 className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-xl">Welcome to the Team!</CardTitle>
-              <CardDescription>{acceptResult.message}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-red-600 hover:bg-red-700"
-                onClick={handleGoToDashboard}
-              >
-                Go to Dashboard
-              </Button>
-            </CardContent>
-          </>
+        {state === "accepted" && data && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <h1 className="mt-4 text-xl font-bold text-slate-900">
+              You&apos;re in!
+            </h1>
+            <p className="mt-2 text-slate-600">
+              You&apos;ve joined <strong>{data.orgName}</strong>.
+            </p>
+            <p className="mt-3 text-sm text-slate-500">
+              Sign in with your email to view schedules, team info, and more.
+            </p>
+            <button
+              onClick={() => router.push("/login")}
+              className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+            >
+              Sign in to Dashboard
+            </button>
+          </div>
         )}
 
         {/* Error */}
         {state === "error" && (
-          <>
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
-                <XCircle className="h-6 w-6 text-red-600" />
-              </div>
-              <CardTitle className="text-xl">Invite Error</CardTitle>
-              <CardDescription>{error}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => router.push("/")}
-              >
-                Go to Dashboard
-              </Button>
-            </CardContent>
-          </>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <h1 className="mt-4 text-xl font-bold text-slate-900">
+              Invite Error
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">{error}</p>
+          </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

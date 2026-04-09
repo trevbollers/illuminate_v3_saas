@@ -3,11 +3,13 @@ import { Schema, Document, Types } from "mongoose";
 // --- Main interface ---
 
 export interface IInvite extends Document {
-  teamId: Types.ObjectId;
+  teamId?: Types.ObjectId;       // optional — org-wide invites have no team
+  teamIds?: Types.ObjectId[];    // multiple teams for coaches managing several
   email?: string;
   phone?: string;
+  name?: string;                 // invitee display name
   token: string;
-  role: "player" | "coach" | "manager" | "viewer";
+  role: "head_coach" | "assistant_coach" | "team_manager" | "player" | "viewer";
   status: "pending" | "accepted" | "expired" | "revoked";
   invitedBy: Types.ObjectId;
   acceptedBy?: Types.ObjectId;
@@ -20,13 +22,15 @@ export interface IInvite extends Document {
 
 export const InviteSchema = new Schema<IInvite>(
   {
-    teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+    teamId: { type: Schema.Types.ObjectId, ref: "Team" },
+    teamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
     email: { type: String },
     phone: { type: String },
+    name: { type: String },
     token: { type: String, required: true, unique: true },
     role: {
       type: String,
-      enum: ["player", "coach", "manager", "viewer"],
+      enum: ["head_coach", "assistant_coach", "team_manager", "player", "viewer"],
       required: true,
     },
     status: {
