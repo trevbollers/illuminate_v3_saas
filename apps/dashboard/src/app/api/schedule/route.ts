@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { headers } from "next/headers";
-import { connectTenantDB, getOrgModels } from "@goparticipate/db";
+import { connectTenantDB, registerOrgModels, getOrgModels } from "@goparticipate/db";
+import { notifyTeamParents } from "@/lib/notify-parents";
 
 // GET /api/schedule — list events in a date range
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -206,6 +207,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const created = await models.OrgEvent.create(eventData);
+
+    // Notify parents of the teams involved
+    const teamIdsForNotify = (created.teamIds || []).map((id: any) => id.toString());
+    if (teamIdsForNotify.length > 0) {
+      const startStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const timeStr = start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      notifyTeamParents(conn, {
+        teamIds: teamIdsForNotify,
+        subject: `New Event: ${title.trim()}`,
+        body: `${title.trim()} has been scheduled for ${startStr} at ${timeStr}${location?.name ? ` at ${location.name}` : ""}.`,
+        smsBody: `${title.trim()} — ${startStr} ${timeStr}${location?.name ? ` @ ${location.name}` : ""}`,
+      }).catch(() => {});
+    }
+
     return NextResponse.json(created.toObject(), { status: 201 });
   } catch (err: any) {
     console.error("[schedule:create] Failed:", err.message);
