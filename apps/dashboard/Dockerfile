@@ -10,6 +10,7 @@ COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/db/package.json ./packages/db/
 COPY packages/billing/package.json ./packages/billing/
+COPY packages/email/package.json ./packages/email/
 COPY packages/permissions/package.json ./packages/permissions/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/config-typescript/package.json ./packages/config-typescript/

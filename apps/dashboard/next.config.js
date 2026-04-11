@@ -9,6 +9,7 @@ const nextConfig = {
     "@goparticipate/db",
     "@goparticipate/auth",
     "@goparticipate/billing",
+    "@goparticipate/email",
     "@goparticipate/permissions",
   ],
 };

@@ -15,6 +15,7 @@
     "@goparticipate/auth": "*",
     "@goparticipate/billing": "*",
     "@goparticipate/db": "*",
+    "@goparticipate/email": "*",
     "@goparticipate/permissions": "*",
     "@goparticipate/ui": "*",
     "@hookform/resolvers": "^3.9.0",

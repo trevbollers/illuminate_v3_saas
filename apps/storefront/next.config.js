@@ -8,6 +8,8 @@ const nextConfig = {
     "@goparticipate/ui",
     "@goparticipate/db",
     "@goparticipate/auth",
+    "@goparticipate/billing",
+    "@goparticipate/email",
   ],
 };
 

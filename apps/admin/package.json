@@ -17,6 +17,7 @@
     "@goparticipate/db": "*",
     "@goparticipate/auth": "*",
     "@goparticipate/billing": "*",
+    "@goparticipate/email": "*",
     "@goparticipate/permissions": "*",
     "mongodb": "^6.12.0",
     "next-auth": "5.0.0-beta.25",

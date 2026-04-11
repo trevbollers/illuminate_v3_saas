@@ -9,6 +9,9 @@ COPY package.json package-lock.json ./
 COPY apps/storefront/package.json ./apps/storefront/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/db/package.json ./packages/db/
+COPY packages/billing/package.json ./packages/billing/
+COPY packages/email/package.json ./packages/email/
+COPY packages/permissions/package.json ./packages/permissions/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/config-typescript/package.json ./packages/config-typescript/
 COPY packages/config-eslint/package.json ./packages/config-eslint/

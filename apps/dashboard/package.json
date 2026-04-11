@@ -17,6 +17,7 @@
     "@goparticipate/db": "*",
     "@goparticipate/auth": "*",
     "@goparticipate/billing": "*",
+    "@goparticipate/email": "*",
     "@goparticipate/permissions": "*",
     "lucide-react": "^0.460.0",
     "recharts": "^2.13.0",
