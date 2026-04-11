@@ -1,5 +1,5 @@
 {
-  "extends": "@goparticipate/config-typescript/tsconfig.nextjs.json",
+  "extends": "../../packages/config-typescript/tsconfig.nextjs.json",
   "compilerOptions": {
     "paths": { "@/*": ["./src/*"] }
   },

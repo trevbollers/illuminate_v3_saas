@@ -1,0 +1,58 @@
+# Dockerfile build context excludes.
+# Applies to every image built from this repo root.
+
+# Dependencies — npm ci installs them in the deps stage
+**/node_modules
+
+# Next.js build artifacts — rebuilt inside the container
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+
+# Local env files — never ship dev secrets into production images
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Deploy config — laptop-only
+.env.deploy
+
+# Production env lives on the server only
+.env.production
+
+# Git / IDE / OS
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+.claude
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs & coverage
+coverage
+*.log
+npm-debug.log*
+
+# Local uploads
+apps/*/public/uploads
+
+# Docs aren't needed for build
+docs
+*.md
+!apps/**/README.md
+
+# Setup scripts — not for container builds
+setup-goparticipate.sh
+scripts/build-and-ship.sh
+scripts/restart-dev.sh
+scripts/seed-test-flow.sh
+scripts/seed.sh
+scripts/dev-setup.sh
