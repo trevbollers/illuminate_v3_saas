@@ -1,0 +1,37 @@
+# LAPTOP-ONLY BUILD FILE
+# scripts/build-and-ship.sh uses this to build the 5 app images locally.
+# Produces images tagged as goparticipate/<app>:latest.
+#
+# This file is NEVER deployed to the server. The server only runs
+# docker-compose.prod.yml which references the already-built images.
+
+services:
+  web:
+    image: goparticipate/web:latest
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+
+  admin:
+    image: goparticipate/admin:latest
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+
+  league:
+    image: goparticipate/league:latest
+    build:
+      context: .
+      dockerfile: apps/league/Dockerfile
+
+  dashboard:
+    image: goparticipate/dashboard:latest
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+
+  storefront:
+    image: goparticipate/storefront:latest
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile

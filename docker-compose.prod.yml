@@ -1,5 +1,12 @@
-services:
+# SERVER RUNTIME FILE
+# Runs on the production server. References pre-built images that were
+# loaded via `docker load` from a tarball shipped by scripts/build-and-ship.sh.
+# The server never builds images.
+#
+# Mongo credentials come from /opt/go-participate/.env (compose variable
+# substitution). App env comes from .env.production (runtime env).
 
+services:
   mongodb:
     image: mongo:7
     container_name: gp-mongodb
@@ -13,9 +20,7 @@ services:
       - mongodb_data:/data/db
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+    image: goparticipate/web:latest
     container_name: gp-web
     restart: unless-stopped
     ports:
@@ -25,9 +30,7 @@ services:
       - mongodb
 
   admin:
-    build:
-      context: .
-      dockerfile: apps/admin/Dockerfile
+    image: goparticipate/admin:latest
     container_name: gp-admin
     restart: unless-stopped
     ports:
@@ -37,9 +40,7 @@ services:
       - mongodb
 
   league:
-    build:
-      context: .
-      dockerfile: apps/league/Dockerfile
+    image: goparticipate/league:latest
     container_name: gp-league
     restart: unless-stopped
     ports:
@@ -49,9 +50,7 @@ services:
       - mongodb
 
   dashboard:
-    build:
-      context: .
-      dockerfile: apps/dashboard/Dockerfile
+    image: goparticipate/dashboard:latest
     container_name: gp-dashboard
     restart: unless-stopped
     ports:
@@ -61,9 +60,7 @@ services:
       - mongodb
 
   storefront:
-    build:
-      context: .
-      dockerfile: apps/storefront/Dockerfile
+    image: goparticipate/storefront:latest
     container_name: gp-storefront
     restart: unless-stopped
     ports:
