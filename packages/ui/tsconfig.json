@@ -1,5 +1,5 @@
 {
-  "extends": "@goparticipate/config-typescript/tsconfig.base.json",
+  "extends": "../config-typescript/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "outDir": "./dist",
