@@ -81,8 +81,8 @@ interface OrgProduct {
   _id: string;
   name: string;
   slug: string;
-  price: number;
-  images?: string[];
+  imageUrl?: string;
+  pricing?: { amount: number };
   category?: string;
 }
 
