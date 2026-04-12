@@ -77,7 +77,6 @@ export async function PATCH(
   }
 
   // Flag champion + finalist when a championship game completes
-  const gameObj = game as any;
   if (body.status === "completed" && gameObj.homeScore !== undefined && gameObj.awayScore !== undefined) {
     const roundLower = (gameObj.round || "").toLowerCase();
     const isChampionship =

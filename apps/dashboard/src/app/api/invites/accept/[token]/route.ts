@@ -93,6 +93,16 @@ export async function POST(
     return NextResponse.json({ error: "Invite not found or expired" }, { status: 404 });
   }
 
+  // This flow handles team-specific invites. Org-wide invites (no teamId)
+  // would need separate handling — not supported yet.
+  const inviteTeamId = invite.teamId ?? invite.teamIds?.[0];
+  if (!inviteTeamId) {
+    return NextResponse.json(
+      { error: "Invite has no associated team" },
+      { status: 400 },
+    );
+  }
+
   await connectPlatformDB();
 
   // Map invite role to org membership role
@@ -122,10 +132,10 @@ export async function POST(
 
   if (existingMembership) {
     // User already has membership — add teamId if not present
-    if (!existingMembership.teamIds?.some((id: Types.ObjectId) => id.toString() === invite.teamId.toString())) {
+    if (!existingMembership.teamIds?.some((id: Types.ObjectId) => id.toString() === inviteTeamId.toString())) {
       await User.updateOne(
         { _id: user._id, "memberships.tenantId": tenant._id },
-        { $addToSet: { "memberships.$.teamIds": invite.teamId } },
+        { $addToSet: { "memberships.$.teamIds": inviteTeamId } },
       );
     }
   } else {
@@ -138,7 +148,7 @@ export async function POST(
             tenantId: tenant._id,
             tenantType: "organization",
             role: membershipRole,
-            teamIds: [invite.teamId],
+            teamIds: [inviteTeamId],
             permissions: [],
             isActive: true,
             joinedAt: new Date(),
@@ -151,14 +161,14 @@ export async function POST(
   // If the invite is for a player role, also add them to the roster
   if (invite.role === "player") {
     const existingRoster = await models.Roster.findOne({
-      teamId: invite.teamId,
+      teamId: inviteTeamId,
       playerId: new Types.ObjectId(userId),
       status: "active",
     }).lean();
 
     if (!existingRoster) {
       await models.Roster.create({
-        teamId: invite.teamId,
+        teamId: inviteTeamId,
         playerId: new Types.ObjectId(userId),
         playerName: user.name ?? userName ?? "Unknown",
         status: "active",
@@ -222,9 +232,9 @@ export async function POST(
             teamHistory: [{
               tenantSlug: tenantSlug,
               tenantName: tenant.name,
-              teamName: (await models.Team.findById(invite.teamId).select("name").lean() as any)?.name || "",
-              teamId: invite.teamId.toString(),
-              sport: (await models.Team.findById(invite.teamId).select("sport").lean() as any)?.sport || "",
+              teamName: (await models.Team.findById(inviteTeamId).select("name").lean() as any)?.name || "",
+              teamId: inviteTeamId.toString(),
+              sport: (await models.Team.findById(inviteTeamId).select("sport").lean() as any)?.sport || "",
               season: new Date().getFullYear().toString(),
               year: new Date().getFullYear(),
               joinedAt: new Date(),

@@ -324,10 +324,10 @@ export default function RosterPage() {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       {player.hasMedicalNotes && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" title="Has medical notes" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Has medical notes" />
                       )}
                       {player.verificationStatus === "verified" && (
-                        <ShieldCheck className="h-3.5 w-3.5 text-green-600" title="Verified" />
+                        <ShieldCheck className="h-3.5 w-3.5 text-green-600" aria-label="Verified" />
                       )}
                     </div>
                   </TableCell>

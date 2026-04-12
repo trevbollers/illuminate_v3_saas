@@ -72,6 +72,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    if (!row) continue;
     const rowNum = i + 1;
     const playerName = `${row.firstName?.trim() || ""} ${row.lastName?.trim() || ""}`.trim();
 

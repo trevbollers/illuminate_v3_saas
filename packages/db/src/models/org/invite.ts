@@ -8,6 +8,7 @@ export interface IInvite extends Document {
   email?: string;
   phone?: string;
   name?: string;                 // invitee display name
+  playerId?: Types.ObjectId;     // optional — inviting an existing platform Player to this team
   token: string;
   role: "head_coach" | "assistant_coach" | "team_manager" | "player" | "viewer";
   status: "pending" | "accepted" | "expired" | "revoked";
@@ -27,6 +28,7 @@ export const InviteSchema = new Schema<IInvite>(
     email: { type: String },
     phone: { type: String },
     name: { type: String },
+    playerId: { type: Schema.Types.ObjectId },
     token: { type: String, required: true, unique: true },
     role: {
       type: String,

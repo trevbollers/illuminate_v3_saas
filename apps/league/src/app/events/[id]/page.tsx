@@ -559,7 +559,18 @@ export default function EventDetailPage() {
 
   async function updateGameFull(
     gameId: string,
-    update: { homeTeamName?: string; awayTeamName?: string; homeScore?: number; awayScore?: number; status?: string },
+    update: Partial<{
+      homeTeamName: string;
+      awayTeamName: string;
+      homeScore: number;
+      awayScore: number;
+      status: string;
+      field: string;
+      timeSlot: string;
+      scheduledAt: string;
+      locationName: string;
+      dayIndex: number;
+    }>,
   ) {
     await fetch(`/api/events/${id}/games/${gameId}`, {
       method: "PATCH",
@@ -660,7 +671,7 @@ export default function EventDetailPage() {
     primaryMove: { gameId: string; field: string; timeSlot: string },
     bumpMoves: { gameId: string; field: string; timeSlot: string }[],
   ) {
-    const day = event!.days[selectedDay];
+    const day = event!.days[selectedDay]!;
     const fieldInfo = allFields.find((f) => f.field === primaryMove.field);
     const locationName = fieldInfo?.locationName || "";
 
@@ -728,7 +739,7 @@ export default function EventDetailPage() {
 
         // Check team conflicts for ALL bumped games
         for (const bump of bumpMoves) {
-          const bumpedGame = dayGames.find((g) => g.gameId === bump.gameId || g._id === bump.gameId);
+          const bumpedGame = dayGames.find((g) => g._id === bump.gameId);
           if (bumpedGame) {
             const conflict = checkGameConflict(bumpedGame, bump.field, bump.timeSlot);
             if (conflict) {
@@ -769,7 +780,7 @@ export default function EventDetailPage() {
       label: `Game #${game.gameNumber} moved to ${targetField} at ${targetTimeSlot}`,
     });
 
-    const day = event!.days[selectedDay];
+    const day = event!.days[selectedDay]!;
     const [h, m] = targetTimeSlot.split(":").map(Number);
     const scheduledAt = new Date(day.date);
     scheduledAt.setHours(h || 0, m || 0, 0, 0);
@@ -959,7 +970,7 @@ export default function EventDetailPage() {
   }
 
   // Build time slots for the selected day
-  const day = event.days[selectedDay];
+  const day = event.days[selectedDay]!;
   const timeSlots: string[] = [];
   if (day) {
     const [startH, startM] = (day.startTime || "08:00").split(":").map(Number);
@@ -1719,7 +1730,6 @@ export default function EventDetailPage() {
                 })}
               </div>
             </div>
-          )}
 
           {/* Unscheduled Games (bracket games without time slots) */}
           {(() => {
@@ -1793,7 +1803,7 @@ export default function EventDetailPage() {
               <span>{lastMove.label}</span>
               <button
                 onClick={async () => {
-                  const day = event!.days[lastMove.prevDayIndex];
+                  const day = event!.days[lastMove.prevDayIndex]!;
                   const [h, m] = lastMove.prevTimeSlot.split(":").map(Number);
                   const scheduledAt = new Date(day.date);
                   scheduledAt.setHours(h || 0, m || 0, 0, 0);
@@ -1830,6 +1840,7 @@ export default function EventDetailPage() {
             )}
           </DragOverlay>
           </DndContext>
+          )}
 
           {/* Division Legend */}
           {games.length > 0 && event.divisions.length > 0 && (
@@ -3029,7 +3040,7 @@ function GameDetailModal({
       if (editDayIndex !== game.dayIndex) update.dayIndex = editDayIndex;
 
       // Compute scheduledAt from day + timeSlot
-      const day = days[editDayIndex];
+      const day = days[editDayIndex]!;
       if (day && editTimeSlot) {
         const [h, m] = editTimeSlot.split(":").map(Number);
         const d = new Date(day.date);

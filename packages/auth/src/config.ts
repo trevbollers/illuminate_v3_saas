@@ -208,7 +208,7 @@ function resolveActiveTenant(
   // Infer preferred tenant type from NEXTAUTH_URL port
   const url = process.env.NEXTAUTH_URL || "";
   const portMatch = url.match(/:(\d+)/);
-  const port = portMatch ? parseInt(portMatch[1]) : 0;
+  const port = portMatch?.[1] ? parseInt(portMatch[1]) : 0;
   let preferredType: TenantType | null = null;
   if (port === 4002) preferredType = "league";
   if (port === 4003) preferredType = "organization";
@@ -364,7 +364,12 @@ export const authConfig: NextAuthConfig = {
 
         if (!identifier || !code) return null;
 
-        return validateMagicCode(identifier.trim().toLowerCase(), code.trim());
+        const result = await validateMagicCode(identifier.trim().toLowerCase(), code.trim());
+        if (!result) return null;
+        return {
+          ...result,
+          platformRole: (result.platformRole as PlatformRole) ?? "user",
+        };
       },
     }),
   ],

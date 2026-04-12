@@ -6,8 +6,12 @@ export interface SendEmailOptions {
   to: string | string[];
   /** Email subject line. */
   subject: string;
-  /** React Email template component (rendered server-side by Resend). */
-  react: React.ReactElement;
+  /** React Email template component. Either `react`, `html`, or `text` must be provided. */
+  react?: React.ReactElement;
+  /** Raw HTML body. Use when you don't have a React Email template handy. */
+  html?: string;
+  /** Plain-text body. */
+  text?: string;
   /** Sender address. Defaults to RESEND_FROM_EMAIL env var or a fallback. */
   from?: string;
   /** Reply-to address. */
@@ -47,15 +51,21 @@ export async function sendEmail(
     process.env.RESEND_FROM_EMAIL ??
     "Go Participate <noreply@goparticipate.app>";
 
+  if (!options.react && !options.html && !options.text) {
+    throw new Error("sendEmail: one of `react`, `html`, or `text` must be provided");
+  }
+
   const { data, error } = await resend.emails.send({
     from,
     to: options.to,
     subject: options.subject,
     react: options.react,
+    html: options.html,
+    text: options.text,
     replyTo: options.replyTo,
     bcc: options.bcc,
     cc: options.cc,
-  });
+  } as any);
 
   if (error) {
     throw new Error(`Failed to send email: ${error.message}`);

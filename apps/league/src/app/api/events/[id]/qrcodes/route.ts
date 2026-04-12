@@ -26,8 +26,6 @@ function generateChecksum(playerId: string, registrationId: string, eventId: str
   return crypto.createHmac("sha256", secret).update(payload).digest("hex").slice(0, 12);
 }
 
-export { generateChecksum };
-
 // GET /api/events/[id]/qrcodes — generate QR code data for all rostered players in an event
 export async function GET(
   req: NextRequest,

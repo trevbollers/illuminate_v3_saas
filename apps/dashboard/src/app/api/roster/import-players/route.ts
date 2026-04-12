@@ -127,7 +127,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const email = p.parentEmail.trim().toLowerCase();
 
         // Find or create parent user
-        let parentUser = await User.findOne({ email }).lean();
+        let parentUser: any = await User.findOne({ email }).lean();
         if (!parentUser) {
           parentUser = (await User.create({
             email,

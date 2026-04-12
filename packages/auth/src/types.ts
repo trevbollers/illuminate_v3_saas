@@ -33,9 +33,9 @@ declare module "next-auth" {
   interface User {
     platformRole?: PlatformRole;
     memberships?: TenantMembership[];
-    scopedRole?: string;
-    scopedPlayerId?: string;
-    scopedTenantSlug?: string;
+    scopedRole?: string | null;
+    scopedPlayerId?: string | null;
+    scopedTenantSlug?: string | null;
   }
 }
 

@@ -252,7 +252,7 @@ export default function RegistrationCartPage() {
                   {Array.from(events.entries()).map(([eventId, eventItems]) => (
                     <div key={eventId}>
                       <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                        {eventItems[0].eventName}
+                        {eventItems[0]!.eventName}
                       </h4>
                       <div className="space-y-2">
                         {eventItems.map((item) => (

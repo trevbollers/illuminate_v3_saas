@@ -72,8 +72,8 @@ export default function FamilySchedulePage() {
   const baseDate = new Date();
   baseDate.setDate(baseDate.getDate() + weekOffset * 7);
   const weekDates = getWeekDates(baseDate);
-  const weekStart = weekDates[0];
-  const weekEnd = weekDates[6];
+  const weekStart = weekDates[0]!;
+  const weekEnd = weekDates[6]!;
 
   useEffect(() => {
     setLoading(true);
@@ -254,7 +254,7 @@ export default function FamilySchedulePage() {
             upcomingEvents.map((event, i) => {
               const eventDate = new Date(event.startTime);
               const prevDate =
-                i > 0 ? new Date(upcomingEvents[i - 1].startTime) : null;
+                i > 0 ? new Date(upcomingEvents[i - 1]!.startTime) : null;
               const showDateHeader =
                 !prevDate || !isSameDay(eventDate, prevDate);
               const isEventToday = isSameDay(eventDate, today);

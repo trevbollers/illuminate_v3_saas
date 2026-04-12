@@ -109,7 +109,7 @@ function getEffectivePrice(pricing?: EventSummary["pricing"]) {
 function calcTotal(
   perTeam: number,
   teamCount: number,
-  discounts?: EventSummary["pricing"]["multiTeamDiscounts"],
+  discounts?: NonNullable<EventSummary["pricing"]>["multiTeamDiscounts"],
 ) {
   if (!perTeam || teamCount === 0) return 0;
   let discount = 0;
@@ -118,7 +118,7 @@ function calcTotal(
       .filter((d) => teamCount >= d.minTeams)
       .sort((a, b) => b.minTeams - a.minTeams);
     if (applicable.length > 0) {
-      const d = applicable[0];
+      const d = applicable[0]!;
       if (d.discountAmountPerTeam) discount = d.discountAmountPerTeam;
       else if (d.discountPercent)
         discount = Math.round((perTeam * d.discountPercent) / 100);
@@ -487,8 +487,8 @@ export default function RegisterPage() {
             {event.locations?.length > 0 && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
-                {event.locations[0].name}
-                {event.locations[0].city && `, ${event.locations[0].city}`}
+                {event.locations[0]!.name}
+                {event.locations[0]!.city && `, ${event.locations[0]!.city}`}
               </span>
             )}
             {price > 0 && (
@@ -1363,7 +1363,7 @@ function PricingSummary({
 }: {
   price: number;
   teamCount: number;
-  discounts?: EventSummary["pricing"]["multiTeamDiscounts"];
+  discounts?: NonNullable<EventSummary["pricing"]>["multiTeamDiscounts"];
   inline?: boolean;
 }) {
   const total = calcTotal(price, teamCount, discounts);

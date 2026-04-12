@@ -110,7 +110,7 @@ export async function POST(
   );
 
   // Validate teams array
-  const teams: { teamId?: string; teamName: string; divisionId?: string }[] =
+  const teams: { teamId?: string; teamName: string; divisionId?: string; isNew?: boolean }[] =
     body.teams;
   if (!Array.isArray(teams) || teams.length === 0) {
     return NextResponse.json(
@@ -374,7 +374,7 @@ export async function POST(
   }
 
   // 3. Fuzzy org name check
-  const displayName = (orgName || teams[0].teamName).trim();
+  const displayName = (orgName || teams[0]!.teamName).trim();
   const existingOrg = await Tenant.findOne({
     name: { $regex: new RegExp(`^${displayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
     tenantType: "organization",
@@ -481,8 +481,8 @@ export async function POST(
   // --- Create registrations in league DB ---
   const registrations = [];
   for (let i = 0; i < teams.length; i++) {
-    const t = teams[i];
-    const teamDoc = teamRecords[i].teamDoc;
+    const t = teams[i]!;
+    const teamDoc = teamRecords[i]!.teamDoc;
     const reg = await models.Registration.create({
       eventId: eventObj._id,
       divisionId: t.divisionId

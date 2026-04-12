@@ -78,7 +78,7 @@ function calcTotal(
       .filter((d) => teamCount >= d.minTeams)
       .sort((a, b) => b.minTeams - a.minTeams);
     if (applicable.length > 0) {
-      const d = applicable[0];
+      const d = applicable[0]!;
       if (d.discountAmountPerTeam) discount = d.discountAmountPerTeam;
       else if (d.discountPercent)
         discount = Math.round((perTeam * d.discountPercent) / 100);

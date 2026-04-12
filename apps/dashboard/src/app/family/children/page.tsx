@@ -162,8 +162,8 @@ export default function MyChildrenPage() {
               .filter((c) => !selectedChild || c._id === selectedChild)
               .map((child) => {
                 const verification =
-                  VERIFICATION_LABELS[child.verificationStatus] ||
-                  VERIFICATION_LABELS.unverified;
+                  (VERIFICATION_LABELS[child.verificationStatus] ||
+                    VERIFICATION_LABELS.unverified)!;
 
                 return (
                   <Card key={child._id}>

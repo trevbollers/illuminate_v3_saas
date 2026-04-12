@@ -18,6 +18,11 @@
       "Bash(mkdir -p \"c:/Users/TrevorBollers/Documents/CPQ/go-participate/apps/dashboard/src/app/teams/[teamId]/roster-cards\")",
       "Bash(curl -s \"http://localhost:4002/api/public/events\")",
       "Bash(curl -s \"http://localhost:4000/api/public/midamerica-7v7\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\dashboard\\src\\app\\api\\invites\\accept\\[token]",
+      "C:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\league\\src\\app\\events\\[id]",
+      "C:\\Users\\TrevorBollers\\Documents\\CPQ\\go-participate\\apps\\league\\src\\app\\public\\events\\[slug]\\register"
     ]
   }
 }

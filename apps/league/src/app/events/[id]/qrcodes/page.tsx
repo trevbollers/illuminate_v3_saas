@@ -112,7 +112,7 @@ export default function QRCodesPage() {
   const groupedByTeam: Record<string, QRCodeEntry[]> = {};
   for (const qr of filtered) {
     if (!groupedByTeam[qr.teamName]) groupedByTeam[qr.teamName] = [];
-    groupedByTeam[qr.teamName].push(qr);
+    groupedByTeam[qr.teamName]!.push(qr);
   }
 
   const handlePrint = () => window.print();

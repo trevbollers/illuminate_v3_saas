@@ -135,7 +135,7 @@ export async function GET(): Promise<NextResponse> {
     if (!subtotalByLeague[item.leagueSlug]) {
       subtotalByLeague[item.leagueSlug] = { leagueName: item.leagueName, amount: 0 };
     }
-    subtotalByLeague[item.leagueSlug].amount += item.finalPriceCents;
+    subtotalByLeague[item.leagueSlug]!.amount += item.finalPriceCents;
   }
 
   const totalCents = enrichedItems.reduce((sum, i) => sum + i.finalPriceCents, 0);

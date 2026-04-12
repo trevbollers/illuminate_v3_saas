@@ -365,7 +365,7 @@ function KidsTab({ players, familyId }: { players: Player[]; familyId: string })
 }
 
 function PlayerCard({ player }: { player: Player }) {
-  const currentTeams = player.teamHistory.filter((t) => !t.leftAt);
+  const currentTeams = player.teamHistory.filter((t) => !(t as any).leftAt);
   const verifiedCount = player.verifications.length;
 
   return (

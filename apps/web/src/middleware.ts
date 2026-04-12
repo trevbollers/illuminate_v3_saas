@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
     const authPages = ["/auth/login", "/signup", "/register"];
     if (authPages.some((p) => pathname.startsWith(p))) {
       // Determine redirect target based on tenant membership
-      const membership = session.user.activeMembership;
+      const membership = (session.user as any).activeMembership;
       if (membership) {
         const dashboardUrl =
           process.env.NEXT_PUBLIC_DASHBOARD_URL ||

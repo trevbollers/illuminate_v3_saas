@@ -68,7 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .lean();
 
   const enriched = events.map((event) => {
-    const eventTeamId = event.teamId.toString();
+    const eventTeamId = event.teamId?.toString() ?? "";
     const childrenOnTeam = players
       .filter((p) => (playerTeamMap.get(p._id.toString()) || []).includes(eventTeamId))
       .map((p) => ({ id: p._id.toString(), name: `${p.firstName} ${p.lastName}` }));

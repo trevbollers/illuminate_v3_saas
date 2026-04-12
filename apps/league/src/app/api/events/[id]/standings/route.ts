@@ -67,7 +67,7 @@ export async function POST(
   // Build standings map: divisionId -> teamKey -> stats
   // Also build head-to-head records: "teamA|teamB" -> { aWins, bWins, aDiff, bDiff }
   const standingsMap = new Map<string, Map<string, any>>();
-  const h2hMap = new Map<string, Map<string, { wins: number; losses: number; pf: number; pa: number }>>();
+  const h2hMap = new Map<string, Map<string, Record<string, { wins: number; losses: number; pf: number; pa: number }>>>();
   // Track forfeits per team per division
   const forfeitMap = new Map<string, Map<string, number>>();
   // Track opponents per team per division for strength of schedule
