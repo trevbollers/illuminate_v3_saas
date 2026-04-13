@@ -33,7 +33,7 @@ interface Player {
   gender: string;
   age: number | null;
   currentPhotoUrl?: string;
-  sizing: { top?: string; bottom?: string; shoe?: string; headgear?: string };
+  sizing?: { top?: string; bottom?: string; shoe?: string; headgear?: string };
   sports: { sport: string; positions: string[] }[];
   teamHistory: {
     tenantSlug: string;
@@ -430,11 +430,11 @@ function PlayerCard({ player }: { player: Player }) {
           )}
 
           {/* Sizing */}
-          {(player.sizing.top || player.sizing.shoe) && (
+          {(player.sizing?.top || player.sizing?.shoe) && (
             <div className="flex gap-3 mt-2 text-xs text-gray-400">
-              {player.sizing.top && <span>Top: {player.sizing.top}</span>}
-              {player.sizing.bottom && <span>Bottom: {player.sizing.bottom}</span>}
-              {player.sizing.shoe && <span>Shoe: {player.sizing.shoe}</span>}
+              {player.sizing?.top && <span>Top: {player.sizing.top}</span>}
+              {player.sizing?.bottom && <span>Bottom: {player.sizing.bottom}</span>}
+              {player.sizing?.shoe && <span>Shoe: {player.sizing.shoe}</span>}
             </div>
           )}
         </div>
