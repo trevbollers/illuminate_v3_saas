@@ -1,16 +1,23 @@
 #!/bin/bash
 # scripts/seed-platform-admin.sh — promote a user to platform admin on the
-# production server. Creates the user if they don't exist. Idempotent.
+# production server. Creates the user if they don't exist, sets password
+# if PASSWORD is provided. Idempotent — re-running updates in place.
 #
 # Run from your LAPTOP (Git Bash), from the repo root. Uses .env.deploy
 # for the SSH target, same as build-and-ship.sh.
 #
 # Usage:
 #   EMAIL=you@example.com ./scripts/seed-platform-admin.sh
-#   EMAIL=you@example.com NAME="Trevor Bollers" ./scripts/seed-platform-admin.sh
+#     -> creates/promotes user, prompts for password interactively
 #
-# After seeding, log in at https://admin.gameon.goparticipate.com with that
-# email. Request a magic code — you'll have platform-wide admin access.
+#   EMAIL=you@example.com NAME="Trevor Bollers" ./scripts/seed-platform-admin.sh
+#     -> set display name too
+#
+#   EMAIL=you@example.com NO_PASSWORD=1 ./scripts/seed-platform-admin.sh
+#     -> skip password (e.g. re-run to update role only)
+#
+# After seeding, sign in at https://admin.gameon.goparticipate.com
+# with email + password.
 
 set -euo pipefail
 
@@ -34,12 +41,44 @@ set +a
 : "${DEPLOY_USER:?DEPLOY_USER not set in .env.deploy}"
 : "${DEPLOY_PATH:?DEPLOY_PATH not set in .env.deploy}"
 
+# Collect password (hidden input) unless explicitly skipped
+PASSWORD_HASH=""
+if [[ "${NO_PASSWORD:-0}" != "1" ]]; then
+  read -s -p "Set password for ${EMAIL} (leave blank to skip): " PASSWORD
+  echo
+  if [[ -n "$PASSWORD" ]]; then
+    read -s -p "Confirm password: " PASSWORD_CONFIRM
+    echo
+    if [[ "$PASSWORD" != "$PASSWORD_CONFIRM" ]]; then
+      echo "ERROR: passwords don't match." >&2
+      exit 1
+    fi
+    if [[ ${#PASSWORD} -lt 8 ]]; then
+      echo "ERROR: password must be at least 8 characters." >&2
+      exit 1
+    fi
+    # bcrypt locally via node + bcryptjs (workspace dep)
+    echo "[seed] Hashing password locally..."
+    PASSWORD_HASH=$(PW="$PASSWORD" node -e "require('bcryptjs').hash(process.env.PW, 12).then(h => process.stdout.write(h))")
+    if [[ -z "$PASSWORD_HASH" ]]; then
+      echo "ERROR: failed to generate bcrypt hash. Is bcryptjs installed? Try 'npm install'." >&2
+      exit 1
+    fi
+    unset PASSWORD PASSWORD_CONFIRM
+  fi
+fi
+
 echo "[seed] Promoting ${EMAIL} (${NAME}) to gp_admin on ${DEPLOY_HOST}..."
 
+# Build the $set clause — optionally include passwordHash.
+SET_PASSWORD=""
+if [[ -n "$PASSWORD_HASH" ]]; then
+  SET_PASSWORD=",
+      passwordHash: \"${PASSWORD_HASH}\""
+fi
+
 # SSH in, source the remote .env (mongo creds), pipe a mongosh script to the
-# mongodb container. Single quotes on the outer heredoc are critical — they
-# prevent local shell from expanding \$MONGO_USERNAME / \$MONGO_PASSWORD / \$set
-# before the remote bash gets them.
+# mongodb container.
 ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "bash -s" <<REMOTE
 set -e
 cd ${DEPLOY_PATH}
@@ -56,7 +95,7 @@ db.users.updateOne(
     \$set: {
       platformRole: "gp_admin",
       name: "${NAME}",
-      updatedAt: new Date()
+      updatedAt: new Date()${SET_PASSWORD}
     },
     \$setOnInsert: {
       email: "${EMAIL}",
@@ -76,8 +115,10 @@ db.users.updateOne(
 );
 const u = db.users.findOne(
   { email: "${EMAIL}" },
-  { email: 1, name: 1, platformRole: 1, createdAt: 1, updatedAt: 1 }
+  { email: 1, name: 1, platformRole: 1, passwordHash: 1, createdAt: 1, updatedAt: 1 }
 );
+// Mask the password hash for display
+if (u && u.passwordHash) { u.passwordHash = "(set, " + u.passwordHash.length + " chars)"; }
 print("OK — user record:");
 printjson(u);
 MONGO
