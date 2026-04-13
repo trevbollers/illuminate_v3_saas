@@ -4,6 +4,18 @@
 #
 # This file is NEVER deployed to the server. The server only runs
 # docker-compose.prod.yml which references the already-built images.
+#
+# NEXT_PUBLIC_* values are passed as build args because Next.js inlines
+# them into the client JS bundle at `next build` time — they cannot be
+# changed at runtime by editing .env.production on the server.
+
+x-build-args: &next-public-urls
+  NEXT_PUBLIC_APP_URL: https://gameon.goparticipate.com
+  NEXT_PUBLIC_ADMIN_URL: https://admin.gameon.goparticipate.com
+  NEXT_PUBLIC_LEAGUE_URL: https://league.gameon.goparticipate.com
+  NEXT_PUBLIC_DASHBOARD_URL: https://dash.gameon.goparticipate.com
+  NEXT_PUBLIC_STOREFRONT_URL: https://store.gameon.goparticipate.com
+  NEXT_PUBLIC_PLATFORM_DOMAIN: gameon.goparticipate.com
 
 services:
   web:
@@ -11,27 +23,37 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        <<: *next-public-urls
 
   admin:
     image: goparticipate/admin:latest
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
+      args:
+        <<: *next-public-urls
 
   league:
     image: goparticipate/league:latest
     build:
       context: .
       dockerfile: apps/league/Dockerfile
+      args:
+        <<: *next-public-urls
 
   dashboard:
     image: goparticipate/dashboard:latest
     build:
       context: .
       dockerfile: apps/dashboard/Dockerfile
+      args:
+        <<: *next-public-urls
 
   storefront:
     image: goparticipate/storefront:latest
     build:
       context: .
       dockerfile: apps/storefront/Dockerfile
+      args:
+        <<: *next-public-urls
