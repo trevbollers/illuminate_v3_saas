@@ -7,12 +7,14 @@
 # substitution). App env comes from .env.production (runtime env).
 #
 # Uploads (player photos, team logos, event banners, product images — NOT
-# verification documents) bind-mount a Hetzner Volume mounted at
-# /mnt/data/uploads on the host. .env.production must set
-# UPLOAD_DIR=/app/uploads so image-processor writes to the mount.
+# verification documents) live in a host-side folder bind-mounted into each
+# app container. Kept on the server's root disk for now; migrate to a
+# Hetzner Volume before real launch (rsync + change host path here).
+# .env.production must set UPLOAD_DIR=/app/uploads so image-processor
+# writes to the mounted path inside the container.
 
 x-uploads-mount: &uploads-mount
-  - /mnt/data/uploads:/app/uploads
+  - /opt/go-participate/uploads:/app/uploads
 
 services:
   mongodb:
