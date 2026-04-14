@@ -5,6 +5,19 @@ import path from "path";
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB — server compresses to webp
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
 
+/**
+ * Where uploaded files are written. In prod this points at a bind-mounted
+ * Hetzner Volume (e.g. /app/uploads -> /mnt/data/uploads). In local dev it
+ * falls back to the app's public/uploads/ folder.
+ *
+ * Regardless of where the file lives on disk, the public URL stays /uploads/…
+ * so the Next.js app + Nginx both serve it transparently.
+ */
+function getUploadDir(): string {
+  if (process.env.UPLOAD_DIR) return process.env.UPLOAD_DIR;
+  return path.join(process.cwd(), "public", "uploads");
+}
+
 interface ProcessedImage {
   filename: string;
   url: string;
@@ -44,7 +57,7 @@ export async function processUploadedImage(
   // SVGs pass through — already vector, no conversion needed
   if (file.type === "image/svg+xml") {
     const filename = `${prefix}-${Date.now()}.svg`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    const uploadDir = getUploadDir();
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, filename), buffer);
 

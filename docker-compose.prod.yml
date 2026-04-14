@@ -5,6 +5,14 @@
 #
 # Mongo credentials come from /opt/go-participate/.env (compose variable
 # substitution). App env comes from .env.production (runtime env).
+#
+# Uploads (player photos, team logos, event banners, product images — NOT
+# verification documents) bind-mount a Hetzner Volume mounted at
+# /mnt/data/uploads on the host. .env.production must set
+# UPLOAD_DIR=/app/uploads so image-processor writes to the mount.
+
+x-uploads-mount: &uploads-mount
+  - /mnt/data/uploads:/app/uploads
 
 services:
   mongodb:
@@ -26,6 +34,7 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     env_file: .env.production
+    volumes: *uploads-mount
     depends_on:
       - mongodb
 
@@ -36,6 +45,7 @@ services:
     ports:
       - "127.0.0.1:4001:4001"
     env_file: .env.production
+    volumes: *uploads-mount
     depends_on:
       - mongodb
 
@@ -46,6 +56,7 @@ services:
     ports:
       - "127.0.0.1:4002:4002"
     env_file: .env.production
+    volumes: *uploads-mount
     depends_on:
       - mongodb
 
@@ -56,6 +67,7 @@ services:
     ports:
       - "127.0.0.1:4003:4003"
     env_file: .env.production
+    volumes: *uploads-mount
     depends_on:
       - mongodb
 
@@ -66,6 +78,7 @@ services:
     ports:
       - "127.0.0.1:4004:4004"
     env_file: .env.production
+    volumes: *uploads-mount
     depends_on:
       - mongodb
 
