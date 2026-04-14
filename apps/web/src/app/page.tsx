@@ -231,12 +231,23 @@ export default function HomePage() {
             <p className="mt-4 text-sm text-muted-foreground">
               Free plan available. No credit card required.
             </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button size="lg" className="gap-2 px-6" asChild>
+                <Link href="#roles">
+                  Get Started
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="gap-2 px-6" asChild>
+                <Link href="#features">See features</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Role Cards — "I want to..." ─────────────────────────────── */}
-      <section id="roles" className="relative -mt-8 pb-20">
+      <section id="roles" className="relative -mt-8 pb-20 scroll-mt-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">

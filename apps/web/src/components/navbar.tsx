@@ -91,7 +91,7 @@ export function Navbar() {
               </div>
             </div>
             <Button size="sm" className="gap-1.5" asChild>
-              <Link href="/signup">
+              <Link href="/#roles">
                 Get Started
               </Link>
             </Button>
@@ -149,7 +149,7 @@ export function Navbar() {
                 </a>
                 <div className="pt-2">
                   <Button size="sm" className="w-full" asChild>
-                    <Link href="/signup" onClick={() => setIsMobileOpen(false)}>
+                    <Link href="/#roles" onClick={() => setIsMobileOpen(false)}>
                       Get Started
                     </Link>
                   </Button>

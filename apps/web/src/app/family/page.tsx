@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -21,6 +21,9 @@ import {
   Heart,
   Trophy,
   ChevronRight,
+  Pencil,
+  X,
+  Upload,
 } from "lucide-react";
 
 // ─── Types ───
@@ -99,15 +102,19 @@ export default function FamilyDashboardPage() {
   const [docsLoaded, setDocsLoaded] = useState(false);
 
   // Load family data
-  useEffect(() => {
-    fetch("/api/family")
+  const refreshFamily = useCallback(() => {
+    return fetch("/api/family")
       .then((r) => {
-        if (r.status === 401) { router.push("/auth/login"); return null; }
+        if (r.status === 401) { router.push("/auth/login?callbackUrl=/family"); return null; }
         return r.json();
       })
       .then((d) => { if (d) setData(d); })
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    refreshFamily();
+  }, [refreshFamily]);
 
   // Lazy-load schedule
   useEffect(() => {
@@ -356,7 +363,7 @@ function KidsTab({ players, familyId }: { players: Player[]; familyId: string })
       ) : (
         <div className="space-y-3">
           {players.map((player) => (
-            <PlayerCard key={player._id} player={player} />
+            <PlayerCard key={player._id} player={player} onUpdate={refreshFamily} />
           ))}
         </div>
       )}
@@ -364,9 +371,10 @@ function KidsTab({ players, familyId }: { players: Player[]; familyId: string })
   );
 }
 
-function PlayerCard({ player }: { player: Player }) {
+function PlayerCard({ player, onUpdate }: { player: Player; onUpdate: () => void }) {
   const currentTeams = player.teamHistory.filter((t) => !(t as any).leftAt);
   const verifiedCount = player.verifications.length;
+  const [editing, setEditing] = useState(false);
 
   return (
     <div className="rounded-lg border bg-white p-5">
@@ -439,8 +447,8 @@ function PlayerCard({ player }: { player: Player }) {
           )}
         </div>
 
-        {/* Verification badge */}
-        <div className="shrink-0 text-right">
+        {/* Verification badge + Edit */}
+        <div className="shrink-0 flex flex-col items-end gap-2">
           {verifiedCount > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-xs font-medium text-green-700">
               <CheckCircle2 className="h-3 w-3" />
@@ -451,6 +459,13 @@ function PlayerCard({ player }: { player: Player }) {
               Not Verified
             </span>
           )}
+          <button
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </button>
         </div>
       </div>
 
@@ -469,6 +484,262 @@ function PlayerCard({ player }: { player: Player }) {
           </div>
         </details>
       )}
+
+      {editing && (
+        <EditPlayerModal
+          player={player}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onUpdate();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Edit Player Modal ───
+
+function EditPlayerModal({
+  player,
+  onClose,
+  onSaved,
+}: {
+  player: Player;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [firstName, setFirstName] = useState(player.firstName);
+  const [lastName, setLastName] = useState(player.lastName);
+  const [dob, setDob] = useState(
+    player.dateOfBirth ? new Date(player.dateOfBirth).toISOString().slice(0, 10) : "",
+  );
+  const [gender, setGender] = useState(player.gender || "male");
+  const [sizingTop, setSizingTop] = useState(player.sizing?.top || "");
+  const [sizingBottom, setSizingBottom] = useState(player.sizing?.bottom || "");
+  const [sizingShoe, setSizingShoe] = useState(player.sizing?.shoe || "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    player.currentPhotoUrl || null,
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image must be under 10 MB");
+      return;
+    }
+    setError(null);
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      // 1. Patch the player fields
+      const patchRes = await fetch(`/api/family/players/${player._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          dateOfBirth: dob ? new Date(dob) : undefined,
+          gender,
+          sizing: {
+            top: sizingTop.trim() || undefined,
+            bottom: sizingBottom.trim() || undefined,
+            shoe: sizingShoe.trim() || undefined,
+          },
+        }),
+      });
+      if (!patchRes.ok) {
+        const body = await patchRes.json().catch(() => null);
+        throw new Error(body?.error || "Failed to save profile");
+      }
+
+      // 2. If a new photo was selected, upload it
+      if (photoFile) {
+        const fd = new FormData();
+        fd.append("file", photoFile);
+        const photoRes = await fetch(`/api/family/players/${player._id}/photo`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!photoRes.ok) {
+          const body = await photoRes.json().catch(() => null);
+          throw new Error(body?.error || "Failed to upload photo");
+        }
+      }
+
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Edit Player</h2>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-gray-100"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Photo */}
+        <div className="mb-4 flex items-center gap-4">
+          {photoPreview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoPreview}
+              alt="Player photo"
+              className="h-20 w-20 rounded-full object-cover border-2 border-gray-200"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+              <Camera className="h-8 w-8 text-gray-400" />
+            </div>
+          )}
+          <div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Upload className="h-4 w-4" />
+              {photoPreview ? "Change photo" : "Upload photo"}
+            </button>
+            {photoFile && (
+              <p className="mt-1 text-xs text-gray-500">{photoFile.name}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Name */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">First Name</label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="w-full h-10 rounded-md border px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Last Name</label>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full h-10 rounded-md border px-3 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* DOB & Gender */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
+            <input
+              type="date"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              className="w-full h-10 rounded-md border px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Gender</label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="w-full h-10 rounded-md border px-3 text-sm"
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Sizing */}
+        <div className="mb-4">
+          <p className="text-xs font-medium text-gray-700 mb-1">Sizing (optional)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              placeholder="Top"
+              value={sizingTop}
+              onChange={(e) => setSizingTop(e.target.value)}
+              className="h-10 rounded-md border px-3 text-sm"
+            />
+            <input
+              placeholder="Bottom"
+              value={sizingBottom}
+              onChange={(e) => setSizingBottom(e.target.value)}
+              className="h-10 rounded-md border px-3 text-sm"
+            />
+            <input
+              placeholder="Shoe"
+              value={sizingShoe}
+              onChange={(e) => setSizingShoe(e.target.value)}
+              className="h-10 rounded-md border px-3 text-sm"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !firstName.trim() || !lastName.trim()}
+            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
