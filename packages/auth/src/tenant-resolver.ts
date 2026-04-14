@@ -21,9 +21,9 @@ const PLATFORM_DOMAINS = (
 
 /** Subdomains that are reserved and NOT tenant slugs. */
 const RESERVED_SUBDOMAINS = new Set([
+  // Platform infrastructure
   "www",
   "api",
-  "admin",
   "app",
   "auth",
   "billing",
@@ -32,6 +32,13 @@ const RESERVED_SUBDOMAINS = new Set([
   "mail",
   "status",
   "support",
+  // App subdomains — each of our Next.js apps has its own subdomain
+  "admin",
+  "dash",
+  "league",
+  "store",
+  // Beta marketing root (sub-of-sub setup during pre-launch)
+  "gameon",
 ]);
 
 export interface ResolvedTenant {
