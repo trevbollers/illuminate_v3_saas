@@ -244,6 +244,55 @@ export async function POST(
     );
   }
 
+  // Parent/player invites belong to a family. Ensure the user has a family
+  // DB so they can add children, upload photos, etc. Staff invites skip this.
+  const isParentRole = ["player", "viewer"].includes(highestRole);
+  if (isParentRole) {
+    // Refetch in case we created the user above
+    const userNow = (await User.findById(userId).select("familyId name").lean()) as any;
+    if (userNow && !userNow.familyId) {
+      try {
+        const familyId = new Types.ObjectId();
+        const { connectFamilyDB, getFamilyModels } = await import("@goparticipate/db");
+        const famConn = await connectFamilyDB(familyId.toString());
+        const famModels = getFamilyModels(famConn);
+
+        await famModels.FamilyProfile.create({
+          familyName: `${userNow.name ?? name.trim()}'s Family`,
+          primaryUserId: userId,
+          orgConnections: [{
+            tenantSlug: foundTenant.slug,
+            tenantName: foundTenant.name,
+            connectedAt: new Date(),
+            status: "active",
+          }],
+          leagueConnections: [],
+          programHistory: [],
+          preferences: {
+            emailNotifications: true,
+            smsNotifications: false,
+            shareVerificationAcrossLeagues: true,
+          },
+        });
+
+        await famModels.FamilyGuardian.create({
+          userId,
+          name: userNow.name ?? name.trim(),
+          email: emailLower,
+          relationship: "guardian",
+          isPrimary: true,
+          canMakeDecisions: true,
+          playerIds: [],
+        });
+
+        await User.updateOne({ _id: userId }, { $set: { familyId } });
+      } catch (err) {
+        console.error("[invite] failed to auto-create family DB", err);
+        // Non-fatal — user can fix later via /family Setup flow
+      }
+    }
+  }
+
   // Auto-create coach profile if staff role
   if (["head_coach", "assistant_coach", "team_manager"].includes(highestRole)) {
     const existingProfile = await foundModels.CoachProfile.findOne({ userId });
@@ -272,10 +321,24 @@ export async function POST(
     }
   }
 
+  // Route them to the right app after sign-in. Parents go to /family on
+  // the marketing/web app (where they manage children, upload documents,
+  // view schedules). Staff go to the dashboard app for team management.
+  const webUrl = process.env.NEXT_PUBLIC_APP_URL || "https://goparticipate.com";
+  const dashUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "";
+  const continueUrl = isParentRole
+    ? `${webUrl}/auth/login?callbackUrl=${encodeURIComponent("/family")}`
+    : `${dashUrl}/login?welcome=true`;
+  const continueLabel = isParentRole
+    ? "Continue to My Family"
+    : "Sign in to Dashboard";
+
   return NextResponse.json({
     accepted: true,
     orgName: foundTenant.name,
     orgSlug: foundTenant.slug,
     role: highestRole,
+    continueUrl,
+    continueLabel,
   });
 }

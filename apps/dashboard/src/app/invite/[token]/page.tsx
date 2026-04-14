@@ -55,6 +55,8 @@ export default function AcceptInvitePage() {
   const [state, setState] = useState<PageState>("loading");
   const [data, setData] = useState<InvitePageData | null>(null);
   const [error, setError] = useState("");
+  const [continueUrl, setContinueUrl] = useState<string>("/login");
+  const [continueLabel, setContinueLabel] = useState<string>("Sign in to Dashboard");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -117,6 +119,10 @@ export default function AcceptInvitePage() {
         setState("invites");
         return;
       }
+      // Server tells us where to send them next — family dashboard for
+      // parents/viewers, team dashboard for staff.
+      if (d.continueUrl) setContinueUrl(d.continueUrl);
+      if (d.continueLabel) setContinueLabel(d.continueLabel);
       setState("accepted");
     } catch {
       setError("Something went wrong.");
@@ -290,10 +296,17 @@ export default function AcceptInvitePage() {
               Sign in with your email to view schedules, team info, and more.
             </p>
             <button
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                // continueUrl may be a full URL (cross-subdomain) or a path.
+                if (continueUrl.startsWith("http")) {
+                  window.location.href = continueUrl;
+                } else {
+                  router.push(continueUrl);
+                }
+              }}
               className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
             >
-              Sign in to Dashboard
+              {continueLabel}
             </button>
           </div>
         )}
