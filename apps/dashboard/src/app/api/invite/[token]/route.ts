@@ -23,7 +23,13 @@ export async function GET(
   await connectPlatformDB();
 
   // Find the invite across all org tenants
-  const orgTenants = await Tenant.find({ tenantType: "organization", status: "active" })
+  // Include both "active" and "onboarding" — newly-signed-up tenants stay
+  // in onboarding until they finish the setup flow, but their invites
+  // still need to be accept-able.
+  const orgTenants = await Tenant.find({
+    tenantType: "organization",
+    status: { $in: ["active", "onboarding"] },
+  })
     .select("slug name")
     .lean();
 
@@ -120,7 +126,13 @@ export async function POST(
   await connectPlatformDB();
 
   // Find the org by looking up the original token
-  const orgTenants = await Tenant.find({ tenantType: "organization", status: "active" })
+  // Include both "active" and "onboarding" — newly-signed-up tenants stay
+  // in onboarding until they finish the setup flow, but their invites
+  // still need to be accept-able.
+  const orgTenants = await Tenant.find({
+    tenantType: "organization",
+    status: { $in: ["active", "onboarding"] },
+  })
     .select("slug name _id")
     .lean();
 
