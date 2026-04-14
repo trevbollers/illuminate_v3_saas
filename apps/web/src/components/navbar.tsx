@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Menu, X, Trophy, Shield, Heart, Medal } from "lucide-react";
+import { RoleSwitcher } from "./role-switcher";
 
 // Marketing nav links — shown only to anonymous visitors.
 const marketingLinks = [
@@ -103,10 +104,13 @@ export function Navbar() {
           {/* Desktop auth area */}
           <div className="hidden md:flex md:items-center md:gap-3">
             {isAuthed ? (
-              // Signed in — single button to their home. No logout here.
-              <Button size="sm" asChild>
-                <Link href={homeHref}>{homeLabel}</Link>
-              </Button>
+              // Signed in — role switcher (hides itself if single-role) + home button
+              <>
+                <RoleSwitcher />
+                <Button size="sm" asChild>
+                  <Link href={homeHref}>{homeLabel}</Link>
+                </Button>
+              </>
             ) : (
               // Anonymous — Sign In dropdown + Get Started anchor scroll
               <>
@@ -175,7 +179,10 @@ export function Navbar() {
               ))}
 
               {isAuthed ? (
-                <div className="mt-2 px-3">
+                <div className="mt-2 px-3 space-y-2">
+                  <div className="flex justify-start">
+                    <RoleSwitcher />
+                  </div>
                   <Button size="sm" className="w-full" asChild>
                     <Link href={homeHref} onClick={() => setIsMobileOpen(false)}>
                       {homeLabel}
