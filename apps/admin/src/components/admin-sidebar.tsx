@@ -9,7 +9,6 @@ import {
   CreditCard,
   Flag,
   Tags,
-  Settings,
   Settings2,
   LogOut,
   Shield,
@@ -27,7 +26,9 @@ const navItems = [
   { label: "Plans & Pricing", href: "/plans", icon: Tags },
   { label: "Stripe", href: "/stripe", icon: Zap },
   { label: "System", href: "/system", icon: Settings2 },
-  { label: "Settings", href: "/settings", icon: Settings },
+  // "/settings" removed — the /system page owns platform settings (domain,
+  // reserved subdomains, maintenance mode, integrations). Re-add when a
+  // distinct /settings surface is actually built.
 ];
 
 export function AdminSidebar() {
