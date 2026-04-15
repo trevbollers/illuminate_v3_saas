@@ -22,6 +22,8 @@ import {
   Trophy,
   ChevronRight,
   Pencil,
+  Mail,
+  CheckCircle,
 } from "lucide-react";
 
 // ─── Types ───
@@ -73,6 +75,16 @@ interface Message {
   orgName: string;
 }
 
+interface PendingInvite {
+  token: string;
+  role: string;
+  orgName: string;
+  orgSlug: string;
+  teamNames: string[];
+  expiresAt: string;
+  createdAt: string;
+}
+
 interface FamilyData {
   hasFamily: boolean;
   familyId?: string;
@@ -99,6 +111,10 @@ export default function FamilyDashboardPage() {
   const [grants, setGrants] = useState<any[]>([]);
   const [docsLoaded, setDocsLoaded] = useState(false);
 
+  // Pending team invites addressed to this user's email across all orgs
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+
   // Load family data
   const refreshFamily = useCallback(() => {
     return fetch("/api/family")
@@ -113,6 +129,22 @@ export default function FamilyDashboardPage() {
   useEffect(() => {
     refreshFamily();
   }, [refreshFamily]);
+
+  // Pull pending team invites addressed to this user's email. Always
+  // runs — even when the user has no family yet — so new-family parents
+  // see their invite right away on /family.
+  const refreshPendingInvites = useCallback(() => {
+    setInvitesLoading(true);
+    return fetch("/api/family/pending-invites")
+      .then((r) => (r.ok ? r.json() : { invites: [] }))
+      .then((d) => setPendingInvites(d.invites || []))
+      .catch(() => setPendingInvites([]))
+      .finally(() => setInvitesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    refreshPendingInvites();
+  }, [refreshPendingInvites]);
 
   // Lazy-load schedule
   useEffect(() => {
@@ -152,9 +184,26 @@ export default function FamilyDashboardPage() {
     );
   }
 
-  // Not logged in or no family — show setup
+  // Not logged in or no family — show setup, but still surface pending
+  // team invites so an invited parent can accept and join their team
+  // without having to "set up" a family first.
   if (!data || !data.hasFamily) {
-    return <FamilySetup userName={data?.user?.name} />;
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {pendingInvites.length > 0 && (
+          <div className="mx-auto max-w-4xl px-4 pt-6">
+            <PendingInvitesBanner
+              invites={pendingInvites}
+              onAccepted={() => {
+                refreshPendingInvites();
+                refreshFamily();
+              }}
+            />
+          </div>
+        )}
+        <FamilySetup userName={data?.user?.name} />
+      </div>
+    );
   }
 
   const { profile, players = [], guardians = [] } = data;
@@ -215,6 +264,17 @@ export default function FamilyDashboardPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6">
+        {pendingInvites.length > 0 && (
+          <div className="mb-6">
+            <PendingInvitesBanner
+              invites={pendingInvites}
+              onAccepted={() => {
+                refreshPendingInvites();
+                refreshFamily();
+              }}
+            />
+          </div>
+        )}
         {tab === "kids" && <KidsTab players={players} familyId={data.familyId!} />}
         {tab === "schedule" && <ScheduleTab events={schedule} loading={!scheduleLoaded} />}
         {tab === "messages" && <MessagesTab messages={messages} loading={!messagesLoaded} />}
@@ -235,6 +295,105 @@ export default function FamilyDashboardPage() {
 }
 
 // ─── Family Setup (no family yet) ───
+
+// ─── Pending Invites Banner ───
+// Renders above the family content whenever one or more open team invites
+// are addressed to this user's email. Accept happens in-context — the
+// user is already authenticated as the right person, so no detour page
+// required.
+
+function PendingInvitesBanner({
+  invites,
+  onAccepted,
+}: {
+  invites: PendingInvite[];
+  onAccepted: () => void;
+}) {
+  const ROLE_LABELS: Record<string, string> = {
+    head_coach: "Head Coach",
+    assistant_coach: "Assistant Coach",
+    team_manager: "Team Manager",
+    player: "Player",
+    viewer: "Viewer",
+  };
+
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAccept(token: string) {
+    setAccepting(token);
+    setError(null);
+    try {
+      const res = await fetch(`/api/family/invites/${token}/accept`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Failed to accept invite");
+      }
+      onAccepted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setAccepting(null);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Mail className="h-5 w-5 text-amber-700" />
+        <h2 className="text-sm font-semibold text-amber-900">
+          Pending team invite{invites.length !== 1 ? "s" : ""} ({invites.length})
+        </h2>
+      </div>
+
+      {error && (
+        <div className="mb-3 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {invites.map((inv) => (
+          <div
+            key={inv.token}
+            className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-amber-200 bg-white p-3"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-900">{inv.orgName}</p>
+              <p className="text-xs text-gray-500">
+                <span className="font-medium text-gray-700">
+                  {ROLE_LABELS[inv.role] ?? inv.role}
+                </span>
+                {inv.teamNames.length > 0 && (
+                  <> · {inv.teamNames.join(", ")}</>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={() => handleAccept(inv.token)}
+              disabled={accepting !== null}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {accepting === inv.token ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Accepting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Accept
+                </>
+              )}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function FamilySetup({ userName }: { userName?: string }) {
   const [creating, setCreating] = useState(false);
