@@ -39,6 +39,16 @@ export interface IPlayerSportProfile {
 }
 
 export interface IFamilyPlayer extends Document {
+  /**
+   * Pointer to the canonical platform `Player` record that carries this
+   * child's cross-tenant identity. Created during the first team invite
+   * accept (see apps/web/src/app/api/family/invites/[token]/accept).
+   * Rosters on org tenants reference this id — NOT the FamilyPlayer._id —
+   * so that resolveRecipients can walk Roster → Player.guardianUserIds
+   * to reach parents for email/SMS delivery.
+   */
+  platformPlayerId?: Types.ObjectId;
+
   firstName: string;
   lastName: string;
   dateOfBirth: Date;
@@ -97,6 +107,8 @@ export interface IFamilyPlayer extends Document {
 
 export const FamilyPlayerSchema = new Schema<IFamilyPlayer>(
   {
+    platformPlayerId: { type: Schema.Types.ObjectId },
+
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     dateOfBirth: { type: Date, required: true },

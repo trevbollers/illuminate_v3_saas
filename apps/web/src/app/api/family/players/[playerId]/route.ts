@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { auth } from "@goparticipate/auth/edge";
-import { connectPlatformDB, User, connectFamilyDB, getFamilyModels } from "@goparticipate/db";
+import { connectPlatformDB, User, Player, connectFamilyDB, getFamilyModels } from "@goparticipate/db";
 
 /**
  * GET /api/family/players/[playerId] — get a single player with full detail
@@ -76,5 +76,36 @@ export async function PATCH(
   ).lean();
 
   if (!updated) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+
+  // Mirror the fields that also live on the canonical platform Player
+  // (rosters, age verification, cross-tenant display all read from
+  // there). If this FamilyPlayer has no linked platformPlayerId yet —
+  // because it predates the invite accept flow — we simply skip; the
+  // next roster-creating accept will fill it in.
+  const updatedPlayer = updated as any;
+  if (updatedPlayer.platformPlayerId) {
+    const platformUpdate: Record<string, any> = {};
+    if (update.firstName !== undefined) platformUpdate.firstName = update.firstName;
+    if (update.lastName !== undefined) platformUpdate.lastName = update.lastName;
+    if (update.dateOfBirth !== undefined) platformUpdate.dateOfBirth = update.dateOfBirth;
+    if (update.gender !== undefined) platformUpdate.gender = update.gender;
+    if (update.sizing !== undefined) platformUpdate.sizing = update.sizing;
+    if (update.emergencyContacts !== undefined) {
+      platformUpdate.emergencyContacts = update.emergencyContacts;
+    }
+    if (update.medical !== undefined) {
+      // Platform Player.medical only has `notes` — pick just that
+      platformUpdate.medical = { notes: update.medical?.notes };
+    }
+    if (update.socials !== undefined) platformUpdate.socials = update.socials;
+
+    if (Object.keys(platformUpdate).length > 0) {
+      await Player.updateOne(
+        { _id: updatedPlayer.platformPlayerId },
+        { $set: platformUpdate },
+      );
+    }
+  }
+
   return NextResponse.json(updated);
 }

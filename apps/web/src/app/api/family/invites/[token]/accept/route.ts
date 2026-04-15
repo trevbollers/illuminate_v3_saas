@@ -12,6 +12,8 @@ import {
   getFamilyModels,
   User,
   Tenant,
+  Player,
+  Family,
 } from "@goparticipate/db";
 
 /**
@@ -132,10 +134,19 @@ export async function POST(
   let selectedPlayer: any = null;
 
   if (isParentRole) {
-    // Auto-create family DB for first-time parent signups
+    // Auto-create family DB + platform Family doc for first-time parent
+    // signups. The platform Family's _id matches the familyId used to
+    // name the family DB so we have one consistent identifier.
     if (!familyId) {
       const newFamilyId = new Types.ObjectId();
       try {
+        await Family.create({
+          _id: newFamilyId,
+          name: `${user.name ?? "Your"} Family`,
+          guardianUserIds: [userId],
+          playerIds: [],
+        });
+
         const famConn = await connectFamilyDB(newFamilyId.toString());
         const famModels = getFamilyModels(famConn);
 
@@ -165,19 +176,33 @@ export async function POST(
         await User.updateOne({ _id: userId }, { $set: { familyId: newFamilyId } });
         familyId = newFamilyId;
       } catch (err) {
-        console.error("[accept-invite] family DB auto-create failed", err);
+        console.error("[accept-invite] family auto-create failed", err);
         return NextResponse.json(
           { error: "Failed to set up your family profile. Please try again." },
           { status: 500 },
         );
       }
+    } else {
+      // Family DB exists but platform Family doc may not (legacy data from
+      // before this flow existed). Upsert idempotently.
+      await Family.updateOne(
+        { _id: familyId },
+        {
+          $setOnInsert: {
+            _id: familyId,
+            name: `${user.name ?? "Your"} Family`,
+          },
+          $addToSet: { guardianUserIds: userId },
+        },
+        { upsert: true },
+      );
     }
 
     // Require a child to be chosen + loaded
     const famConn = await connectFamilyDB(familyId!.toString());
     const famModels = getFamilyModels(famConn);
     const allPlayers = (await famModels.FamilyPlayer.find({ isActive: true })
-      .select("_id firstName lastName")
+      .select("_id firstName lastName dateOfBirth gender platformPlayerId")
       .lean()) as any[];
 
     if (allPlayers.length === 0) {
@@ -277,12 +302,57 @@ export async function POST(
   }
 
   // ─── Roster the chosen child on each team named on the invite ─────────
-  if (isParentRole && selectedPlayer && inviteTeamIds.length > 0) {
+  if (isParentRole && selectedPlayer && inviteTeamIds.length > 0 && familyId) {
     const orgConn = await connectTenantDB(foundTenant.slug, "organization");
     registerOrgModels(orgConn);
     const orgModels = getOrgModels(orgConn);
     const playerName = `${selectedPlayer.firstName} ${selectedPlayer.lastName}`.trim();
     const familyPlayerId = selectedPlayer._id;
+
+    // Find or create the PLATFORM Player record for this child. Roster
+    // entries reference the platform Player so resolveRecipients can walk
+    // Roster → Player.guardianUserIds → Users for email/SMS delivery.
+    // The FamilyPlayer holds the richer family-side profile.
+    let platformPlayerId: Types.ObjectId;
+    if (selectedPlayer.platformPlayerId) {
+      platformPlayerId = selectedPlayer.platformPlayerId as Types.ObjectId;
+      // Make sure guardianUserIds includes this parent (edge case: adding a
+      // co-parent later). Idempotent.
+      await Player.updateOne(
+        { _id: platformPlayerId },
+        { $addToSet: { guardianUserIds: userId } },
+      );
+    } else {
+      const created = await Player.create({
+        firstName: selectedPlayer.firstName,
+        lastName: selectedPlayer.lastName,
+        dateOfBirth: selectedPlayer.dateOfBirth,
+        gender: selectedPlayer.gender,
+        familyId,
+        guardianUserIds: [userId],
+        emergencyContacts: [],
+        medical: {},
+        sizing: {},
+        socials: {},
+        verificationStatus: "unverified",
+        isActive: true,
+      });
+      platformPlayerId = created._id as Types.ObjectId;
+
+      // Link back from FamilyPlayer so future rosters reuse the same id
+      const famConn = await connectFamilyDB(familyId.toString());
+      const famModels = getFamilyModels(famConn);
+      await famModels.FamilyPlayer.updateOne(
+        { _id: familyPlayerId },
+        { $set: { platformPlayerId } },
+      );
+
+      // Record on the platform Family's playerIds too
+      await Family.updateOne(
+        { _id: familyId },
+        { $addToSet: { playerIds: platformPlayerId } },
+      );
+    }
 
     // Pull team names so we can update FamilyPlayer.teamHistory
     const teams = (await orgModels.Team.find({ _id: { $in: inviteTeamIds } })
@@ -294,7 +364,7 @@ export async function POST(
       // Idempotent — skip if this player is already on this roster
       const existingRoster = await orgModels.Roster.findOne({
         teamId,
-        playerId: familyPlayerId,
+        playerId: platformPlayerId,
         status: "active",
       }).lean();
 
@@ -302,7 +372,7 @@ export async function POST(
         try {
           await orgModels.Roster.create({
             teamId,
-            playerId: familyPlayerId,
+            playerId: platformPlayerId,
             playerName,
             status: "active",
             joinedAt: new Date(),
