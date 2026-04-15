@@ -48,10 +48,12 @@ export async function POST(
   const team = await models.Team.findById(teamId).select("name").lean();
   const teamName = (team as any)?.name || "your team";
 
-  const baseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+  // Invite links point at the web app's /invite/[token] router — see
+  // apps/web/src/app/invite/[token]/page.tsx for the flow.
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.NODE_ENV === "development"
-      ? "http://localhost:4003"
-      : `https://${tenantSlug}.goparticipate.com`);
+      ? "http://localhost:4000"
+      : `https://goparticipate.com`);
   const inviteUrl = `${baseUrl}/invite/${inv.token}`;
 
   let sent = false;

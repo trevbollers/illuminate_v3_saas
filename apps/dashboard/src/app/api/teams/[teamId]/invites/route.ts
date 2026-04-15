@@ -80,10 +80,12 @@ export async function POST(
   }
 
   const results: { email?: string; phone?: string; status: string; error?: string }[] = [];
-  const baseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+  // Invite links point at the web app's /invite/[token] router, which
+  // authenticates the parent and routes them into /family for accept.
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.NODE_ENV === "development"
-      ? "http://localhost:4003"
-      : `https://${tenantSlug}.goparticipate.com`);
+      ? "http://localhost:4000"
+      : `https://goparticipate.com`);
 
   for (const inv of invites) {
     const { email, phone, role = "player" } = inv;

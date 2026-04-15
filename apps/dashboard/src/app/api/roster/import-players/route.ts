@@ -170,7 +170,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           });
 
           // Send invite email (fire-and-forget)
-          const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:4003";
+          // Invite link goes to the web app's /invite/[token] router.
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
           const inviteUrl = `${baseUrl}/invite/${token}`;
           sendEmail({
             to: email,
