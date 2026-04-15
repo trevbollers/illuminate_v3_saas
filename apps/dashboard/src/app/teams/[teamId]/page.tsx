@@ -130,6 +130,7 @@ export default function TeamDetailPage() {
 
   // Reminder state
   const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -294,6 +295,30 @@ export default function TeamDetailPage() {
       setMessage({ type: "error", text: "Failed to send reminder" });
     } finally {
       setRemindingId(null);
+    }
+  }
+
+  async function revokeInvite(inv: PendingInvite) {
+    const who = inv.email || inv.phone;
+    if (!confirm(`Revoke the invite for ${who}? They'll need a fresh invite to join.`)) {
+      return;
+    }
+    setRevokingId(inv._id);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/invites/${inv._id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setInvites((prev) => prev.filter((i) => i._id !== inv._id));
+        setMessage({ type: "success", text: `Revoked invite for ${who}` });
+      } else {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Failed to revoke invite" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to revoke invite" });
+    } finally {
+      setRevokingId(null);
     }
   }
 
@@ -860,7 +885,7 @@ export default function TeamDetailPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                      disabled={remindingId === inv._id}
+                      disabled={remindingId === inv._id || revokingId === inv._id}
                       onClick={() => sendReminder(inv)}
                     >
                       {remindingId === inv._id ? (
@@ -869,6 +894,20 @@ export default function TeamDetailPage() {
                         <RefreshCw className="h-3 w-3" />
                       )}
                       Remind
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={revokingId === inv._id || remindingId === inv._id}
+                      onClick={() => revokeInvite(inv)}
+                    >
+                      {revokingId === inv._id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                      Revoke
                     </Button>
                   </div>
                 </div>
