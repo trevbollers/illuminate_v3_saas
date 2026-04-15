@@ -101,23 +101,27 @@ export default function InviteRouterPage() {
       return;
     }
 
-    // Not logged in — route by whether the invite email has an account
+    // Not logged in — route by whether the invite email has an account.
+    // Always carry the invite token through so the target page can show
+    // the user context about the invite (e.g. "Eastern Iowa Ball Hawks
+    // invited you to join as Player").
     if (!session) {
       const callback = encodeURIComponent("/family");
+      const tokenParam = `&invite=${encodeURIComponent(invite.token)}`;
       if (invite.existingUser && invite.email) {
         // Existing user → sign in
         router.replace(
-          `/auth/login?email=${encodeURIComponent(invite.email)}&callbackUrl=${callback}`,
+          `/auth/login?email=${encodeURIComponent(invite.email)}&callbackUrl=${callback}${tokenParam}`,
         );
       } else if (invite.email) {
         // New user → sign up as family with email pre-filled
         router.replace(
-          `/signup?role=family&email=${encodeURIComponent(invite.email)}&callbackUrl=${callback}`,
+          `/signup?role=family&email=${encodeURIComponent(invite.email)}&callbackUrl=${callback}${tokenParam}`,
         );
       } else {
         // Invite has no email (phone-only invite) — send to login and let
         // them figure out which account to use
-        router.replace(`/auth/login?callbackUrl=${callback}`);
+        router.replace(`/auth/login?callbackUrl=${callback}${tokenParam}`);
       }
     }
   }, [invite, session, status, router]);

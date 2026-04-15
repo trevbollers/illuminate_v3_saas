@@ -131,12 +131,68 @@ type LeagueData = z.infer<typeof leagueSchema>;
 type OrgData = z.infer<typeof orgSchema>;
 type FamilyData = z.infer<typeof familySchema>;
 
+// ── Invite context banner ───────────────────────────────────────────────────
+// Fetches invite metadata when signup is reached via the /invite/[token]
+// bouncer, and shows a "You've been invited to X" header so the user
+// understands the context of their signup.
+function InviteContextBanner({ token }: { token: string }) {
+  const [data, setData] = useState<{
+    orgName: string;
+    role: string;
+    teamNames: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/invite/${token}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.valid) {
+          setData({
+            orgName: d.orgName,
+            role: d.role,
+            teamNames: d.teamNames ?? [],
+          });
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  if (!data) return null;
+
+  const ROLE_LABELS: Record<string, string> = {
+    head_coach: "Head Coach",
+    assistant_coach: "Assistant Coach",
+    team_manager: "Team Manager",
+    player: "Player",
+    viewer: "Viewer",
+  };
+
+  return (
+    <div className="mb-6 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-medium text-amber-900">
+        <strong>{data.orgName}</strong> invited you to join as{" "}
+        <strong>{ROLE_LABELS[data.role] ?? data.role}</strong>
+        {data.teamNames.length > 0 && (
+          <> for <strong>{data.teamNames.join(", ")}</strong></>
+        )}.
+      </p>
+      <p className="mt-1 text-xs text-amber-800">
+        Create your family account below — your invite will be waiting for you
+        after sign-in.
+      </p>
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role") as RoleKey | null;
   const planParam = searchParams.get("plan");
+  const prefilledEmail = searchParams.get("email");
+  const inviteToken = searchParams.get("invite");
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [activeRole, setActiveRole] = useState<RoleKey>(
     roleParam && roleParam in roleConfig ? roleParam : "org"
@@ -198,6 +254,8 @@ export default function SignupPage() {
       </div>
 
       <div className="mx-auto w-full max-w-lg px-4 py-8">
+        {inviteToken && <InviteContextBanner token={inviteToken} />}
+
         {/* Role Tabs */}
         <div className="mb-6 flex gap-2">
           {(Object.keys(roleConfig) as RoleKey[]).map((key) => {
@@ -276,6 +334,7 @@ export default function SignupPage() {
                 onSubmit={submitRegistration}
                 isSubmitting={isSubmitting}
                 buttonClass={role.buttonBg}
+                defaultEmail={prefilledEmail ?? undefined}
               />
             )}
           </CardContent>
@@ -503,10 +562,12 @@ function FamilyForm({
   onSubmit,
   isSubmitting,
   buttonClass,
+  defaultEmail,
 }: {
   onSubmit: (payload: Record<string, unknown>) => void;
   isSubmitting: boolean;
   buttonClass: string;
+  defaultEmail?: string;
 }) {
   const {
     register,
@@ -514,6 +575,7 @@ function FamilyForm({
     formState: { errors },
   } = useForm<FamilyData>({
     resolver: zodResolver(familySchema),
+    defaultValues: { email: defaultEmail ?? "" },
   });
 
   function handle(data: FamilyData) {
