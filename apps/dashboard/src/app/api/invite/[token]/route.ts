@@ -77,15 +77,16 @@ export async function GET(
           });
         }
 
-        // Check if user already exists
+        // Check if user already exists (also grab name for pre-fill)
         await connectPlatformDB();
         const existingUser = inv.email
-          ? await User.findOne({ email: inv.email.toLowerCase() }).select("_id").lean()
+          ? await User.findOne({ email: inv.email.toLowerCase() }).select("_id name").lean()
           : null;
 
         return NextResponse.json({
           valid: true,
           existingUser: !!existingUser,
+          existingUserName: existingUser ? (existingUser as any).name : null,
           orgName: tenant.name,
           orgSlug: tenant.slug,
           inviteName: inv.name,

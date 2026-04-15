@@ -140,7 +140,8 @@ export default function AcceptInvitePage() {
           </div>
         )}
 
-        {/* Existing user — just show login link */}
+        {/* Existing user — accept in place, then continueUrl guides them
+            to sign in at the right app. No pre-auth loop. */}
         {state === "login" && data && (
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
@@ -152,7 +153,7 @@ export default function AcceptInvitePage() {
             <p className="mt-2 text-sm text-slate-500">
               You have {data.invites.length} pending invite{data.invites.length !== 1 ? "s" : ""} from{" "}
               <strong className="text-slate-700">{data.orgName}</strong>.
-              Sign in to view and accept them.
+              Review them below and accept.
             </p>
 
             <div className="mt-4 space-y-1.5 text-left">
@@ -171,12 +172,44 @@ export default function AcceptInvitePage() {
               ))}
             </div>
 
+            {error && (
+              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
             <button
-              onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`)}
+              onClick={async () => {
+                setState("accepting");
+                setError("");
+                try {
+                  const res = await fetch(`/api/invite/${token}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: (data as any).existingUserName || data.inviteName || "User",
+                      email: data.email,
+                      acceptTokens: data.invites.map((i) => i.token),
+                    }),
+                  });
+                  const d = await res.json();
+                  if (!res.ok) {
+                    setError(d.error || "Failed to accept.");
+                    setState("login");
+                    return;
+                  }
+                  if (d.continueUrl) setContinueUrl(d.continueUrl);
+                  if (d.continueLabel) setContinueLabel(d.continueLabel);
+                  setState("accepted");
+                } catch {
+                  setError("Something went wrong.");
+                  setState("login");
+                }
+              }}
               className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
             >
-              <LogIn className="h-4 w-4" />
-              Sign in to accept
+              <CheckCircle2 className="h-4 w-4" />
+              Accept invite{data.invites.length !== 1 ? "s" : ""}
             </button>
           </div>
         )}
