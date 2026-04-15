@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@goparticipate/ui/src/components/button";
 import { Input } from "@goparticipate/ui/src/components/input";
 import { Label } from "@goparticipate/ui/src/components/label";
@@ -18,12 +19,17 @@ import { Loader2, ArrowLeft, Smartphone, Mail, KeyRound, Medal } from "lucide-re
 type LoginMode = "choose" | "email-password" | "magic-code" | "magic-code-verify" | "player-code";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+  const prefilledEmail = searchParams.get("email");
+
   const [mode, setMode] = useState<LoginMode>("choose");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Email/password state
-  const [email, setEmail] = useState("");
+  // Email/password state (email may be pre-filled from a ?email= query param,
+  // e.g. when the user arrived here from an /invite/[token] bounce)
+  const [email, setEmail] = useState(prefilledEmail ?? "");
   const [password, setPassword] = useState("");
 
   // Magic code state
@@ -40,6 +46,14 @@ export default function LoginPage() {
   }
 
   async function routeAfterLogin() {
+    // If the caller passed ?callbackUrl= (e.g. from the invite bouncer or a
+    // protected-page redirect), honor it. Only allow same-origin paths to
+    // avoid open-redirect abuse.
+    if (callbackUrl && callbackUrl.startsWith("/")) {
+      window.location.href = callbackUrl;
+      return;
+    }
+
     try {
       const sessionRes = await fetch("/api/auth/session");
       const session = await sessionRes.json();
@@ -63,6 +77,8 @@ export default function LoginPage() {
         window.location.href = process.env.NEXT_PUBLIC_LEAGUE_URL ?? `https://${session?.user?.tenantSlug}.goparticipate.com`;
       } else if (tenantType === "organization") {
         window.location.href = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? `https://${session?.user?.tenantSlug}.goparticipate.com`;
+      } else if (session?.user?.familyId) {
+        window.location.href = "/family";
       } else {
         window.location.href = "/account";
       }
