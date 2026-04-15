@@ -22,7 +22,6 @@ import {
   Trophy,
   ChevronRight,
   Pencil,
-  Mail,
   CheckCircle,
 } from "lucide-react";
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@goparticipate/ui/src/components/button";
@@ -18,7 +20,23 @@ import { Loader2, ArrowLeft, Smartphone, Mail, KeyRound, Medal } from "lucide-re
 
 type LoginMode = "choose" | "email-password" | "magic-code" | "magic-code-verify" | "player-code";
 
+// Wrap the real component in Suspense so useSearchParams inside it can
+// safely bail out of static prerender without failing the whole build.
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
   const prefilledEmail = searchParams.get("email");
