@@ -27,10 +27,15 @@ import {
  * Effects:
  * - Adds an org membership for the user (with the invite's role)
  * - Creates a family DB for the user if they don't have one yet
+ * - For parent-role invites (player/viewer): creates a Roster entry on
+ *   the team linking to the chosen FamilyPlayer, and adds the team to
+ *   that player's teamHistory. The request must include { playerId }
+ *   identifying which child is joining the team. If the family has no
+ *   children yet, returns 400 with code: "NEED_PLAYER".
  * - Marks the invite as accepted
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ): Promise<NextResponse> {
   const session = await auth();
@@ -40,6 +45,8 @@ export async function POST(
 
   const { token } = await params;
   const sessionEmail = session.user.email.toLowerCase();
+  const body = await req.json().catch(() => ({}));
+  const requestedPlayerId: string | undefined = body?.playerId;
 
   await connectPlatformDB();
 
@@ -109,7 +116,110 @@ export async function POST(
         ? [invite.teamId]
         : [];
 
-  // Add / update membership
+  const isParentRole = ["player", "viewer"].includes(invite.role);
+
+  // ─── Parent-role flow: player selection gate ─────────────────────────
+  // The accepting user is a parent claiming an invite for THEIR CHILD.
+  // We need to know which child is joining this team so we can roster
+  // them. Before touching memberships, ensure:
+  //   • Family context exists (auto-create if missing)
+  //   • Family has at least one FamilyPlayer (NEED_PLAYER otherwise)
+  //   • Request body included playerId referencing a child in this family
+  //
+  // If any gate fails, bail with a 400 and a code the UI can act on —
+  // no state is mutated.
+  let familyId: Types.ObjectId | null = user.familyId ?? null;
+  let selectedPlayer: any = null;
+
+  if (isParentRole) {
+    // Auto-create family DB for first-time parent signups
+    if (!familyId) {
+      const newFamilyId = new Types.ObjectId();
+      try {
+        const famConn = await connectFamilyDB(newFamilyId.toString());
+        const famModels = getFamilyModels(famConn);
+
+        await famModels.FamilyProfile.create({
+          familyName: `${user.name ?? "Your"} Family`,
+          primaryUserId: userId,
+          orgConnections: [],
+          leagueConnections: [],
+          programHistory: [],
+          preferences: {
+            emailNotifications: true,
+            smsNotifications: false,
+            shareVerificationAcrossLeagues: true,
+          },
+        });
+
+        await famModels.FamilyGuardian.create({
+          userId,
+          name: user.name ?? "Guardian",
+          email: sessionEmail,
+          relationship: "guardian",
+          isPrimary: true,
+          canMakeDecisions: true,
+          playerIds: [],
+        });
+
+        await User.updateOne({ _id: userId }, { $set: { familyId: newFamilyId } });
+        familyId = newFamilyId;
+      } catch (err) {
+        console.error("[accept-invite] family DB auto-create failed", err);
+        return NextResponse.json(
+          { error: "Failed to set up your family profile. Please try again." },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Require a child to be chosen + loaded
+    const famConn = await connectFamilyDB(familyId!.toString());
+    const famModels = getFamilyModels(famConn);
+    const allPlayers = (await famModels.FamilyPlayer.find({ isActive: true })
+      .select("_id firstName lastName")
+      .lean()) as any[];
+
+    if (allPlayers.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Add a child to your family before accepting this team invite.",
+          code: "NEED_PLAYER",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!requestedPlayerId || !Types.ObjectId.isValid(requestedPlayerId)) {
+      return NextResponse.json(
+        {
+          error: "Select which child is joining this team.",
+          code: "NEED_PLAYER_SELECTION",
+          players: allPlayers.map((p) => ({
+            _id: p._id.toString(),
+            firstName: p.firstName,
+            lastName: p.lastName,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    selectedPlayer = allPlayers.find(
+      (p) => p._id.toString() === requestedPlayerId,
+    );
+    if (!selectedPlayer) {
+      return NextResponse.json(
+        {
+          error: "That child is not in your family.",
+          code: "INVALID_PLAYER",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  // ─── Add / update parent's org membership ──────────────────────────────
   const existingMembership = (user.memberships ?? []).find(
     (m: any) => m.tenantId?.toString() === foundTenant._id.toString(),
   );
@@ -143,55 +253,10 @@ export async function POST(
     );
   }
 
-  // Ensure the user has a family context (auto-create if missing, since
-  // parent-role invites presume this is a family user). Staff-role flow
-  // doesn't go through this endpoint.
-  const isParentRole = ["player", "viewer"].includes(invite.role);
-  if (isParentRole && !user.familyId) {
+  // Record the org connection in the family profile
+  if (isParentRole && familyId) {
     try {
-      const familyId = new Types.ObjectId();
       const famConn = await connectFamilyDB(familyId.toString());
-      const famModels = getFamilyModels(famConn);
-
-      await famModels.FamilyProfile.create({
-        familyName: `${user.name ?? "Your"} Family`,
-        primaryUserId: userId,
-        orgConnections: [
-          {
-            tenantSlug: foundTenant.slug,
-            tenantName: foundTenant.name,
-            connectedAt: new Date(),
-            status: "active",
-          },
-        ],
-        leagueConnections: [],
-        programHistory: [],
-        preferences: {
-          emailNotifications: true,
-          smsNotifications: false,
-          shareVerificationAcrossLeagues: true,
-        },
-      });
-
-      await famModels.FamilyGuardian.create({
-        userId,
-        name: user.name ?? "Guardian",
-        email: sessionEmail,
-        relationship: "guardian",
-        isPrimary: true,
-        canMakeDecisions: true,
-        playerIds: [],
-      });
-
-      await User.updateOne({ _id: userId }, { $set: { familyId } });
-    } catch (err) {
-      console.error("[accept-invite] family DB auto-create failed", err);
-      // Non-fatal — user can fix later via /family setup
-    }
-  } else if (isParentRole && user.familyId) {
-    // Existing family — just record the org connection in the family profile
-    try {
-      const famConn = await connectFamilyDB(user.familyId.toString());
       const famModels = getFamilyModels(famConn);
       await famModels.FamilyProfile.updateOne(
         { primaryUserId: userId },
@@ -211,6 +276,77 @@ export async function POST(
     }
   }
 
+  // ─── Roster the chosen child on each team named on the invite ─────────
+  if (isParentRole && selectedPlayer && inviteTeamIds.length > 0) {
+    const orgConn = await connectTenantDB(foundTenant.slug, "organization");
+    registerOrgModels(orgConn);
+    const orgModels = getOrgModels(orgConn);
+    const playerName = `${selectedPlayer.firstName} ${selectedPlayer.lastName}`.trim();
+    const familyPlayerId = selectedPlayer._id;
+
+    // Pull team names so we can update FamilyPlayer.teamHistory
+    const teams = (await orgModels.Team.find({ _id: { $in: inviteTeamIds } })
+      .select("name sport")
+      .lean()) as any[];
+    const teamMap = new Map(teams.map((t) => [t._id.toString(), t]));
+
+    for (const teamId of inviteTeamIds) {
+      // Idempotent — skip if this player is already on this roster
+      const existingRoster = await orgModels.Roster.findOne({
+        teamId,
+        playerId: familyPlayerId,
+        status: "active",
+      }).lean();
+
+      if (!existingRoster) {
+        try {
+          await orgModels.Roster.create({
+            teamId,
+            playerId: familyPlayerId,
+            playerName,
+            status: "active",
+            joinedAt: new Date(),
+          });
+        } catch (err) {
+          console.error("[accept-invite] roster entry create failed", err);
+          // Non-fatal — parent gets the membership either way. Admin can
+          // manually add the player from the team page if needed.
+        }
+      }
+
+      // Add this team to the player's teamHistory (denormalized for the
+      // family dashboard)
+      const team = teamMap.get(teamId.toString());
+      if (team && familyId) {
+        try {
+          const famConn = await connectFamilyDB(familyId.toString());
+          const famModels = getFamilyModels(famConn);
+          const currentYear = new Date().getFullYear();
+          await famModels.FamilyPlayer.updateOne(
+            { _id: familyPlayerId },
+            {
+              $push: {
+                teamHistory: {
+                  tenantSlug: foundTenant.slug,
+                  tenantName: foundTenant.name,
+                  teamName: team.name,
+                  teamId: teamId.toString(),
+                  sport: team.sport ?? "",
+                  season: `${currentYear}-${currentYear + 1}`,
+                  year: currentYear,
+                  role: "player",
+                  joinedAt: new Date(),
+                },
+              },
+            },
+          );
+        } catch (err) {
+          console.error("[accept-invite] teamHistory push failed", err);
+        }
+      }
+    }
+  }
+
   // Mark invite accepted
   invite.status = "accepted";
   invite.acceptedBy = userId;
@@ -221,6 +357,9 @@ export async function POST(
     orgName: foundTenant.name,
     orgSlug: foundTenant.slug,
     role: invite.role,
-    teamNames: inviteTeamIds.length,
+    teamCount: inviteTeamIds.length,
+    playerName: selectedPlayer
+      ? `${selectedPlayer.firstName} ${selectedPlayer.lastName}`.trim()
+      : null,
   });
 }
