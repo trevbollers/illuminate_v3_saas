@@ -24,6 +24,7 @@ import {
   Pencil,
   CheckCircle,
 } from "lucide-react";
+import { RoleSwitcher } from "../../components/role-switcher";
 
 // ─── Types ───
 
@@ -233,12 +234,15 @@ export default function FamilyDashboardPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/account"
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Settings
-            </Link>
+            <div className="flex items-center gap-3">
+              <RoleSwitcher />
+              <Link
+                href="/account"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Settings
+              </Link>
+            </div>
           </div>
 
           {/* Tabs */}
