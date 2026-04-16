@@ -100,7 +100,9 @@ interface TeamEvent {
   finalist?: boolean;
 }
 
-type AddMode = null | "existing" | "invite";
+type AddMode = null | "existing" | "invite" | "invite-staff";
+
+type StaffRole = "head_coach" | "assistant_coach" | "team_manager";
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -131,6 +133,18 @@ export default function TeamDetailPage() {
   // Reminder state
   const [remindingId, setRemindingId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  // Staff invite form (single-row, unlike player invites which are bulk).
+  // Staff require a display name so the invite email + coach profile can
+  // address them by name. Role defaults to assistant_coach — least
+  // privileged sensible default.
+  const [staffInvite, setStaffInvite] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    role: StaffRole;
+  }>({ name: "", email: "", phone: "", role: "assistant_coach" });
+  const [sendingStaffInvite, setSendingStaffInvite] = useState(false);
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -274,6 +288,47 @@ export default function TeamDetailPage() {
       setMessage({ type: "error", text: "Failed to send invites." });
     } finally {
       setSendingInvites(false);
+    }
+  }
+
+  async function sendStaffInvite() {
+    if (!staffInvite.name.trim() || (!staffInvite.email.trim() && !staffInvite.phone.trim())) {
+      setMessage({ type: "error", text: "Name is required. Email or phone is required." });
+      return;
+    }
+    setSendingStaffInvite(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/staff/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: staffInvite.name.trim(),
+          email: staffInvite.email.trim() || undefined,
+          phone: staffInvite.phone.trim() || undefined,
+          role: staffInvite.role,
+          teamIds: [teamId],
+        }),
+      });
+
+      if (res.ok) {
+        setMessage({
+          type: "success",
+          text: `Staff invite sent to ${staffInvite.email || staffInvite.phone}`,
+        });
+        setStaffInvite({ name: "", email: "", phone: "", role: "assistant_coach" });
+        setAddMode(null);
+        // Refresh pending invites list
+        const invitesRes = await fetch(`/api/teams/${teamId}/invites`);
+        if (invitesRes.ok) setInvites(await invitesRes.json());
+      } else {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Failed to send staff invite" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to send staff invite" });
+    } finally {
+      setSendingStaffInvite(false);
     }
   }
 
@@ -539,7 +594,7 @@ export default function TeamDetailPage() {
               </CardDescription>
             </div>
             {addMode === null && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -554,6 +609,14 @@ export default function TeamDetailPage() {
                   onClick={() => setAddMode("invite")}
                 >
                   <Send className="h-3 w-3" /> Invite Parent / Player
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() => setAddMode("invite-staff")}
+                >
+                  <Shield className="h-3 w-3" /> Invite Staff / Coach
                 </Button>
               </div>
             )}
@@ -726,6 +789,96 @@ export default function TeamDetailPage() {
           </CardContent>
         )}
 
+        {/* Invite staff / coach panel */}
+        {addMode === "invite-staff" && (
+          <CardContent className="border-t pt-4">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Invite a coach, assistant coach, or team manager. They'll get
+                an email link to join the org and be attached to this team.
+              </p>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Full Name</Label>
+                <Input
+                  placeholder="Jane Coach"
+                  value={staffInvite.name}
+                  onChange={(e) =>
+                    setStaffInvite((s) => ({ ...s, name: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">
+                    <Mail className="mr-1 inline h-3 w-3" /> Email
+                  </Label>
+                  <Input
+                    type="email"
+                    placeholder="coach@example.com"
+                    value={staffInvite.email}
+                    onChange={(e) =>
+                      setStaffInvite((s) => ({ ...s, email: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">
+                    <Phone className="mr-1 inline h-3 w-3" /> Phone (optional)
+                  </Label>
+                  <Input
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    value={staffInvite.phone}
+                    onChange={(e) =>
+                      setStaffInvite((s) => ({ ...s, phone: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Role</Label>
+                <select
+                  value={staffInvite.role}
+                  onChange={(e) =>
+                    setStaffInvite((s) => ({
+                      ...s,
+                      role: e.target.value as StaffRole,
+                    }))
+                  }
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="head_coach">Head Coach</option>
+                  <option value="assistant_coach">Assistant Coach</option>
+                  <option value="team_manager">Team Manager</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  onClick={sendStaffInvite}
+                  disabled={
+                    sendingStaffInvite ||
+                    !staffInvite.name.trim() ||
+                    (!staffInvite.email.trim() && !staffInvite.phone.trim())
+                  }
+                >
+                  {sendingStaffInvite ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                  Send Staff Invite
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
+
         {/* Roster table */}
         <CardContent className={addMode !== null ? "border-t pt-4" : ""}>
           {roster.length > 0 ? (
@@ -879,7 +1032,15 @@ export default function TeamDetailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">
-                      {inv.role}
+                      {
+                        {
+                          head_coach: "Head Coach",
+                          assistant_coach: "Assistant Coach",
+                          team_manager: "Team Manager",
+                          player: "Player",
+                          viewer: "Viewer",
+                        }[inv.role] ?? inv.role
+                      }
                     </Badge>
                     <Button
                       variant="ghost"
