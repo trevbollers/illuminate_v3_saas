@@ -94,7 +94,33 @@ interface FamilyData {
   user?: { name: string; email: string };
 }
 
-type Tab = "kids" | "schedule" | "messages" | "documents";
+type Tab = "kids" | "teams" | "schedule" | "messages" | "documents";
+
+interface CoachingTeam {
+  tenantSlug: string;
+  tenantName: string;
+  teamId: string;
+  teamName: string;
+  divisionKey?: string;
+  sport?: string;
+  role: string;
+  roleLabel: string;
+  teamUrl: string;
+}
+
+interface PlayingTeam {
+  tenantSlug: string;
+  tenantName: string;
+  teamId: string;
+  teamName: string;
+  sport?: string;
+  season?: string;
+  year?: number;
+  playerId: string;
+  playerName: string;
+  playerPhotoUrl?: string;
+  jerseyNumber?: string;
+}
 
 // ─── Page ───
 
@@ -114,6 +140,11 @@ export default function FamilyDashboardPage() {
   // Pending team invites addressed to this user's email across all orgs
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(true);
+
+  // Teams tab data — coaching + playing
+  const [coachingTeams, setCoachingTeams] = useState<CoachingTeam[]>([]);
+  const [playingTeams, setPlayingTeams] = useState<PlayingTeam[]>([]);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
 
   // Load family data
   const refreshFamily = useCallback(() => {
@@ -145,6 +176,18 @@ export default function FamilyDashboardPage() {
   useEffect(() => {
     refreshPendingInvites();
   }, [refreshPendingInvites]);
+
+  // Lazy-load teams tab (coach + player teams)
+  useEffect(() => {
+    if (tab !== "teams" || teamsLoaded) return;
+    fetch("/api/family/teams")
+      .then((r) => (r.ok ? r.json() : { coaching: [], playing: [] }))
+      .then((d) => {
+        setCoachingTeams(d.coaching || []);
+        setPlayingTeams(d.playing || []);
+      })
+      .finally(() => setTeamsLoaded(true));
+  }, [tab, teamsLoaded]);
 
   // Lazy-load schedule
   useEffect(() => {
@@ -211,6 +254,7 @@ export default function FamilyDashboardPage() {
   const { profile, players = [], guardians = [] } = data;
   const tabs: { key: Tab; label: string; icon: any; count?: number }[] = [
     { key: "kids", label: "My Kids", icon: Heart, count: players.length },
+    { key: "teams", label: "Teams", icon: Trophy },
     { key: "schedule", label: "Schedule", icon: CalendarDays },
     { key: "messages", label: "Messages", icon: MessageSquare },
     { key: "documents", label: "Documents", icon: Shield },
@@ -283,6 +327,13 @@ export default function FamilyDashboardPage() {
           </div>
         )}
         {tab === "kids" && <KidsTab players={players} familyId={data.familyId!} />}
+        {tab === "teams" && (
+          <TeamsTab
+            coaching={coachingTeams}
+            playing={playingTeams}
+            loading={!teamsLoaded}
+          />
+        )}
         {tab === "schedule" && <ScheduleTab events={schedule} loading={!scheduleLoaded} />}
         {tab === "messages" && <MessagesTab messages={messages} loading={!messagesLoaded} />}
         {tab === "documents" && (
@@ -739,6 +790,163 @@ function PlayerCard({ player }: { player: Player }) {
   );
 }
 
+
+// ─── Teams Tab ───
+// Shows two sections: teams the user coaches (with deep link to the team's
+// dashboard page) and teams their kids play on (grouped by kid).
+
+function TeamsTab({
+  coaching,
+  playing,
+  loading,
+}: {
+  coaching: CoachingTeam[];
+  playing: PlayingTeam[];
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (coaching.length === 0 && playing.length === 0) {
+    return (
+      <div className="rounded-lg border bg-white p-8 text-center">
+        <Trophy className="mx-auto h-10 w-10 text-gray-300" />
+        <p className="mt-3 text-sm text-gray-500">
+          No teams yet. Accept an invite or add a child to a team to see it here.
+        </p>
+      </div>
+    );
+  }
+
+  // Group playing teams by kid so "which team is each kid on?" is obvious
+  const playingByPlayer = new Map<
+    string,
+    { playerName: string; playerPhotoUrl?: string; teams: PlayingTeam[] }
+  >();
+  for (const t of playing) {
+    const key = t.playerId;
+    if (!playingByPlayer.has(key)) {
+      playingByPlayer.set(key, {
+        playerName: t.playerName,
+        playerPhotoUrl: t.playerPhotoUrl,
+        teams: [],
+      });
+    }
+    playingByPlayer.get(key)!.teams.push(t);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Coaching section */}
+      {coaching.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="h-4 w-4 text-emerald-600" />
+            <h2 className="text-sm font-semibold text-gray-900">
+              Teams you coach ({coaching.length})
+            </h2>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {coaching.map((t) => (
+              <a
+                key={`${t.tenantSlug}-${t.teamId}`}
+                href={t.teamUrl}
+                className="rounded-lg border bg-white p-4 hover:border-emerald-300 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {t.teamName}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {t.tenantName}
+                      {t.divisionKey && ` · ${t.divisionKey}`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                    {t.roleLabel}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center gap-1 text-xs text-emerald-700">
+                  Open team dashboard
+                  <ChevronRight className="h-3 w-3" />
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Playing section — grouped by kid */}
+      {playingByPlayer.size > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Heart className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-gray-900">
+              Your kids' teams
+            </h2>
+          </div>
+          <div className="space-y-4">
+            {[...playingByPlayer.values()].map((group) => (
+              <div key={group.playerName} className="rounded-lg border bg-white p-4">
+                <div className="flex items-center gap-3 mb-3 pb-3 border-b">
+                  {group.playerPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={group.playerPhotoUrl}
+                      alt={group.playerName}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                      <Heart className="h-4 w-4 text-amber-600" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-semibold text-gray-900">{group.playerName}</p>
+                    <p className="text-xs text-gray-500">
+                      On {group.teams.length} team
+                      {group.teams.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {group.teams.map((t) => (
+                    <div
+                      key={`${t.tenantSlug}-${t.teamId}`}
+                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {t.teamName}
+                          {t.jerseyNumber && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              #{t.jerseyNumber}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {t.tenantName}
+                          {t.sport && ` · ${t.sport.replace(/_/g, " ")}`}
+                          {t.season && ` · ${t.season}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
 
 // ─── Schedule Tab ───
 
